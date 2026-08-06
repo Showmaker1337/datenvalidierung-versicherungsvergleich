@@ -62,9 +62,9 @@ def test_konfiguration_laedt_die_erwarteten_werte(config: Config) -> None:
     assert config.angebote_je_anfrage.minimum == 3
     assert config.angebote_je_anfrage.maximum == 12
     assert config.schwellen.r031_toleranz_eur == Decimal("0.02")
-    # Obergrenze angehoben, weil R-053 den Jahresbeitrag prueft und nicht die Rate
-    # (docs/iteration_log.md, "Vorbemerkung zu R-053").
-    assert config.schwellen.r053_korridor_kfz_eur == (Decimal(40), Decimal(25000))
+    # Obergrenze empirisch bestimmt, weil R-053 den Jahresbeitrag prueft und nicht
+    # die Rate (docs/iteration_log.md, "Vorbemerkung zu R-053").
+    assert config.schwellen.r053_korridor_kfz_eur == (Decimal(40), Decimal(13000))
     assert config.schwellen.r053_korridor_hausrat_eur == (Decimal(20), Decimal(2000))
 
 

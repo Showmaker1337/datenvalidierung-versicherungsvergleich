@@ -24,13 +24,11 @@ schwellen:
   r047_spreizung_max: 6.0 # max/min Zahlbeitrag je Anfrage
   r048_zuers_toleranz_relativ: 0.30
   # R-053 prueft den Bruttojahresbeitrag, nicht die Rate (spec/02, korrigierte
-  # Fassung). Die Obergrenze Kfz wurde von 6.000 auf 25.000 angehoben: Ein
-  # Vollkaskovertrag in der Malusklasse (Beitragssatz 245 Prozent) auf einem
-  # Fahrzeug hoher Typklasse erreicht rechnerisch Jahresbeitraege bis rund
-  # 20.700 Euro. Mit 6.000 haette R-053 rund 0,5 Prozent der Kfz-Angebote schon
-  # auf sauberen Daten gemeldet. Begruendung und Messwerte:
+  # Fassung). Die Obergrenze Kfz ist empirisch bestimmt: hoechster beobachteter
+  # Jahresbeitrag ueber fuenf unabhaengige Seeds 9.691 Euro, plus rund 30 Prozent
+  # Sicherheitsmarge, glatt gerundet. Begruendung und Messwerte in
   # docs/iteration_log.md, Abschnitt "Vorbemerkung zu R-053".
-  r053_korridor_kfz_eur: [40, 25000]
+  r053_korridor_kfz_eur: [40, 13000]
   r053_korridor_hausrat_eur: [20, 2000]
   r054_faktor: 12.0
   r054_toleranz_relativ: 0.05

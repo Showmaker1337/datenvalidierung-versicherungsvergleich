@@ -310,6 +310,43 @@ def test_vollkaskoklasse_ist_nie_besser_als_haftpflichtklasse(
         assert ordnung_vk <= ordnung_hp
 
 
+def test_kasko_nimmt_malus_und_schadenklasse_nicht_an(
+    datensatz: dict[str, pd.DataFrame],
+) -> None:
+    """In Teil- und Vollkasko kommen die Klassen ``M`` und ``S`` nicht vor.
+
+    Annahmebedingung des Marktes: Versicherer nehmen diese Risiken in der Kasko
+    ueberwiegend gar nicht an. In der Haftpflicht bleiben sie erhalten — dort
+    besteht Kontrahierungszwang.
+
+    Geprueft werden **beide** SF-Felder. ``sf_klasse_vk`` wird aus der
+    Haftpflichtklasse nach unten gezogen und koennte die Bedingung sonst
+    unterlaufen.
+    """
+    sparte_je_anfrage = _sparte_je_anfrage(datensatz)
+    kasko = {Sparte.KFZ_VOLLKASKO.value, Sparte.KFZ_TEILKASKO.value}
+    nicht_angenommen = {"M", "S"}
+
+    in_haftpflicht = 0
+    for zeile in _zeilen(datensatz["risiko_kfz"]):
+        sparte = sparte_je_anfrage[str(zeile["anfrage_id"])]
+        klassen = {
+            str(zeile[spalte])
+            for spalte in ("sf_klasse_hp", "sf_klasse_vk")
+            if _gefuellt(zeile[spalte])
+        }
+        if sparte in kasko:
+            assert not (klassen & nicht_angenommen), (
+                f"Sparte {sparte} enthaelt eine nicht angenommene Klasse: {klassen}"
+            )
+        elif klassen & nicht_angenommen:
+            in_haftpflicht += 1
+
+    assert in_haftpflicht > 0, (
+        "In der Haftpflicht muessen Malus- und Schadenklasse erhalten bleiben"
+    )
+
+
 def test_sf_klassen_stehen_im_katalog(datensatz: dict[str, pd.DataFrame]) -> None:
     """Beide SF-Felder enthalten nur Katalogwerte und sind Zeichenketten (spaeter R-013)."""
     risiko = datensatz["risiko_kfz"]

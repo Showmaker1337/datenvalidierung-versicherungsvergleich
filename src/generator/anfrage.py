@@ -158,6 +158,7 @@ def baue_anfragen(  # noqa: PLR0913 - die Anfrage buendelt Werte aus vier Entita
     rng: Generator,
     rahmen: Anfragerahmen,
     *,
+    sparten: Sequence[str],
     vn_person_id: Sequence[str],
     zahlweise: Sequence[int],
     vorvertrag_zwingend: Sequence[bool],
@@ -169,6 +170,10 @@ def baue_anfragen(  # noqa: PLR0913 - die Anfrage buendelt Werte aus vier Entita
     Args:
         rng: Zufallsgenerator des Teilstroms "Anfrage".
         rahmen: Ergebnis von :func:`erzeuge_rahmen`.
+        sparten: **Wirksame** Sparte je Anfrage. Sie kann von ``rahmen.sparte``
+            abweichen: In den Kaskosparten werden Malus- und Schadenklasse nicht
+            angenommen, solche Anfragen werden als Haftpflichtanfrage gefuehrt
+            (``src/generator/risiko_kfz.py``, ``_wirksame_sparte``).
         vn_person_id: Kennung des Versicherungsnehmers je Anfrage.
         zahlweise: Gezogene Zahlweise je Anfrage.
         vorvertrag_zwingend: ``True``, wo ein Vorvertrag fachlich zwingend ist —
@@ -191,7 +196,7 @@ def baue_anfragen(  # noqa: PLR0913 - die Anfrage buendelt Werte aus vier Entita
         spalten["anfrage_id"].append(rahmen.anfrage_id[index])
         spalten["eingangszeitpunkt"].append(rahmen.eingangszeitpunkt[index])
         spalten["kanal"].append(rahmen.kanal[index])
-        spalten["sparte"].append(rahmen.sparte[index])
+        spalten["sparte"].append(sparten[index])
         spalten["vn_person_id"].append(vn_person_id[index])
         spalten["versicherungsbeginn"].append(rahmen.versicherungsbeginn[index])
         spalten["vorvertrag_vorhanden"].append(vorvertrag)

@@ -173,9 +173,14 @@ Beitragshöhe. Beides gab es in einer früheren Fassung, solange R-053 die Rate 
 Jahresbeitrags prüfte. Eine Kappung verzerrt den oberen Rand der Verteilung, eine Kopplung
 erzeugt eine künstliche Abhängigkeit im Datensatz, deren Ursache später niemand mehr kennt.
 Liegt ein Beitrag außerhalb des Korridors von R-053, gehört der Schwellenwert angepasst —
-er steht in `config.schwellen`, genau dafür. Genau das ist geschehen: Die Obergrenze für
-Kfz wurde von 6.000 auf 25.000 € angehoben, mit Messwerten begründet in
-[`docs/iteration_log.md`](docs/iteration_log.md).
+er steht in `config.schwellen`, genau dafür. Die Obergrenze für Kfz steht nach der
+Kalibrierung des Vollkasko-Randes bei 13.000 €, empirisch bestimmt über fünf unabhängige
+Seeds und mit Messwerten begründet in [`docs/iteration_log.md`](docs/iteration_log.md).
+
+Was der Generator dagegen **sehr wohl** abbildet, ist die Annahmepolitik des Marktes: In
+Teil- und Vollkasko erhalten Risiken in der Malus- oder Schadenklasse kein Angebot, in der
+Haftpflicht bleiben sie erhalten. Das ist eine Annahmebedingung, kein nachträgliches
+Filtern — die betroffene Anfrage wird als Haftpflichtanfrage geführt.
 
 ## Freeze des Regelkatalogs
 

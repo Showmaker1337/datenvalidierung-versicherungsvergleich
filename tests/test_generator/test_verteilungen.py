@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from src.common import wertebereiche as wb
-from src.common.enums import Quellschnittstelle
+from src.common.enums import KFZ_SPARTEN, Quellschnittstelle, Sparte
 from src.common.pflichtfelder import (
     BLANKO_WAHRSCHEINLICHKEIT,
     ist_pflicht,
@@ -36,6 +36,11 @@ SPARTEN_TOLERANZ = 0.002
 
 #: Modus der Angebotszahl (spec/01, Abschnitt 1).
 ERWARTETER_MODUS = 5
+
+#: Hoechster Anteil aller Anfragen, den die Annahmebedingung der Kaskosparten von
+#: 052 und 053 auf 051 umhaengen darf. Erwartet werden rund 1,2 Prozentpunkte:
+#: 35 Prozent Kaskoanteil mal gut 3 Prozent Malus- und Schadenklassen.
+UMHAENGUNG_MAX = 0.025
 
 
 def test_zuers_anteile_treffen_die_gdv_verteilung(
@@ -63,11 +68,31 @@ def test_alle_zuers_zonen_kommen_vor(datensatz: dict[str, pd.DataFrame]) -> None
 def test_spartenanteile_entsprechen_der_konfiguration(
     datensatz: dict[str, pd.DataFrame], testkonfiguration: Config
 ) -> None:
-    """Die Spartenanteile werden exakt aufgeteilt, nicht nur im Erwartungswert."""
+    """Die Spartenanteile werden exakt aufgeteilt — mit einer benannten Ausnahme.
+
+    Gezogen wird exakt nach Konfiguration. Danach verschiebt die Annahmebedingung
+    der Kaskosparten einen kleinen Teil der Anfragen auf die Haftpflicht: Malus-
+    und Schadenklasse werden in der Kasko nicht angenommen
+    (``docs/verteilungsquellen.md``, Abschnitt 4.4).
+
+    **Exakt bleiben deshalb der Hausratanteil und die Kfz-Summe** — die
+    Verschiebung findet ausschliesslich innerhalb der Kfz-Sparten statt. Innerhalb
+    davon ist sie durch den Anteil der beiden Klassen begrenzt.
+    """
     anteile = Counter(str(wert) for wert in datensatz["anfrage"]["sparte"])
     gesamt = sum(anteile.values())
-    for sparte, sollanteil in testkonfiguration.sparten_verteilung.items():
-        assert abs(anteile[sparte] / gesamt - sollanteil) <= SPARTEN_TOLERANZ
+    verteilung = testkonfiguration.sparten_verteilung
+
+    hausrat = Sparte.HAUSRAT.value
+    assert abs(anteile[hausrat] / gesamt - verteilung[hausrat]) <= SPARTEN_TOLERANZ
+
+    kfz_ist = sum(anteile[sparte.value] for sparte in KFZ_SPARTEN) / gesamt
+    kfz_soll = sum(verteilung[sparte.value] for sparte in KFZ_SPARTEN)
+    assert abs(kfz_ist - kfz_soll) <= SPARTEN_TOLERANZ, "Die Kfz-Summe muss exakt bleiben"
+
+    # Die Haftpflicht gewinnt, was die Kaskosparten abgeben — und nur das.
+    zugewinn = anteile[Sparte.KFZ_HAFTPFLICHT.value] / gesamt - verteilung["051"]
+    assert 0.0 <= zugewinn <= UMHAENGUNG_MAX, f"Umhaengung von {zugewinn:.4f} ist zu gross"
 
 
 def test_altersverteilung_folgt_der_zensusstruktur(

@@ -352,8 +352,14 @@ def erzeuge_datensatz(config: Config, seed_basis: SeedSequence) -> dict[str, pd.
         zuers_zonen=[zonen[index] for index in hausrat_positionen],
     )
 
+    # Ab hier gilt die wirksame Sparte: Die Annahmebedingung der Kaskosparten
+    # kann eine Anfrage auf die Haftpflicht zurueckstufen.
+    sparten = list(rahmen.sparte)
+    for laufende, index in enumerate(kfz_positionen):
+        sparten[index] = risiko_kfz.sparte[laufende]
+
     profile = _baue_profile(
-        sparten=rahmen.sparte,
+        sparten=sparten,
         kfz_positionen=kfz_positionen,
         hausrat_positionen=hausrat_positionen,
         risiko_kfz=risiko_kfz,
@@ -380,6 +386,7 @@ def erzeuge_datensatz(config: Config, seed_basis: SeedSequence) -> dict[str, pd.
     anfragen = anfrage_modul.baue_anfragen(
         generator(teilstrom(seed_basis, _STROM_ANFRAGE_ABHAENGIG)),
         rahmen,
+        sparten=sparten,
         vn_person_id=personen.vn_person_id,
         zahlweise=angebote.zahlweise,
         vorvertrag_zwingend=vorvertrag_zwingend,

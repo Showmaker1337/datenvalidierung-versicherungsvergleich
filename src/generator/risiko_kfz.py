@@ -153,6 +153,20 @@ _SF_VK_ABSTAND_GEWICHTE: Final[tuple[float, float, float, float]] = (0.75, 0.13,
 #: Streuung des Partneralters um das Alter des Versicherungsnehmers, in Jahren.
 _PARTNERALTER_SIGMA: Final[float] = 5.0
 
+#: Sparten mit Kaskodeckung.
+_KASKOSPARTEN: Final[frozenset[str]] = frozenset(
+    {Sparte.KFZ_VOLLKASKO.value, Sparte.KFZ_TEILKASKO.value}
+)
+
+#: Schadenfreiheitsklassen, die in der Kasko nicht angenommen werden.
+#:
+#: Malus- und Schadenklasse. Begruendung in :func:`_wirksame_sparte`.
+_KEINE_KASKO_ANNAHME: Final[frozenset[str]] = frozenset({"M", "S"})
+
+#: Niedrigste in der Kasko annehmbare Einstufung, als Position in
+#: :data:`_SF_REIHENFOLGE`. Alles darunter sind die nicht angenommenen Klassen.
+_SF_KASKO_UNTERGRENZE: Final[int] = len(_KEINE_KASKO_ANNAHME)
+
 
 @dataclass(frozen=True, slots=True)
 class RisikoKfz:
@@ -163,6 +177,9 @@ class RisikoKfz:
 
     Attributes:
         rahmen: Die Entitaet ``risiko_kfz``.
+        sparte: **Wirksame** Sparte je Kfz-Anfrage nach der Annahmebedingung
+            (siehe :func:`_wirksame_sparte`). Sie kann von der gezogenen Sparte
+            abweichen und ist ab hier massgeblich.
         sf_klasse_hp: Schadenfreiheitsklasse der Haftpflicht je Kfz-Anfrage.
         beitrags_sf_klasse: Klasse, deren Beitragssatz in die Berechnung eingeht;
             ``None`` in der Teilkasko, die keine eigene Einstufung kennt.
@@ -172,11 +189,42 @@ class RisikoKfz:
     """
 
     rahmen: pd.DataFrame
+    sparte: tuple[str, ...]
     sf_klasse_hp: tuple[str, ...]
     beitrags_sf_klasse: tuple[str | None, ...]
     typklasse: tuple[int, ...]
     regionalklasse: tuple[int, ...]
     jahresfahrleistung_km: tuple[int, ...]
+
+
+def _wirksame_sparte(gezogene_sparte: str, sf_klasse_hp: str) -> str:
+    """Wendet die Annahmebedingung der Kaskosparten an.
+
+    **Fachliche Grundlage.** Versicherer nehmen Risiken in der Malusklasse (``M``)
+    oder in der Schadenklasse (``S``) in der Kasko ueberwiegend gar nicht an. In
+    der Haftpflicht besteht dagegen Kontrahierungszwang (Paragraf 5 PflVG), und
+    die beiden Klassen sind dort fachlich relevant.
+
+    Eine solche Anfrage bekommt deshalb kein Kaskoangebot, sondern wird als
+    Haftpflichtanfrage gefuehrt. Das ist eine **Annahmebedingung**, kein
+    nachtraegliches Filtern: Es entstehen erst gar keine Kaskoangebote fuer diese
+    Risiken.
+
+    Ohne diese Bedingung entsteht im Modell eine Konstellation, die es im Markt
+    nicht gibt: Beitragssatz 245 Prozent mal hoher Typ- und Regionalklasse ergibt
+    Vollkaskobeitraege jenseits von 20.000 Euro im Jahr.
+
+    Args:
+        gezogene_sparte: Die in der Anfrage gezogene Sparte.
+        sf_klasse_hp: Schadenfreiheitsklasse der Haftpflicht.
+
+    Returns:
+        Die wirksame Sparte; ``051`` statt ``052``/``053``, wenn die
+        Annahmebedingung greift, sonst die gezogene Sparte unveraendert.
+    """
+    if gezogene_sparte in _KASKOSPARTEN and sf_klasse_hp in _KEINE_KASKO_ANNAHME:
+        return Sparte.KFZ_HAFTPFLICHT.value
+    return gezogene_sparte
 
 
 def _ziehe_sf_klassen(rng: Generator, obergrenzen: Sequence[int]) -> list[str]:
@@ -210,10 +258,21 @@ def _ziehe_sf_klassen(rng: Generator, obergrenzen: Sequence[int]) -> list[str]:
 
 
 def _ziehe_sf_vollkasko(rng: Generator, haftpflicht: Sequence[str]) -> list[str]:
-    """Zieht die Vollkaskoklasse; sie ist nie besser eingestuft als die Haftpflicht (R-030)."""
+    """Zieht die Vollkaskoklasse; sie ist nie besser eingestuft als die Haftpflicht (R-030).
+
+    Der Abstand zur Haftpflichtklasse ist nie negativ, die Klasse faellt aber
+    nicht unter die niedrigste in der Kasko annehmbare Einstufung: Malus und
+    Schadenklasse sind hier ausgeschlossen. Andernfalls unterliefe die Ziehung
+    die Annahmebedingung aus :func:`_wirksame_sparte` — eine Anfrage mit
+    Haftpflichtklasse ``0`` bekaeme eine Vollkaskoklasse ``M``, und der
+    Beitragssatz von 245 Prozent waere ueber den Umweg der Kaskoeinstufung
+    wieder im Datensatz.
+    """
     abstaende = waehle_index(rng, len(haftpflicht), list(_SF_VK_ABSTAND_GEWICHTE))
     return [
-        _SF_REIHENFOLGE[max(_SF_REIHENFOLGE.index(klasse) - int(abstaende[index]), 0)]
+        _SF_REIHENFOLGE[
+            max(_SF_REIHENFOLGE.index(klasse) - int(abstaende[index]), _SF_KASKO_UNTERGRENZE)
+        ]
         for index, klasse in enumerate(haftpflicht)
     ]
 
@@ -430,8 +489,14 @@ def erzeuge_risiko_kfz(  # noqa: PLR0913 - Referenz, Person und Sparte gehen get
     sf_vk_alle = _ziehe_sf_vollkasko(rng, sf_hp)
     risiko_ids = erzeuge_uuids(rng, anzahl)
 
-    vollkasko = [sparte == Sparte.KFZ_VOLLKASKO.value for sparte in sparten]
-    teilkasko = [sparte == Sparte.KFZ_TEILKASKO.value for sparte in sparten]
+    # Annahmebedingung der Kaskosparten: Malus- und Schadenklasse werden dort
+    # nicht angenommen und als Haftpflichtanfrage gefuehrt. Ab hier ist
+    # ausschliesslich die wirksame Sparte massgeblich.
+    wirksam = [
+        _wirksame_sparte(sparten[index], sf_hp[index]) for index in range(anzahl)
+    ]
+    vollkasko = [sparte == Sparte.KFZ_VOLLKASKO.value for sparte in wirksam]
+    teilkasko = [sparte == Sparte.KFZ_TEILKASKO.value for sparte in wirksam]
 
     spalten: dict[str, list[object]] = {
         "row_id": list(range(1, anzahl + 1)),
@@ -470,6 +535,7 @@ def erzeuge_risiko_kfz(  # noqa: PLR0913 - Referenz, Person und Sparte gehen get
 
     return RisikoKfz(
         rahmen=typisierter_rahmen(spalten, "risiko_kfz"),
+        sparte=tuple(wirksam),
         sf_klasse_hp=tuple(sf_hp),
         # Die Teilkasko kennt keine eigene Schadenfreiheitseinstufung.
         beitrags_sf_klasse=tuple(
@@ -539,6 +605,11 @@ def _pruefe_ordnung() -> None:
         raise ValueError("Die SF-Reihenfolge weicht von sf_ordnung() ab")
     if set(_SF_SONDER_GEWICHTE) != set(SF_KLASSEN_SONDER):
         raise ValueError("Die Sonderklassen weichen vom Katalog ab")
+    if set(_SF_REIHENFOLGE[:_SF_KASKO_UNTERGRENZE]) != _KEINE_KASKO_ANNAHME:
+        raise ValueError(
+            "Die Kasko-Untergrenze zeigt nicht auf die nicht angenommenen Klassen: "
+            f"{_SF_REIHENFOLGE[:_SF_KASKO_UNTERGRENZE]}"
+        )
     stufen = enumerate(SF_KLASSEN_NUMERISCH, start=1)
     if any(schadenfreie_jahre(klasse) != stufe for stufe, klasse in stufen):
         raise ValueError("SF-Katalog und schadenfreie_jahre() passen nicht zusammen")

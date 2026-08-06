@@ -267,7 +267,7 @@ sondern Transparenz — und im Kolloquium besser als eine unbelegte Zahl.
 
 | Feld | Verteilung / Parameter | Quelle |
 |---|---|---|
-| `sparte` | exakte Aufteilung nach `config.sparten_verteilung` (35 / 20 / 15 / 30 %), anschließend gemischt | Konfiguration; die exakte Aufteilung statt einer Ziehung ist **Modellentscheidung** (Varianzreduktion) |
+| `sparte` | exakte Aufteilung nach `config.sparten_verteilung` (35 / 20 / 15 / 30 %), anschließend gemischt. **Danach greift die Annahmebedingung der Kaskosparten** (siehe 4.4): realisiert 36,2 / 19,3 / 14,5 / 30,0 % | Konfiguration; die exakte Aufteilung statt einer Ziehung ist **Modellentscheidung** (Varianzreduktion) |
 | `kanal` | WEB 42 %, MAKLER 24 %, APP 14 %, API_BIPRO 12 %, TELEFON 8 % | Modellannahme |
 | `eingangszeitpunkt` | Tag gleichverteilt über 730 Tage vor `stichtag`; Uhrzeit über einen festen Tagesgang (Maximum 9–11 und 14–17 Uhr) | Modellannahme; der Tagesgang ist für keine Regel von Belang, fällt aber bei jeder Sichtprobe auf |
 | `versicherungsbeginn` | Vorlauf log-normal, Median 20 Tage, σ = 1,10, gekappt bei 365 Tagen | Modellannahme |
@@ -321,7 +321,40 @@ gezogen.
 | `abstellplatz` | Garage 35 %, Straße 35 %, Stellplatz 20 %, Carport 10 % | Modellannahme |
 | `schaeden_letzte_5j` | 72 / 18 / 6 / 2,5 / 1 / 0,5 % für 0 bis 5 Schäden | Modellannahme |
 | `sf_klasse_hp` | Sonderklassen zusammen 5,5 % (M 0,8 %, S 1,2 %, `0` 2,0 %, `1/2` 1,5 %); sonst Stufe = Obergrenze × Beta(3,0; 1,2), gerundet. Obergrenze = min(Alter − 17, Jahre seit Führerscheinerwerb, 50) | Modellannahme; die Obergrenze folgt R-029 und dem Führerscheinbesitz |
-| `sf_klasse_vk` | Abstand zur Haftpflichtklasse auf der Ordinalskala: 0 (75 %), 1 (13 %), 2 (8 %), 3 (4 %) | Modellannahme; der nicht negative Abstand sichert R-030 |
+| `sf_klasse_vk` | Abstand zur Haftpflichtklasse auf der Ordinalskala: 0 (75 %), 1 (13 %), 2 (8 %), 3 (4 %); nach unten begrenzt auf `0` | Modellannahme; der nicht negative Abstand sichert R-030, die Untergrenze die Annahmebedingung unten |
+
+#### Annahmebedingung der Kaskosparten
+
+> In den Sparten **052 (Vollkasko)** und **053 (Teilkasko)** erhalten Risiken mit
+> `sf_klasse_hp` ∈ {`M`, `S`} **kein Angebot**. In der Haftpflicht (051) bleiben sie
+> erhalten.
+
+**Fachliche Begründung.** Versicherer nehmen Risiken in der Malusklasse (Beitragssatz
+245 %) oder in der Schadenklasse (155 %) in der Kasko überwiegend gar nicht an — die Kasko
+unterliegt keinem Kontrahierungszwang. In der Haftpflicht besteht er dagegen nach § 5
+PflVG, und die Einstufung ist dort fachlich relevant.
+
+**Umsetzung als Annahmebedingung, nicht als Filter.** Die betroffene Anfrage wird als
+Haftpflichtanfrage geführt und bekommt entsprechend nur Haftpflichtangebote; es entstehen
+erst gar keine Kaskoangebote für diese Risiken. Die Mindestzahl bepreister Angebote je
+Anfrage bleibt dadurch unberührt.
+
+Die Kaskoklasse `sf_klasse_vk` wird zusätzlich nach unten auf `0` begrenzt. Sie wird aus der
+Haftpflichtklasse nach unten gezogen und könnte die Bedingung sonst unterlaufen — eine
+Anfrage mit Haftpflichtklasse `0` bekäme eine Vollkaskoklasse `M`, und der Beitragssatz von
+245 % wäre über den Umweg der Kaskoeinstufung wieder im Datensatz.
+
+**Warum das kein Wegdefinieren eines unbequemen Ausreißers ist.** Der Eingriff beseitigt
+eine Konstellation, die im Modell entstehen kann und im Markt nicht existiert — nicht einen
+Wert, der stört. Ohne ihn lag der p99 der Vollkasko bei 8.419 € und das Maximum bei
+20.264 € Jahresbeitrag; beides ist für eine private Vollkasko nicht plausibel. Messwerte
+vorher und nachher in [`docs/iteration_log.md`](iteration_log.md).
+
+**Nebenwirkung, die benannt gehört.** Rund 1,2 % aller Anfragen wechseln dadurch von
+052/053 nach 051. Der Hausratanteil und die Kfz-Summe bleiben exakt; innerhalb der
+Kfz-Sparten verschiebt sich die Verteilung. In der Haftpflicht tragen dadurch 6,9 % der
+Risiken eine Malus- oder Schadenklasse statt der gezogenen gut 3 % — eine
+Selektionswirkung, die es im Markt genauso gibt.
 
 ### 4.5 Hausratrisiko
 
@@ -392,21 +425,20 @@ der Arbeit variiert; ein Generator, der an ihnen hängt, würde bei jeder Variat
 anderen Datensatz erzeugen und die Läufe unvergleichbar machen. Die Einhaltung wird
 stattdessen im Test geprüft (`tests/test_generator/test_beitrag.py`).
 
-Die erzeugten Bruttojahresbeiträge (10.000 Anfragen, Master-Seed der Konfiguration):
+Die erzeugten Bruttojahresbeiträge nach der Kalibrierung des rechten Randes (10.000
+Anfragen, Master-Seed der Konfiguration):
 
-| Sparte | Minimum | Median | p99 | Maximum |
-|---|---|---|---|---|
-| 051 Kfz-HP | 80 € | 466 € | 3.224 € | 8.937 € |
-| 052 Vollkasko | 137 € | 983 € | 8.419 € | 20.264 € |
-| 053 Teilkasko | 90 € | 334 € | 879 € | 1.198 € |
-| 130 Hausrat | 57 € | 241 € | 600 € | 1.188 € |
+| Sparte | Minimum | Median | p99 | p99,9 | Maximum |
+|---|---|---|---|---|---|
+| 051 Kfz-HP | 79 € | 478 € | 3.820 € | 5.396 € | 8.937 € |
+| 052 Vollkasko | 127 € | 948 € | 4.384 € | 6.948 € | 9.691 € |
+| 053 Teilkasko | 80 € | 334 € | 884 € | 1.087 € | 1.202 € |
+| 130 Hausrat | 57 € | 240 € | 600 € | 797 € | 1.102 € |
 
-Der Korridor von R-053 wurde daraufhin für Kfz von `[40, 6000]` auf `[40, 25000]`
-angehoben. **Ein bekannter Vorbehalt:** Die Vollkasko-Verteilung hat einen schweren rechten
-Rand — 2,4 Prozent der Angebote liegen über 6.000 €/Jahr, in der Realität wären es
-deutlich weniger. Ursache sind die 2 Prozent Malus- und Schadenklassen (245 % / 155 %) in
-Verbindung mit dem Typklassenfaktor. Wer den Rand dämpfen will, senkt den Grundbeitrag 052
-oder die Steigung `_TYPKLASSE_STEIGUNG` — das ändert allerdings jeden Beitrag im Datensatz.
+Der Korridor von R-053 ist daraufhin für Kfz auf `[40, 13000]` gesetzt: höchster
+beobachteter Wert über fünf unabhängige Seeds 9.691 €, plus 30 Prozent Sicherheitsmarge,
+glatt gerundet. Über alle fünf Seeds liegt kein Angebot außerhalb des Korridors, in keine
+Richtung. Hausrat bleibt bei `[20, 2000]` — dort wird der Korridor nicht ausgereizt.
 
 Die Spreizung max/min je Anfrage bleibt durch die Grenzen des VU-Niveaus, des
 Selbstbehaltnachlasses und des Zuschlags rechnerisch unter dem Faktor 3,2 und damit
@@ -419,6 +451,7 @@ deutlich unter dem Schwellenwert 6 von R-047 (gemessen: 2,81).
 | Juristische Personen | `anrede` = FIRMA nur in der Sparte 130 | In den Kfz-Sparten fehlte sonst das Bezugsalter für Führerscheindatum und Schadenfreiheitsklasse; R-028 und R-029 wären dort grundsätzlich nicht auswertbar |
 | Selbstbehalt der Haftpflicht | keiner | Die Kfz-Haftpflicht kennt marktüblich keinen Selbstbehalt |
 | SF-Einstufung der Teilkasko | keine | Entspricht der deutschen Marktpraxis; der Beitrag hängt dort nur an Typ- und Regionalklasse |
+| Annahme in der Kasko | Malus- und Schadenklasse werden **kategorisch** nicht angenommen | Real nehmen einzelne Versicherer solche Risiken mit hohen Zuschlägen doch an. Die kategorische Fassung ist die einfachere und für die Regelmechanik folgenlose Variante (siehe 4.4) |
 | Beitragsniveau je Generation | konstant je Anbieter | Ein Niveau je Tarifgeneration wäre realistischer, ändert an der Regelmechanik aber nichts |
 | Zeitzone | naive Ortszeit ohne Offset | GDV-Zeitstempel führen keinen Offset; eine zeitzonenbewusste Darstellung wäre Scheingenauigkeit |
 | PLZ-Ziehung Hausrat | nach ZÜRS-Zone geschichtet statt gleichverteilt | **Koppelt die PLZ-Verteilung der Hausrat-Anfragen an ZÜRS.** Die Randverteilung der Zonen bleibt die belegte des GDV, aber die Postleitzahlen sind innerhalb der Sparte 130 nicht mehr gleichverteilt — Zone-4-PLZ sind dort gegenüber einer freien Ziehung leicht überrepräsentiert, Zone-1-PLZ leicht unter. Ohne die Schichtung wäre R-048 schon auf sauberen Daten instabil (siehe 4.1) |
@@ -457,6 +490,8 @@ Alle vier in Phase 2 gemeldeten Punkte sind entschieden:
 | Anwendbarkeit vor Profil | übernommen, R-041 und R-057 verweisen darauf | `spec/01`, Abschnitt 5.2 |
 | R-053 auf die Rate bezogen | **Spezifikationsfehler**, korrigiert: R-053 prüft `bruttobeitrag_jahr_eur`. Kappung und Zahlweisenkopplung im Generator zurückgebaut, Schwellenwert angepasst | `spec/02`, R-053; `docs/iteration_log.md` |
 
-Offen bleibt nur der oben genannte Vorbehalt zum rechten Rand der
-Vollkasko-Beitragsverteilung. Er ist benannt, nicht versteckt — eine Entscheidung darüber
-ist für die Regelmechanik nicht nötig.
+Der in Phase 2b gemeldete Vorbehalt zum rechten Rand der Vollkasko-Verteilung ist
+inzwischen ebenfalls erledigt: Die Annahmebedingung der Kaskosparten (4.4) halbiert p99 und
+Maximum, der Korridor von R-053 ist daraufhin neu bestimmt.
+
+Damit ist aus Phase 2 nichts mehr offen.
