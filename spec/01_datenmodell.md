@@ -412,6 +412,96 @@ mit einer Wahrscheinlichkeit von 30 Prozent auf leer. **Das ist Teil des saubere
 Datensatzes, kein Fehler** — R-057 prüft nur, dass ein bei dieser Schnittstelle als
 Pflicht markiertes Feld nicht leer ist.
 
+Die Tabelle oben ist die **Quelle** des Profils. Sie ist aber nur auf die Entität `angebot`
+unmittelbar anwendbar; für die Anfrageseite braucht es die Übersetzung in Abschnitt 5.1.
+
+### 5.1 Wirksames Profil je `kanal` — die Anfrageseite
+
+**Warum diese Übersetzung nötig ist.** Die Profiltabelle in Abschnitt 5 ist nach
+`quell_schnittstelle` geschlüsselt. Dieses Feld gehört zur Entität `angebot`: Es beschreibt,
+über welche Schnittstelle **ein Versicherer sein Angebot liefert**. Die meisten Profilfelder
+liegen dagegen auf der Anfrageseite (`person`, `risiko_*`, `zahlung`) — sie werden **einmal
+je Anfrage** erfasst und an alle angefragten Versicherer verschickt. Ihr Befüllungsgrad hängt
+deshalb nicht am liefernden Versicherer, sondern am Eingangskanal. Abschnitt 3.1 sagt zu
+`kanal` genau das: „→ erwartetes Pflichtfeldniveau".
+
+Ohne diese Übersetzung wäre das Profil auf der Anfrageseite gar nicht anwendbar: Eine
+Anfrage hat drei bis zwölf Angebote mit unterschiedlichen Schnittstellen, und das strengste
+Profil unter ihnen würde faktisch immer greifen. Dann wäre jedes Feld überall gefüllt und
+R-057 hätte auf der Anfrageseite nichts zu prüfen.
+
+Die Zuordnung ist eine **Modellannahme** (siehe `docs/verteilungsquellen.md`). Sie hält die
+Vorgabe aus Abschnitt 3.2 ein, dass `email` bei den Kanälen WEB und APP Pflicht ist:
+
+| Kanal | wirksames Profil |
+|---|---|
+| `WEB` | `BIPRO_RNEXT` |
+| `APP` | `BIPRO_420` |
+| `API_BIPRO` | `BIPRO_420` |
+| `MAKLER` | `GDV` |
+| `TELEFON` | `CSV_IMPORT` |
+
+Daraus ergibt sich für die anfrageseitigen Felder:
+
+| Feld | `WEB` | `APP` | `API_BIPRO` | `MAKLER` | `TELEFON` |
+|---|---|---|---|---|---|
+| `person.email` | Pflicht | Pflicht | Pflicht | optional | optional |
+| `person.strasse` | Pflicht | Pflicht | Pflicht | Pflicht | optional |
+| `person.hausnummer` | Pflicht | Pflicht | Pflicht | Pflicht | optional |
+| `person.familienstand` | Pflicht | Pflicht | Pflicht | optional | optional |
+| `person.wohneigentum` | Pflicht | Pflicht | Pflicht | optional | optional |
+| `risiko_kfz.abstellplatz` | Pflicht | Pflicht | Pflicht | optional | optional |
+| `risiko_kfz.alter_juengster_fahrer` | Pflicht | Pflicht | Pflicht | Pflicht | optional |
+| `risiko_kfz.jahresfahrleistung_km` | Pflicht | Pflicht | Pflicht | Pflicht | Pflicht |
+| `risiko_hausrat.sublimit_fahrrad_eur` | Pflicht | Pflicht | Pflicht | optional | optional |
+| `risiko_hausrat.sublimit_wertsachen_eur` | Pflicht | Pflicht | Pflicht | optional | optional |
+| `zahlung.bic` | optional | Pflicht | Pflicht | Pflicht | optional |
+| `zahlung.kontoinhaber` | Pflicht | Pflicht | Pflicht | optional | optional |
+
+Die Zeile `zahlung.bic` folgt als einzige nicht dem Muster „BiPRO strenger als GDV": Die BIC
+ist bei `BIPRO_RNEXT` optional, bei `GDV` dagegen Pflicht. Das ist so gewollt und steht
+bereits in der Quelltabelle in Abschnitt 5.
+
+**Die Angebotsseite bleibt bei der Quellschnittstelle.** Für `angebot.sb_tk_eur` und
+`angebot.sb_vk_eur` gilt weiterhin die Tabelle aus Abschnitt 5, geschlüsselt nach dem Feld
+`quell_schnittstelle` der jeweiligen Angebotszeile. R-057 ist deshalb **zweigeteilt**.
+
+Umgesetzt in `src/common/pflichtfelder.py` (`PROFIL_JE_KANAL`, `ist_pflicht`).
+
+### 5.2 Anwendbarkeitsbedingungen — wann eine Pflichtfeldprüfung nicht gilt
+
+**Ein Feld, das die Zweckbindung ohnehin leer lässt, ist kein fehlender Wert, sondern ein
+nicht existierender.** Es wird deshalb nicht auf Vollständigkeit geprüft. Ohne diese
+Bedingung meldete R-057 Felder, die es in der jeweiligen Zeile gar nicht geben kann — ein
+Fehlalarm, der ausschließlich aus der Prüfkonvention entstünde.
+
+Zwei Arten von Bedingungen kommen vor:
+
+| Feld | Bedingung | Art | Fachlicher Grund |
+|---|---|---|---|
+| `angebot.sb_tk_eur` | nur Sparte 052, 053 | spartenbedingt | Ein Teilkasko-Selbstbehalt existiert nur bei Kaskodeckung (Abschnitt 3.6) |
+| `angebot.sb_vk_eur` | nur Sparte 052 | spartenbedingt | Ein Vollkasko-Selbstbehalt existiert nur in der Vollkasko (Abschnitt 3.6) |
+| `person.familienstand` | nicht bei `anrede` = FIRMA | zeilenbezogen | Eine juristische Person hat keinen Familienstand (Abschnitt 3.2) |
+
+**Warum die zeilenbezogene Bedingung nötig ist — ein gemessenes Beispiel.** Im
+Clean-Baseline-Lauf der Phase 3 war zunächst nur die spartenbedingte Form umgesetzt. Auf
+10.000 Anfragen meldete R-057 daraufhin **135 Fehlalarme**: Der Datensatz enthält 196
+Personensätze mit `anrede` = FIRMA, bei denen `familienstand` planmäßig leer ist; 135 davon
+gehören zu einer Anfrage, deren Kanalprofil den Familienstand als Pflicht führt. Das war der
+**einzige** Befund des gesamten Clean-Baseline-Laufs. Nach Aufnahme der zeilenbezogenen
+Bedingung sind es null (`docs/iteration_log.md`, Abschnitt „Phase 3").
+
+**Die Bedingung gilt vor dem Profil, nicht danach.** Erst wird geprüft, ob das Feld in dieser
+Zeile fachlich existiert; nur dann wird gefragt, ob das Profil es als Pflicht führt.
+
+**Auch R-041 verweist hierher.** Die Regel „genau eines von `sb_hausrat_prozent` und
+`sb_hausrat_eur` ist gefüllt" gilt nur, wenn die Sparte einen Hausrat-Selbstbehalt kennt —
+also in Sparte 130. In den Kfz-Sparten sind beide Felder durch Zweckbindung leer; eine
+Prüfung dort meldete jeden Kfz-Vergleich.
+
+Umgesetzt in `src/rules/g5_quellen.py` (`_ANWENDBARKEIT`) und in
+`src/rules/g2_satz.py` (R-041).
+
 ---
 
 ## 6. Zwei Datenschichten: `df_raw` und `df_typed`

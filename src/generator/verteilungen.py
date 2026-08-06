@@ -27,6 +27,8 @@ from typing import TYPE_CHECKING, Final
 
 import numpy as np
 
+from src.common.datum import datum_plus_jahre, jahre_zwischen
+
 if TYPE_CHECKING:  # pragma: no cover - nur fuer die Typpruefung
     from collections.abc import Sequence
 
@@ -349,42 +351,7 @@ def ziehe_zeitpunkt(
     return zeitpunkte
 
 
-def datum_plus_jahre(tag: dt.date, jahre: int) -> dt.date:
-    """Addiert ganze Jahre auf ein Datum, den 29. Februar eingeschlossen.
-
-    Am 29. Februar geborene Personen erreichen in Nichtschaltjahren den
-    **1. Maerz**, nicht den 28. Februar. Diese Richtung ist wichtig, weil die
-    Funktion ueberwiegend **Untergrenzen** bildet: das fruehestmoegliche
-    Fuehrerscheindatum (R-028) und den 18. Geburtstag als Untergrenze der
-    Zulassung auf den Versicherungsnehmer. Ein Abrunden auf den 28. Februar
-    ergaebe eine um einen Tag zu fruehe Untergrenze — und damit einen Wert, den
-    eine streng gerechnete Regel als Verstoss meldet.
-
-    Args:
-        tag: Ausgangsdatum.
-        jahre: Zahl der zu addierenden Jahre; darf negativ sein.
-
-    Returns:
-        Das verschobene Datum.
-    """
-    try:
-        return tag.replace(year=tag.year + jahre)
-    except ValueError:
-        # Nur der 29. Februar kann hier scheitern.
-        return dt.date(tag.year + jahre, 3, 1)
-
-
-def jahre_zwischen(frueher: dt.date, spaeter: dt.date) -> int:
-    """Gibt die Zahl der vollendeten Jahre zwischen zwei Daten zurueck.
-
-    Args:
-        frueher: Fruehes Datum, zum Beispiel das Geburtsdatum.
-        spaeter: Spaetes Datum, zum Beispiel der Stichtag.
-
-    Returns:
-        Die vollendeten Jahre; negativ, wenn ``spaeter`` vor ``frueher`` liegt.
-    """
-    jahre = spaeter.year - frueher.year
-    if (spaeter.month, spaeter.day) < (frueher.month, frueher.day):
-        jahre -= 1
-    return jahre
+# Die Kalenderarithmetik liegt seit Phase 3 in ``src/common/datum.py``: Die
+# Regel-Engine braucht dieselbe Rechnung wie der Generator (R-023, R-028, R-029).
+# Zwei Fassungen wuerden am 29. Februar auseinanderlaufen. Die Namen bleiben hier
+# ueber ``__all__`` erreichbar, damit die Entitaetsmodule unveraendert bleiben.

@@ -5,6 +5,8 @@ Aufruf::
     python -m src.cli config
     python -m src.cli referenz [--ziel VERZEICHNIS] [--seed ZAHL]
     python -m src.cli generieren --run-id KENNUNG [--seed ZAHL] [--n-anfragen ZAHL]
+    python -m src.cli pruefen --run-id KENNUNG
+    python -m src.cli katalog [--ziel VERZEICHNIS]
 
 Der Befehlsvorrat waechst mit den Phasen mit. Er enthaelt ausschliesslich
 Befehle, die es wirklich gibt — kein Platzhalter fuer noch nicht gebaute Phasen
@@ -82,6 +84,20 @@ def _erzeuge_datensatz(config: Config, run_id: str) -> None:
                 "--n-anfragen", str(config.n_anfragen)])
 
 
+def _pruefe_datensatz(run_id: str) -> None:
+    """Fuehrt den Regelkatalog auf dem sauberen Datensatz eines Laufs aus."""
+    from scripts.validate import main as pruefen  # noqa: PLC0415
+
+    pruefen(["--run-id", run_id, "--dataset", "clean"])
+
+
+def _exportiere_katalog(ziel: Path | None) -> None:
+    """Exportiert den Regelkatalog als CSV fuer den Anhang der Arbeit."""
+    from scripts.export_katalog import main as exportieren  # noqa: PLC0415
+
+    exportieren(["--ziel", str(ziel)] if ziel is not None else [])
+
+
 def main(argumente: Sequence[str] | None = None) -> int:
     """Einstiegspunkt der Kommandozeile.
 
@@ -111,11 +127,29 @@ def main(argumente: Sequence[str] | None = None) -> int:
         "--n-anfragen", type=int, default=None, help="Anzahl der Anfragen uebersteuern"
     )
 
+    pruefen = unterbefehle.add_parser(
+        "pruefen", help="Regelkatalog auf dem sauberen Datensatz eines Laufs ausfuehren"
+    )
+    pruefen.add_argument("--run-id", required=True, help="Kennung des Laufs")
+
+    katalog = unterbefehle.add_parser(
+        "katalog", help="Regelkatalog als CSV fuer den Anhang exportieren"
+    )
+    katalog.add_argument("--ziel", type=Path, default=None, help="Zielverzeichnis")
+
     optionen = parser.parse_args(argumente)
     config = lade_config(optionen.config)
 
     if optionen.befehl == "config":
         _zeige_config(config)
+        return 0
+
+    if optionen.befehl == "pruefen":
+        _pruefe_datensatz(optionen.run_id)
+        return 0
+
+    if optionen.befehl == "katalog":
+        _exportiere_katalog(optionen.ziel)
         return 0
 
     if optionen.seed is not None:

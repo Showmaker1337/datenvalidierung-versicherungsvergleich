@@ -23,23 +23,28 @@ Ein nicht parsebarer Wert wird zu ``pd.NA`` und die Stelle wird in
 Leere Werte in der Rohschicht
 -----------------------------
 
-``spec/01``, Abschnitt 6 enthaelt zu leeren Datumsfeldern zwei Aussagen, die sich
-widersprechen: Die Zeile ``date`` nennt ``00000000`` als Darstellung des leeren
-Datums, die Zeile ``leer`` den leeren String fuer **alle** Typen.
-
-Umgesetzt ist der **leere String**, und zwar aus einem inhaltlichen Grund: Der
+Ein leerer Wert wird zum **leeren String** — fuer alle Typen, auch fuer
+Datumsfelder (``spec/01``, Abschnitt 6, Zeile "leer"). Das ist keine Formalie: Der
 saubere Datensatz enthaelt planmaessig leere Datumsfelder — ``geburtsdatum`` bei
 ``anrede`` = FIRMA, ``fuehrerschein_datum`` ausserhalb der Kfz-Sparten. Mit
 ``00000000`` wuerde R-009 ("jedes Datumsfeld der Rohschicht ist ein existierender
-Kalendertag") auf dem sauberen Datensatz auslosen, denn ``00000000`` ist kein
+Kalendertag") auf dem sauberen Datensatz ausloesen, denn ``00000000`` ist kein
 Kalendertag. Der Clean-Baseline-Lauf haette dann Fehlalarme, die keine sind.
 
 Umgekehrt bleibt ``00000000`` in der Rohschicht ein **Befund**: Der Parser gibt
 dafuer ``pd.NA`` zurueck *und* protokolliert die Stelle. Ein solcher Wert kann
 nur aus einer Injektion stammen, und R-009 soll ihn melden.
 
-Der Widerspruch ist in ``docs/verteilungsquellen.md`` vermerkt und gehoert in die
-Arbeit; er wurde hier nicht stillschweigend aufgeloest.
+Der Preis dieser Festlegung: Auf der Rohschicht ist ein eingeschleuster Leerstring
+nicht von einem planmaessig leeren Feld zu unterscheiden. Die Injektionsvariante
+F1-b ist deshalb nur ueber die Pflichtfeldregeln R-001 und R-057 erkennbar, nicht
+ueber die Sentinel-Regel R-025 (CLAUDE.md, Abschnitt 5;
+``spec/03_fehlerklassen.md``, Variante F1-b). Das ist ein Informationsverlust der
+Serialisierung, kein Implementierungsmangel — und gehoert in die Diskussion der
+Arbeit.
+
+Die Entscheidung selbst ist in ``docs/verteilungsquellen.md``, Abschnitt 4.8
+vermerkt.
 """
 
 from __future__ import annotations

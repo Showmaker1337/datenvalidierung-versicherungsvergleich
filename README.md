@@ -50,7 +50,7 @@ Skripte unter `scripts/` setzen ihn beim Start selbst.
 | 0 | Git-Repository, `.gitignore`, `.gitattributes`, privates GitHub-Repo | — (abgeschlossen) |
 | 1 | Projektgerüst, `src/common/`, Referenzdaten | `python scripts/build_reference.py` (abgeschlossen) |
 | 2 | `df_clean` — der saubere synthetische Datensatz in beiden Schichten | `python scripts/generate.py --run-id <id>` (abgeschlossen) |
-| 3 | Regelkatalog implementiert, Clean-Baseline-Lauf ohne Meldungen | folgt in Phase 3 |
+| 3 | Regelkatalog implementiert, Clean-Baseline-Lauf ohne Meldungen | `python scripts/validate.py --run-id <id> --dataset clean` (abgeschlossen) |
 | **→** | **Freeze des Regelkatalogs** (`git tag freeze-regelkatalog`) | — |
 | 4 | `df_raw_dirty` + Ground Truth + unabhängiger Gegencheck | folgt in Phase 4 |
 | 5 | Metriken sowie die Baselines B0, B2 und B3 | folgt in Phase 5 |
@@ -88,6 +88,23 @@ Seeds und der vollständigen Konfiguration. Optionen: `--config DATEI`, `--seed 
 Ein Lauf mit der ausgelieferten Konfiguration erzeugt 10.000 Anfragen, 12.514 Personen,
 7.000 Kfz-Risiken, 3.000 Hausratrisiken, 231 Tarife, 62.826 Angebote und 10.000 Zahlungen
 in rund zehn Sekunden.
+
+```bash
+python scripts/validate.py --run-id lauf01 --dataset clean
+```
+
+Führt den vollständigen Regelkatalog auf dem sauberen Datensatz aus. Geschrieben werden
+`results/clean_baseline.json` sowie unter `data/runs/<run_id>/clean/` die Rohtreffer je Regel
+(`detections.parquet`), die Vereinigungsmenge markierter Zellen
+(`markierte_zellen.parquet`), die satzbezogenen Befunde (`detections_records.parquet`) und
+die Laufzeit je Regel (`rule_timing.json`). Optionen: `--config DATEI`, `--still`.
+
+```bash
+python scripts/export_katalog.py
+```
+
+Erzeugt `results/regelkatalog.csv` aus den Regel-Metadaten — die Mapping-Tabelle für den
+Anhang der Arbeit. Optionen: `--ziel VERZEICHNIS`, `--still`.
 
 ```bash
 python -m pytest
@@ -182,9 +199,60 @@ Teil- und Vollkasko erhalten Risiken in der Malus- oder Schadenklasse kein Angeb
 Haftpflicht bleiben sie erhalten. Das ist eine Annahmebedingung, kein nachträgliches
 Filtern — die betroffene Anfrage wird als Haftpflichtanfrage geführt.
 
+## Der Regelkatalog (Phase 3)
+
+58 Regeln, gruppiert nach Prüfgranularität: **G1** Attributwert (R-001–R-025), **G2** Satz
+(R-026–R-042), **G3** Relation (R-043–R-048), **G4** relationsübergreifend (R-049–R-051),
+**G5** quellenübergreifend (R-052–R-058). Davon 47 `HART` und 11 `WARNUNG`; nach
+Erkennbarkeitsgrad 44 × C1, 11 × C2, 3 × C3.
+
+Der Katalog importiert **nichts** aus `src/generator` oder `src/injector`
+(Architekturregel A1). Gemeinsame Wertebereiche kommen aus `src/common/wertebereiche.py`.
+
+### Auf welcher Schicht eine Regel arbeitet
+
+Elf Regeln laufen zwingend auf der Rohschicht: R-002 bis R-009, R-013, R-017 und R-025.
+Format-, Typ- und Sentinel-Prüfungen sind auf typisierten Daten per Konstruktion nicht
+verletzbar — in einer `datetime.date` kann kein 31. Februar stehen. Jede Regel deklariert
+ihre Schicht in den Metadaten; `tests/test_katalog.py` hält die Zuordnung fest.
+
+### Zwei Sichten auf die Treffer
+
+| Datei | Inhalt | Zweck |
+|---|---|---|
+| `detections.parquet` | jede Meldung jeder Regel | Diagnose je Regel |
+| `markierte_zellen.parquet` | Vereinigungsmenge der Tripel `(entitaet, row_id, spalte)` | Metrik |
+
+Markieren mehrere Regeln dieselbe Zelle, zählt sie **einmal**. Ein Datums-Sentinel wie
+`00000000` löst R-009 und R-025 gleichzeitig aus; ohne Deduplizierung ergäbe ein einziger
+injizierter Fehler zwei Treffer und die Precision fiele, ohne dass der Detektor schlechter
+wäre.
+
+Aus demselben Grund trägt jede Verstoßzeile eine `verstoss_id`: eine Kennung je erkanntem
+Constraint-Verstoß, gemeinsam für alle beteiligten Zellen. R-031 meldet Brutto, Netto und
+Steuer; der Injektor verfälscht aber nur eine der drei Zellen. Die Auswertung wertet später
+beide Sichten aus — streng zellbasiert und constraint-basiert.
+
+**R-047 und R-048 gehen nicht in die Zellmetrik ein** (`in_zellmetrik = False`). R-047 weiß
+nicht, welches der n Angebote das falsche ist; R-048 prüft eine Verteilung über den
+Gesamtdatensatz und hat überhaupt keine verursachende Zelle. Beide werden als
+Diagnosekennzahl geführt.
+
+### Clean-Baseline-Lauf
+
+**Null Meldungen** auf `df_clean` — 58 Regeln, 0 markierte Zellen von 1.769.095,
+False-Positive-Rate 0,0. Gegengeprüft über vier unabhängige Master-Seeds mit zusammen rund
+7,06 Millionen Zellen. Der Bericht steht in
+[`results/clean_baseline.json`](results/clean_baseline.json), die Auslegungsentscheidungen
+und der eine dabei gefundene Regelfehler in
+[`docs/iteration_log.md`](docs/iteration_log.md).
+
+Diese Kennzahl ist der Beleg dafür, dass die Grundannahme „alles nicht Injizierte ist
+sauber" trägt. Ohne sie wäre jede später berichtete Precision unbelegt.
+
 ## Freeze des Regelkatalogs
 
-*Wird nach Phase 3 gefüllt.*
+*Der Tag wird nach Abnahme dieser Phase gesetzt.*
 
 - **Tag:** `freeze-regelkatalog`
 - **Commit-Hash:** _(nach Phase 3 eintragen)_
@@ -228,7 +296,21 @@ dürfen.
 | `referenz.py` | Lädt die Referenztabellen mit festen Spaltentypen und Zwischenspeicher. |
 | `pflichtfelder.py` | Pflichtfeldprofil je Quellschnittstelle und Zuordnung Kanal → Profil (`spec/01`, Abschnitt 5). |
 | `serialisierung.py` | Schema beider Datenschichten, `serialisiere` und `parse`. Der Parser wirft keine Ausnahme. |
+| `datum.py` | Kalenderarithmetik über ganze Jahre — von Generator und Regel-Engine gemeinsam genutzt. |
 | `pfade.py` | Laufverzeichnisse, Artefaktnamen, SHA-256-Hashwerte. |
+
+### `src/rules/` — der Regelkatalog
+
+| Modul | Inhalt |
+|---|---|
+| `modell.py` | `Regel`, `Kontext` über beide Schichten, `Befund` mit Zell- und Satzkanal, `Befundsammler` (vergibt die `verstoss_id`). |
+| `katalog.py` | Registry der 58 Regeln. Prüft Vollständigkeit, Eindeutigkeit und Gruppenzuordnung **beim Import**. |
+| `g1_attribut.py` … `g5_quellen.py` | Die Regeln je Granularitätsgruppe samt ihrer Metadaten. |
+| `engine.py` | Ausführung, Deduplizierung, Laufzeitmessung, Artefakte. |
+
+Die reinen Spaltenprüfungen der Gruppe G1 laufen über **pandera** mit `lazy=True`, damit
+alle Verstöße einer Spalte gesammelt statt beim ersten abgebrochen werden. Für G2 bis G5
+sind es eigene Prüffunktionen — dafür ist pandera nicht gedacht.
 
 ### Referenzdaten
 

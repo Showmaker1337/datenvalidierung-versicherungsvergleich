@@ -51,7 +51,7 @@ Variante** berichtet.
 | Variante | Verfälschung | Spiegelt Regel exakt? |
 |---|---|---|
 | F1-a | Wert auf `None` / `NaN` setzen | ja (R-001) |
-| F1-b | Leerstring `""` | nein (formal gefüllt) |
+| F1-b | Leerstring | **nein** — auf der Rohschicht nicht von einem planmäßig leeren Feld unterscheidbar. Nur über die Pflichtfeldregeln R-001 und R-057 erkennbar, nicht über R-025. Ein Informationsverlust der Serialisierung, kein Implementierungsmangel |
 | F1-c | `"-"` | nein |
 | F1-d | `"k.A."` | nein |
 | F1-e | Numerisches Sentinel `9999` bzw. `99999999` | nein |

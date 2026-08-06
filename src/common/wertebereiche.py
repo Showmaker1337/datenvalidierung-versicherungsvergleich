@@ -60,8 +60,10 @@ __all__ = [
     "SENTINEL_DATUM",
     "SENTINEL_NUMERISCH",
     "SENTINEL_TEXT",
+    "SENTINEL_TEXT_ROHSCHICHT",
     "STOCKWERK",
     "SUBLIMIT_FAHRRAD_EUR",
+    "TECHNISCHE_SCHLUESSELFELDER",
     "TSN_LAENGE",
     "TYPKLASSE_HP",
     "TYPKLASSE_TK",
@@ -280,6 +282,30 @@ VU_NUMMER_LAENGE: Final[int] = 5
 #: bedeutet immer ``pd.NA`` beziehungsweise ``None`` (CLAUDE.md, Abschnitt 5).
 SENTINEL_TEXT: Final[tuple[str, ...]] = ("", "-", "k.A.", "n/a", "unbekannt")
 
+#: Auf der Rohschicht pruefbare Textsentinels (R-025) — ohne den Leerstring.
+#:
+#: **Der Leerstring fehlt hier mit Absicht.** ``spec/01_datenmodell.md``,
+#: Abschnitt 6 legt in der Tabelle "Zuordnung" fest: "Leerstring | regulaer leer |
+#: kein Befund" — und genau so serialisiert
+#: :data:`src.common.serialisierung.LEER_ROH` jeden leeren Wert. Auf der Rohschicht
+#: sind "leer" und "als leer eingeschleust" damit **nicht unterscheidbar**.
+#:
+#: Wuerde R-025 den Leerstring melden, traefe es jedes planmaessig leere Feld des
+#: sauberen Datensatzes — rund dreissig Prozent aller optionalen Profilfelder
+#: (spec/01, Abschnitt 5). Der Clean-Baseline-Lauf haette dann zehntausende
+#: Fehlalarme, die keine sind.
+#:
+#: Folge fuer die Auswertung: Die Injektionsvariante F1-b (Leerstring) ist nur
+#: ueber die Pflichtfeldregeln R-001 und R-057 erkennbar, nicht ueber R-025. Das
+#: ist **kein Implementierungsmangel, sondern ein Informationsverlust der
+#: Serialisierung** — genau das passiert an realen Schnittstellen, wenn ein Format
+#: zwischen "nicht belegt" und "leer geliefert" nicht unterscheidet. Vermerkt in
+#: CLAUDE.md, Abschnitt 5, in ``spec/03_fehlerklassen.md`` an der Variante F1-b und
+#: in ``docs/iteration_log.md``.
+SENTINEL_TEXT_ROHSCHICHT: Final[tuple[str, ...]] = tuple(
+    wert for wert in SENTINEL_TEXT if wert != ""
+)
+
 #: Implizite Fehlwerte in Datumsfeldern (R-025).
 #:
 #: Zwei Schreibweisen je Sentinel, weil R-025 auf der **Rohschicht** arbeitet: Dort
@@ -312,3 +338,12 @@ SENTINEL_AUSNAHMEFELDER: Final[tuple[str, ...]] = (
     "risiko_hausrat.sublimit_wertsachen_eur",
     "risiko_kfz.jahresfahrleistung_km",
 )
+
+#: Rein technische Felder, die keine fachliche Aussage tragen (R-025).
+#:
+#: ``row_id`` ist niemals Ziel einer Injektion (Architekturregel A3) und traegt
+#: eine fortlaufende Nummer. Bei rund 63.000 Angebotszeilen kommt der Wert 9999
+#: dort **planmaessig** vor; eine Sentinel-Heuristik wuerde ihn melden und den
+#: Clean-Baseline-Lauf mit einem Fehlalarm belasten, der keinerlei fachliche
+#: Bedeutung hat.
+TECHNISCHE_SCHLUESSELFELDER: Final[tuple[str, ...]] = ("row_id",)

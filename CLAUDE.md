@@ -100,7 +100,7 @@ Begründung, Datum. Niemals stillschweigend ändern.
 │   ├── 01_datenmodell.md
 │   ├── 02_regelkatalog.md
 │   └── 03_fehlerklassen.md
-├── _prompts/                   # Phasenprompts — versioniert, aber keine Arbeitsanweisung
+├── _prompts/                   # Phasenprompts für den Nutzer — KEIN Projektinhalt
 ├── scripts/                    # ausführbare Einstiegspunkte je Phase
 ├── src/
 │   ├── common/                 # Enums, Konstanten, Config, Referenzdaten, Pfade, Seeding
@@ -157,9 +157,16 @@ Nicht verwenden: Deequ/PyDeequ (Spark), dbt, Soda Core, SDV.
   Serialisierungsformat, kein internes Format.
 - **Postleitzahlen, HSN, TSN, SF-Klassen** sind Strings. Niemals Integer — die führende
   Null geht sonst verloren, und SF-Sonderklassen (`0`, `1/2`, `S`, `M`) sind keine Zahlen.
-- **„Leer" bedeutet immer `pd.NA` bzw. `None`, niemals der Leerstring.** Der Leerstring ist
-  in diesem Projekt ein *Fehlerwert* (Injektionsvariante F1-b), kein Fehlwert. Diese
-  Unterscheidung ist wichtig, weil R-025 den Leerstring als impliziten Fehlwert meldet.
+- **„Leer" ist auf der typisierten Schicht immer `pd.NA` bzw. `None`, niemals der
+  Leerstring.** Auf der **Rohschicht** wird leer dagegen als Leerstring serialisiert
+  (`spec/01`, Abschnitt 6) — und ist dort **nicht** von einem injizierten Leerstring
+  unterscheidbar. R-025 meldet den Leerstring deshalb **nicht**, sonst träfe die Regel jedes
+  planmäßig leere Feld.
+  **Folge, die in die Arbeit gehört:** Die Injektionsvariante F1-b (Wert durch Leerstring
+  ersetzt) ist nur über die Pflichtfeldregeln R-001 und R-057 erkennbar, nicht über die
+  Sentinel-Regel R-025. Das ist kein Implementierungsmangel, sondern ein Informationsverlust
+  der Serialisierung — genau das passiert an realen Schnittstellen, wenn ein Format
+  zwischen „nicht belegt" und „leer geliefert" nicht unterscheidet.
 - **Zwei Datenschichten.** `df_typed` ist die typisierte Innenansicht, `df_raw` die
   Rohschicht mit allen Spalten als String. Der Injektor arbeitet auf `df_raw`, Format- und
   Typregeln ebenfalls, fachliche Regeln auf dem geparsten `df_typed`. Die Serialisierungs-

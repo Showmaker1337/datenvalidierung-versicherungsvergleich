@@ -67,7 +67,7 @@ ignore = [
 "src/cli.py" = ["T201"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["src"]
+known-first-party = ["src", "scripts", "tests"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
