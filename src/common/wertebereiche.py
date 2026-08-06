@@ -281,7 +281,23 @@ VU_NUMMER_LAENGE: Final[int] = 5
 SENTINEL_TEXT: Final[tuple[str, ...]] = ("", "-", "k.A.", "n/a", "unbekannt")
 
 #: Implizite Fehlwerte in Datumsfeldern (R-025).
-SENTINEL_DATUM: Final[tuple[str, ...]] = ("0000-00-00", "1900-01-01")
+#:
+#: Zwei Schreibweisen je Sentinel, weil R-025 auf der **Rohschicht** arbeitet: Dort
+#: stehen Datumswerte im GDV-Format ``TTMMJJJJ`` (spec/01, Abschnitt 6). Die
+#: ISO-Schreibweise bleibt in der Liste, weil eine Injektion sie einschleusen kann —
+#: erkannt werden soll der Sentinel, nicht eine bestimmte Notation.
+#:
+#: ``00000000`` ist in diesem Modell ausdruecklich ein **Fehlwert, kein Leerwert**:
+#: Leer ist der Leerstring. Waere ``00000000`` der regulaere Leerwert, koennte R-025
+#: es nicht mehr als impliziten Fehlwert melden und R-009 muesste es als
+#: Nicht-Kalendertag ausnehmen — beide Regeln verloeren ihre Schaerfe (spec/01,
+#: Abschnitt 6, Tabelle "Zuordnung").
+SENTINEL_DATUM: Final[tuple[str, ...]] = (
+    "00000000",
+    "01011900",
+    "0000-00-00",
+    "1900-01-01",
+)
 
 #: Implizite Fehlwerte in numerischen Feldern (R-025).
 SENTINEL_NUMERISCH: Final[tuple[int, ...]] = (9999, 99999999)

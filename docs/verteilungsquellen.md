@@ -17,12 +17,12 @@ an, in welcher Phase die Verteilung umgesetzt wird.
 
 | Feld | Quelle | Status |
 |---|---|---|
-| `geburtsdatum` / Altersverteilung | Zensus 2022 bzw. Destatis Altersstruktur | Phase 2 |
-| `wohnflaeche_qm`, `baujahr` | Zensus 2022, Gebäude- und Wohnungszählung | Phase 2 |
+| `geburtsdatum` / Altersverteilung | Zensus 2022 bzw. Destatis Altersstruktur | **Phase 2 — umgesetzt** (3.2) |
+| `wohnflaeche_qm`, `baujahr` | Zensus 2022, Gebäude- und Wohnungszählung | **Phase 2 — umgesetzt** (3.5) |
 | `zuers_zone` | GDV Naturgefahren-Datenservice (92,4 / 6,1 / 1,1 / 0,4 %) | **Phase 1 — umgesetzt** |
 | `vu_nummer` (Anbietergewichte) | GDV „Fakten zur Versicherungswirtschaft", Marktanteile | **Phase 1 — umgesetzt** |
-| `jahresfahrleistung_km`, Fahrzeugalter | freMTPL2freq (CASdatasets) als Strukturvorbild | Phase 2 |
-| Beitragsniveau | GDV-Durchschnittsbeiträge je Sparte | Phase 2 |
+| `jahresfahrleistung_km`, Fahrzeugalter | freMTPL2freq (CASdatasets) als Strukturvorbild | **Phase 2 — umgesetzt** (3.4) |
+| Beitragsniveau | GDV-Durchschnittsbeiträge je Sparte | **Phase 2 — umgesetzt** (3.6) |
 
 Ausdrücklich als **Modellannahme** gekennzeichnet (keine öffentliche Quelle verfügbar):
 Regionalklassen-Zuordnung, SF-Beitragssatztabelle, Typklassen-Zuordnung.
@@ -251,8 +251,212 @@ Zusätzlich bestätigt: Faker wird über `seed_instance()` geseedet, das klassen
 `Faker.seed()` ist in `CLAUDE.md`, Abschnitt 4 nun ausdrücklich verboten — globaler Zustand
 widerspricht Architekturregel A2.
 
-## 4. Was weiterhin offen bleibt
+---
 
-Nichts aus Phase 1. Die Verteilungen für `geburtsdatum`, `wohnflaeche_qm`, `baujahr`,
-`jahresfahrleistung_km` und das Beitragsniveau werden in Phase 2 festgelegt und hier
-ergänzt.
+## 4. Entscheidungen der Phase 2 — der saubere Datensatz
+
+Alle Ziehungen laufen über `src/generator/verteilungen.py` und bekommen ihren
+Zufallsgenerator übergeben. Die Teilströme sind in `src/generator/pipeline.py` fest
+nummeriert; eine neue Ziehung bekommt eine neue Nummer, damit die übrigen Ströme
+unverändert bleiben.
+
+Wo unten **Modellannahme** steht, existiert keine öffentliche Quelle. Das ist kein Mangel,
+sondern Transparenz — und im Kolloquium besser als eine unbelegte Zahl.
+
+### 4.1 Anfrage
+
+| Feld | Verteilung / Parameter | Quelle |
+|---|---|---|
+| `sparte` | exakte Aufteilung nach `config.sparten_verteilung` (35 / 20 / 15 / 30 %), anschließend gemischt | Konfiguration; die exakte Aufteilung statt einer Ziehung ist **Modellentscheidung** (Varianzreduktion) |
+| `kanal` | WEB 42 %, MAKLER 24 %, APP 14 %, API_BIPRO 12 %, TELEFON 8 % | Modellannahme |
+| `eingangszeitpunkt` | Tag gleichverteilt über 730 Tage vor `stichtag`; Uhrzeit über einen festen Tagesgang (Maximum 9–11 und 14–17 Uhr) | Modellannahme; der Tagesgang ist für keine Regel von Belang, fällt aber bei jeder Sichtprobe auf |
+| `versicherungsbeginn` | Vorlauf log-normal, Median 20 Tage, σ = 1,10, gekappt bei 365 Tagen | Modellannahme |
+| `anfrage_status` | NEU 5 %, TARIFIERT 18 %, ANGEBOT 45 %, ANTRAG 25 %, STORNIERT 7 % | Modellannahme |
+| `zahlweise` | jährlich 35 %, monatlich 35 %, vierteljährlich 15 %, halbjährlich 12 %, Einmalbetrag 3 % — **unabhängig von der Beitragshöhe gezogen** | Modellannahme. Eine frühere Fassung koppelte beides an einen Ratenkorridor; die Kopplung ist entfallen, siehe 4.6 |
+| `vorvertrag_vorhanden` | zwingend `True`, sobald `schadenfreie_jahre(sf_klasse_hp) > 0`; sonst mit 55 % | spec/01, Abschnitt 3.1 beziehungsweise Modellannahme |
+| Angebote je Anfrage | gammaförmig über 3 bis 12 mit Modus 5 (Form 3,0, Skala 1,5); Mittelwert rund 6,3 → rund 63.000 Angebotszeilen bei 10.000 Anfragen | spec/01, Abschnitt 1 |
+
+**Postleitzahl.** Für die Hausrat-Anfragen wird nach ZÜRS-Zone geschichtet gezogen: Die
+Zellzahlen je Zone stehen über das Größte-Reste-Verfahren vorab fest, gezogen wird nur die
+Postleitzahl innerhalb der Zone. Grund ist Zone 4 mit einem Anteil von 0,4 Prozent — bei
+3.000 Hausratzeilen sind das zwölf erwartete Fälle bei einer Streuung von rund 3,5. Eine
+gewöhnliche Ziehung verfehlt die von R-048 geforderte relative Toleranz von 30 Prozent in
+etwa jedem dritten Lauf. **Die Randverteilung bleibt die belegte des GDV; nur die
+Stichprobenstreuung entfällt.** Für alle übrigen Anfragen wird die PLZ gleichverteilt
+gezogen.
+
+### 4.2 Person
+
+| Feld | Verteilung / Parameter | Quelle |
+|---|---|---|
+| `geburtsdatum` | 16 Fünfjahresgruppen von 18 bis 95 mit den Anteilen 2,6 / 6,2 / 7,0 / 7,6 / 7,8 / 7,4 / 6,9 / 8,4 / 9,3 / 8,7 / 7,6 / 6,3 / 5,8 / 5,0 / 2,5 / 0,9 %; innerhalb der Gruppe gleichverteilt | **Zensus 2022 / Destatis-Altersstruktur**, auf die Bevölkerung ab 18 Jahren umgerechnet und gerundet |
+| `anrede` | HERR 52 %, FRAU 46 %, DIVERS 2 % der natürlichen Personen | Modellannahme |
+| `anrede` = FIRMA | 6 % — **nur in der Sparte 130** | Modellvereinfachung, siehe 4.7 |
+| `familienstand` | altersabhängig, vier Gruppen (≤ 29 / ≤ 49 / ≤ 69 / darüber) mit den Gewichten (85/13/2/0), (35/52/12/1), (16/62/17/5), (8/55/10/27) % für LEDIG / VERHEIRATET / GESCHIEDEN / VERWITWET | Modellannahme, an der Destatis-Struktur orientiert |
+| `wohneigentum` | altersabhängig 15 / 42 / 60 / 62 %; juristische Personen 35 % | Modellannahme |
+| zweite versicherte Person | 25 % je Anfrage | Modellannahme |
+| `fuehrerschein_datum` | Erwerbsalter 17 (6 %), 18 (44 %), 19–20 (24 %), 21–25 (16 %), 26–40 (10 %), gekappt beim Alter der Person; Tag innerhalb des Erwerbsjahres gleichverteilt | Modellannahme, orientiert an der Altersverteilung der Fahranfänger |
+
+### 4.3 Zahlung
+
+| Feld | Verteilung / Parameter | Quelle |
+|---|---|---|
+| `iban` | Bankleitzahl gleichverteilt über 10.000.000–99.999.999, Kontonummer zehn Ziffern, Prüfziffer nach ISO 7064 Mod 97-10 über `src/common/iban.py` | ISO 13616 / ISO 7064 |
+| `bic` | vier Buchstaben, Ländercode `DE`, zwei alphanumerische Zeichen, mit 55 % zusätzlich drei Filialstellen | ISO 9362 |
+| `sepa_mandat_datum` | gleichverteilt zwischen Anfrageeingang und Versicherungsbeginn | Modellannahme |
+| `kontoinhaber` | mit 92 % der Versicherungsnehmer, sonst ein abweichender Name | Modellannahme |
+
+### 4.4 Kfz-Risiko
+
+| Feld | Verteilung / Parameter | Quelle |
+|---|---|---|
+| Fahrzeugalter → `erstzulassung` | log-normal, Median 6 Jahre, σ = 0,70, gekappt bei 30 Jahren und beim 1. Januar 1990 | **freMTPL2freq (CASdatasets)** als Strukturvorbild; Parameter Modellannahme |
+| `zulassung_auf_vn` | mit 45 % gleich der Erstzulassung (Neuwagen), sonst gleichverteilt bis zum Stichtag; Untergrenze zusätzlich der 18. Geburtstag | Modellannahme |
+| `jahresfahrleistung_km` | log-normal, Median 12.000 km, σ = 0,45, gerastert auf 500 km, gekappt auf 1.000–60.000 | **freMTPL2freq** als Strukturvorbild; spec/01, Abschnitt 3.3 |
+| `fahrzeugwert_aktuell` | Restwertkurve `exp(−0,16 × Alter)`, Untergrenze 10 % des Neupreises, log-normale Streuung σ = 0,10, gekappt beim Neupreis | Modellannahme |
+| `art_kennzeichen` | E-Kennzeichen mit 40 % bei ELEKTRO oder HYBRID, sonst Saisonkennzeichen mit 7 % | Modellannahme; die Bindung an den Antrieb folgt dem EmoG |
+| `nutzungsart` | privat 85,5 %, geschäftlich 9 %, gemischt 5 %, Taxi 0,5 % | Modellannahme |
+| `eigentumsverhaeltnis` | Eigentum 82 %, Leasing 18 % | Modellannahme |
+| `nutzerkreis` | VN 45 %, VN_PARTNER 32 %, VN_FAMILIE 15 %, BELIEBIG 8 % | Modellannahme |
+| `abstellplatz` | Garage 35 %, Straße 35 %, Stellplatz 20 %, Carport 10 % | Modellannahme |
+| `schaeden_letzte_5j` | 72 / 18 / 6 / 2,5 / 1 / 0,5 % für 0 bis 5 Schäden | Modellannahme |
+| `sf_klasse_hp` | Sonderklassen zusammen 5,5 % (M 0,8 %, S 1,2 %, `0` 2,0 %, `1/2` 1,5 %); sonst Stufe = Obergrenze × Beta(3,0; 1,2), gerundet. Obergrenze = min(Alter − 17, Jahre seit Führerscheinerwerb, 50) | Modellannahme; die Obergrenze folgt R-029 und dem Führerscheinbesitz |
+| `sf_klasse_vk` | Abstand zur Haftpflichtklasse auf der Ordinalskala: 0 (75 %), 1 (13 %), 2 (8 %), 3 (4 %) | Modellannahme; der nicht negative Abstand sichert R-030 |
+
+### 4.5 Hausratrisiko
+
+| Feld | Verteilung / Parameter | Quelle |
+|---|---|---|
+| `wohnflaeche_qm` | log-normal, Median 85 m², σ = 0,42, gekappt auf 20–350 | **Zensus 2022**, Gebäude- und Wohnungszählung (Durchschnitt rund 92 m² je Wohnung; der Median liegt wegen der Rechtsschiefe darunter) |
+| `baujahr` | Baualtersklassen bis 1918 (12 %), 1919–1948 (12 %), 1949–1978 (32 %), 1979–1990 (13 %), 1991–2000 (12 %), 2001–2010 (8 %), 2011–2022 (9 %), ab 2023 (2 %); innerhalb der Klasse gleichverteilt | **Zensus 2022**, Gebäude- und Wohnungszählung |
+| `versicherungssumme_eur` | 650 €/m² × Wohnfläche × log-normal (σ = 0,22), auf 1.000 € abgerundet, gekappt auf 10.000–800.000 | Branchenübliche Faustregel (spec/01, Abschnitt 3.4); Streuung Modellannahme |
+| `unterversicherungsverzicht` | 72 %, aber nur wo die Summe 650 €/m² erreicht | Modellannahme; die Bedingung sichert R-040 |
+| `bauartklasse` | `1` 42 %, `2` 18 %, `3` 10 %, `0` 5 %, `4` 5 %, `5` 4 %, `6`–`8` je 2–3 %, `A`–`I` je 1 % | Modellannahme (GDV Anlage 12 gibt nur den Katalog vor, keine Anteile) |
+| `gebaeudeart` | EFH 28 %, MIETWOHNUNG 22 %, ETW 18 %, MFH 16 %, RH 9 %, DHH 7 % | Modellannahme, an der Zensus-Struktur orientiert |
+| `stockwerk` | nur bei ETW, MIETWOHNUNG und MFH; −1 (3 %), 0 (22 %), 1 (23 %), 2 (20 %), 3 (15 %), 4 (9 %), 5 (5 %), 6 (2 %), 7 (1 %) | Modellannahme |
+| `elementar_eingeschlossen` | je ZÜRS-Zone 55 / 45 / 30 / 10 % | Modellannahme; der niedrige Wert in Zone 4 folgt spec/01, Abschnitt 3.4 |
+| `sublimit_fahrrad_eur` | Stufen 0 / 500 / 1.000 / 1.500 / 2.000 / 3.000 / 5.000 / 10.000 mit 30 / 16 / 18 / 12 / 11 / 7 / 4 / 2 % | Modellannahme |
+| `sublimit_wertsachen_eur` | Anteil der Versicherungssumme 0 / 5 / 10 / 15 / 20 / 25 / 30 % mit 10 / 14 / 22 / 18 / 18 / 10 / 8 %, auf 100 € abgerundet | Modellannahme |
+
+### 4.6 Tarif und Beitrag
+
+**Tarifgenerationen.** Je Anbieter und Sparte entstehen drei bis fünf Generationen (Gewichte
+35 / 40 / 25 %) mit lückenlos aneinandergrenzenden Gültigkeitszeiträumen. Sie decken die
+Spanne von 30 Monaten vor dem Stichtag bis 6 Monate danach ab; die kürzeste Laufzeit
+beträgt vier Monate. Ohne mehrere Generationen wäre die Fehlerklasse „veralteter
+Tarifstand" (R-055) nicht injizierbar.
+
+**Deckungsart (nur Sparte 051).** `11` unbegrenzt 72 %, `13` gesetzliche Mindestdeckung
+10 %, `16` sonstige 18 % (Modellannahme). Bei `13` exakt die Werte aus der Anlage zu § 4
+Abs. 2 PflVG; „unbegrenzt" wird über eine pauschale Höchstsumme von 100 Mio. € abgebildet,
+weil „unbegrenzt" im Datenmodell kein darstellbarer Wert ist.
+
+**Beitragsmodell.** Gerechnet wird durchgängig in `Decimal`, von unten nach oben:
+
+```
+Kfz:      netto = Grundbeitrag(Sparte) × VU-Niveau
+                × exp(0,045 × (Typklasse − Mitte))
+                × exp(0,050 × (Regionalklasse − Mitte))
+                × SF-Beitragssatz/100
+                × (Fahrleistung / 12.000)^0,25
+                × Selbstbehaltfaktor
+
+Hausrat:  netto = Grundbeitrag × VU-Niveau
+                × (Versicherungssumme / 62.000)^0,70
+                × ZÜRS-Faktor × Bauartfaktor × Elementarfaktor
+                × Selbstbehaltfaktor
+```
+
+| Größe | Wert | Quelle |
+|---|---|---|
+| Grundbeitrag 051 / 052 | 1.100 € / 2.300 € — **Beitrag bei Satz 100 %**, nicht der Durchschnittsbeitrag; der Median des SF-Satzes liegt bei rund 29 % | Größenordnung angelehnt an die **GDV-Durchschnittsbeiträge je Sparte**; die Werte selbst sind Modellannahme |
+| Grundbeitrag 053 / 130 | 225 € / 200 € — hier direkt der Durchschnittsbeitrag, weil die Teilkasko keine SF-Einstufung kennt | dito |
+| VU-Niveau | je Anbieter fest, log-normal σ = 0,16, gekappt auf 0,78–1,42 | Modellannahme |
+| ZÜRS-Faktor | 1,00 / 1,06 / 1,15 / 1,30 | Modellannahme |
+| Elementarzuschlag | 1,25 | Modellannahme |
+| Bauartfaktor | 0,95 bis 1,35 über die 18 Klassen | Modellannahme |
+| Selbstbehaltnachlass | TK bis 0,80, VK bis 0,72, Hausrat bis 0,84 (Betrag) beziehungsweise 0,86 (Prozent) | Modellannahme |
+| Zuschlag bei ANNAHME_MIT_ZUSCHLAG | 1,15 | Modellannahme |
+| `annahmeentscheidung` | ANNAHME 85 %, ANNAHME_MIT_ZUSCHLAG 8 %, PRUEFUNG 4 %, ABLEHNUNG 3 %; mindestens zwei bepreiste Angebote je Anfrage | Modellannahme |
+| `ratenzahlungszuschlag_prozent` | 0 bei Ratenanzahl 1, sonst gleichverteilt zwischen 0,50 und 8,00 | spec/01, Abschnitt 3.6; die **Untergrenze von 0,5 %** verhindert, dass R-036 rundungsbedingt auf sauberen Daten auslöst |
+| Selbstbehaltkonvention Hausrat | 35 % der Anfragen in Prozent, 65 % als Betrag — **je Anfrage einheitlich** | Modellannahme; die Einheitlichkeit sichert R-052 |
+
+**Kein Beitragskorridor im Generator.** Der Beitrag wird **nicht** gekappt, und die
+Zahlweise wird **unabhängig** von der Beitragshöhe gezogen. Beides war in einer früheren
+Fassung anders, solange R-053 die Rate statt des Jahresbeitrags prüfte; die Begründung des
+Rückbaus steht in [`docs/iteration_log.md`](iteration_log.md), Abschnitt „Vorbemerkung zu
+R-053".
+
+Der Generator liest die Schwellen aus `config.schwellen` weiterhin **nicht**: Sie werden in
+der Arbeit variiert; ein Generator, der an ihnen hängt, würde bei jeder Variation einen
+anderen Datensatz erzeugen und die Läufe unvergleichbar machen. Die Einhaltung wird
+stattdessen im Test geprüft (`tests/test_generator/test_beitrag.py`).
+
+Die erzeugten Bruttojahresbeiträge (10.000 Anfragen, Master-Seed der Konfiguration):
+
+| Sparte | Minimum | Median | p99 | Maximum |
+|---|---|---|---|---|
+| 051 Kfz-HP | 80 € | 466 € | 3.224 € | 8.937 € |
+| 052 Vollkasko | 137 € | 983 € | 8.419 € | 20.264 € |
+| 053 Teilkasko | 90 € | 334 € | 879 € | 1.198 € |
+| 130 Hausrat | 57 € | 241 € | 600 € | 1.188 € |
+
+Der Korridor von R-053 wurde daraufhin für Kfz von `[40, 6000]` auf `[40, 25000]`
+angehoben. **Ein bekannter Vorbehalt:** Die Vollkasko-Verteilung hat einen schweren rechten
+Rand — 2,4 Prozent der Angebote liegen über 6.000 €/Jahr, in der Realität wären es
+deutlich weniger. Ursache sind die 2 Prozent Malus- und Schadenklassen (245 % / 155 %) in
+Verbindung mit dem Typklassenfaktor. Wer den Rand dämpfen will, senkt den Grundbeitrag 052
+oder die Steigung `_TYPKLASSE_STEIGUNG` — das ändert allerdings jeden Beitrag im Datensatz.
+
+Die Spreizung max/min je Anfrage bleibt durch die Grenzen des VU-Niveaus, des
+Selbstbehaltnachlasses und des Zuschlags rechnerisch unter dem Faktor 3,2 und damit
+deutlich unter dem Schwellenwert 6 von R-047 (gemessen: 2,81).
+
+### 4.7 Modellvereinfachungen der Phase 2
+
+| Vereinfachung | Umsetzung | Warum |
+|---|---|---|
+| Juristische Personen | `anrede` = FIRMA nur in der Sparte 130 | In den Kfz-Sparten fehlte sonst das Bezugsalter für Führerscheindatum und Schadenfreiheitsklasse; R-028 und R-029 wären dort grundsätzlich nicht auswertbar |
+| Selbstbehalt der Haftpflicht | keiner | Die Kfz-Haftpflicht kennt marktüblich keinen Selbstbehalt |
+| SF-Einstufung der Teilkasko | keine | Entspricht der deutschen Marktpraxis; der Beitrag hängt dort nur an Typ- und Regionalklasse |
+| Beitragsniveau je Generation | konstant je Anbieter | Ein Niveau je Tarifgeneration wäre realistischer, ändert an der Regelmechanik aber nichts |
+| Zeitzone | naive Ortszeit ohne Offset | GDV-Zeitstempel führen keinen Offset; eine zeitzonenbewusste Darstellung wäre Scheingenauigkeit |
+| PLZ-Ziehung Hausrat | nach ZÜRS-Zone geschichtet statt gleichverteilt | **Koppelt die PLZ-Verteilung der Hausrat-Anfragen an ZÜRS.** Die Randverteilung der Zonen bleibt die belegte des GDV, aber die Postleitzahlen sind innerhalb der Sparte 130 nicht mehr gleichverteilt — Zone-4-PLZ sind dort gegenüber einer freien Ziehung leicht überrepräsentiert, Zone-1-PLZ leicht unter. Ohne die Schichtung wäre R-048 schon auf sauberen Daten instabil (siehe 4.1) |
+
+### 4.8 Leeres Datum in der Rohschicht — ein Widerspruch in spec/01
+
+`spec/01_datenmodell.md`, Abschnitt 6, enthält zu leeren Datumsfeldern zwei Aussagen, die
+sich widersprechen: Die Zeile `date` nennt `00000000` als Darstellung des leeren Datums,
+die Zeile `leer` den leeren String für **alle** Typen.
+
+Umgesetzt ist der **leere String**. Der Grund ist inhaltlich: Der saubere Datensatz enthält
+planmäßig leere Datumsfelder — `geburtsdatum` bei `anrede` = FIRMA, `fuehrerschein_datum`
+außerhalb der Kfz-Sparten. Mit `00000000` würde R-009 („jedes Datumsfeld der Rohschicht ist
+ein existierender Kalendertag") auf dem sauberen Datensatz auslösen, denn `00000000` ist
+kein Kalendertag. Der Clean-Baseline-Lauf hätte dann Fehlalarme, die keine sind.
+
+Umgekehrt bleibt `00000000` in der Rohschicht ein **Befund**: Der Parser gibt dafür `pd.NA`
+zurück *und* protokolliert die Stelle. Ein solcher Wert kann nur aus einer Injektion
+stammen, und R-009 soll ihn melden.
+
+**Anmerkung für Phase 4:** Die Sentinel-Liste `SENTINEL_DATUM` in
+`src/common/wertebereiche.py` führt `0000-00-00` und `1900-01-01` im ISO-Format. Die
+Rohschicht schreibt Datumswerte aber als `TTMMJJJJ`. Die Injektionsvariante F1-c muss das
+berücksichtigen, sonst schreibt sie einen Wert, den kein Datumsfeld je enthalten könnte.
+
+---
+
+## 5. Was weiterhin offen bleibt
+
+Alle vier in Phase 2 gemeldeten Punkte sind entschieden:
+
+| Punkt | Entscheidung | Fundstelle |
+|---|---|---|
+| Leeres Datum in der Rohschicht | Leerstring für alle Typen; `00000000` ist ein Sentinel (R-025), kein Leerwert | `spec/01`, Abschnitt 6 |
+| Pflichtfeldprofil je Kanal | übernommen, R-057 ist zweigeteilt | `spec/01`, Abschnitt 5.1; `spec/02`, R-057 |
+| Anwendbarkeit vor Profil | übernommen, R-041 und R-057 verweisen darauf | `spec/01`, Abschnitt 5.2 |
+| R-053 auf die Rate bezogen | **Spezifikationsfehler**, korrigiert: R-053 prüft `bruttobeitrag_jahr_eur`. Kappung und Zahlweisenkopplung im Generator zurückgebaut, Schwellenwert angepasst | `spec/02`, R-053; `docs/iteration_log.md` |
+
+Offen bleibt nur der oben genannte Vorbehalt zum rechten Rand der
+Vollkasko-Beitragsverteilung. Er ist benannt, nicht versteckt — eine Entscheidung darüber
+ist für die Regelmechanik nicht nötig.

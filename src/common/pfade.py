@@ -24,10 +24,14 @@ if TYPE_CHECKING:  # pragma: no cover - nur fuer die Typpruefung
     from src.common.config import Config
 
 __all__ = [
+    "CLEAN_MANIFEST",
     "REFERENZ_DATEIEN",
     "Artefakt",
     "PfadFehler",
+    "Schicht",
     "artefakt_pfad",
+    "clean_verzeichnis",
+    "entitaet_pfad",
     "lauf_verzeichnis",
     "pruefe_run_id",
     "sha256_bytes",
@@ -96,6 +100,23 @@ class Artefakt(StrEnum):
     """SHA-256-Hashwerte der erzeugten Datenrahmen."""
 
 
+class Schicht(StrEnum):
+    """Die beiden Datenschichten aus spec/01, Abschnitt 6."""
+
+    TYPED = "typed"
+    """Typisierte Innenansicht: ``date``, ``Decimal``, ``int``, ``bool``."""
+
+    RAW = "raw"
+    """Rohschicht, alle Spalten als Zeichenkette."""
+
+
+#: Verzeichnis des sauberen Datensatzes unterhalb des Laufverzeichnisses.
+_CLEAN: Final[str] = "clean"
+
+#: Manifest des sauberen Datensatzes: Zeilenzahlen, Hashwerte, Seeds, Konfiguration.
+CLEAN_MANIFEST: Final[str] = "manifest.json"
+
+
 def pruefe_run_id(run_id: str) -> str:
     """Prueft eine Lauf-Kennung auf Verwendbarkeit als Verzeichnisname.
 
@@ -149,6 +170,39 @@ def artefakt_pfad(config: Config, run_id: str, artefakt: Artefakt) -> Path:
         Den vollstaendigen Pfad der Artefaktdatei.
     """
     return lauf_verzeichnis(config, run_id) / artefakt.value
+
+
+def clean_verzeichnis(config: Config, run_id: str, *, anlegen: bool = False) -> Path:
+    """Gibt das Verzeichnis des sauberen Datensatzes eines Laufs zurueck.
+
+    Args:
+        config: Geladene Konfiguration.
+        run_id: Kennung des Laufs.
+        anlegen: Legt das Verzeichnis samt beider Schichten an.
+
+    Returns:
+        ``data/runs/<run_id>/clean`` als absoluten Pfad.
+    """
+    verzeichnis = lauf_verzeichnis(config, run_id) / _CLEAN
+    if anlegen:
+        for schicht in Schicht:
+            (verzeichnis / schicht.value).mkdir(parents=True, exist_ok=True)
+    return verzeichnis
+
+
+def entitaet_pfad(config: Config, run_id: str, schicht: Schicht, entitaet: str) -> Path:
+    """Gibt den Pfad einer Entitaetsdatei des sauberen Datensatzes zurueck.
+
+    Args:
+        config: Geladene Konfiguration.
+        run_id: Kennung des Laufs.
+        schicht: Typisierte Schicht oder Rohschicht.
+        entitaet: Name der Entitaet, zum Beispiel ``"angebot"``.
+
+    Returns:
+        ``data/runs/<run_id>/clean/<schicht>/<entitaet>.parquet``.
+    """
+    return clean_verzeichnis(config, run_id) / schicht.value / f"{entitaet}.parquet"
 
 
 def sha256_bytes(daten: bytes) -> str:

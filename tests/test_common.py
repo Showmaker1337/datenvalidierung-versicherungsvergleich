@@ -62,7 +62,10 @@ def test_konfiguration_laedt_die_erwarteten_werte(config: Config) -> None:
     assert config.angebote_je_anfrage.minimum == 3
     assert config.angebote_je_anfrage.maximum == 12
     assert config.schwellen.r031_toleranz_eur == Decimal("0.02")
-    assert config.schwellen.r053_korridor_kfz_eur == (Decimal(40), Decimal(6000))
+    # Obergrenze angehoben, weil R-053 den Jahresbeitrag prueft und nicht die Rate
+    # (docs/iteration_log.md, "Vorbemerkung zu R-053").
+    assert config.schwellen.r053_korridor_kfz_eur == (Decimal(40), Decimal(25000))
+    assert config.schwellen.r053_korridor_hausrat_eur == (Decimal(20), Decimal(2000))
 
 
 def test_stichtag_ersetzt_die_systemzeit(config: Config) -> None:
@@ -388,6 +391,18 @@ def test_sentinel_ausnahmen_sind_begruendet() -> None:
     assert "risiko_kfz.jahresfahrleistung_km" in wb.SENTINEL_AUSNAHMEFELDER
     assert "risiko_hausrat.sublimit_fahrrad_eur" in wb.SENTINEL_AUSNAHMEFELDER
     assert "" in wb.SENTINEL_TEXT, "Der Leerstring ist ein Fehlerwert, kein Fehlwert (F1-b)"
+
+
+def test_nulldatum_ist_ein_sentinel_kein_leerwert() -> None:
+    """``00000000`` ist ein als Wert getarnter Fehlwert (spec/01, Abschnitt 6).
+
+    Waere es der regulaere Leerwert, koennte R-025 es nicht mehr melden und R-009
+    muesste es als Nicht-Kalendertag ausnehmen. Leer ist stattdessen der
+    Leerstring — und der steht nicht in dieser Liste.
+    """
+    assert "00000000" in wb.SENTINEL_DATUM
+    assert "01011900" in wb.SENTINEL_DATUM, "1900-01-01 im Rohformat TTMMJJJJ"
+    assert "" not in wb.SENTINEL_DATUM, "Der Leerstring ist der regulaere Leerwert"
 
 
 # ---------------------------------------------------------------------------

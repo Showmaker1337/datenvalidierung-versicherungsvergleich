@@ -461,12 +461,30 @@ untersucht.
 
 | Typ | Serialisierung |
 |---|---|
-| `date` | `TTMMJJJJ` (GDV-Konvention), leer als `00000000` |
+| `date` | `TTMMJJJJ` (GDV-Konvention). **Leer wird zum Leerstring, nicht zu `00000000`** |
 | `datetime` | ISO 8601 |
 | `Decimal` | Dezimalpunkt, zwei Nachkommastellen, kein Tausendertrenner |
 | `int` | ohne führende Nullen, außer bei HSN und PLZ |
 | `bool` | `J` / `N` |
-| leer | leerer String in `df_raw`, `pd.NA` in `df_typed` |
+| leer | leerer String in `df_raw`, `pd.NA` in `df_typed` — **für alle Typen, auch für Datumsfelder** |
+
+**Warum `00000000` nicht der Leerwert ist.** Im echten GDV-Format steht `00000000` für
+„nicht belegt". In diesem Modell wird es bewusst **nicht** so verwendet, denn dann wäre es
+ein legitimer Nullwert — und R-025 könnte es nicht mehr als impliziten Fehlwert melden,
+während R-009 es als Nicht-Kalendertag ausnehmen müsste. Beide Regeln verlören ihre Schärfe.
+
+Die Zuordnung ist deshalb eindeutig:
+
+| Wert in `df_raw` | Bedeutung | Reaktion |
+|---|---|---|
+| Leerstring | regulär leer | kein Befund |
+| `00000000` | Sentinel, als Wert getarnter Fehlwert | R-025 meldet |
+| `01011900` | Sentinel | R-025 meldet |
+| `31022026` | acht Ziffern, kein Kalendertag | R-009 meldet |
+
+Das ist eine bewusste Abweichung vom GDV-Original und in der Arbeit als solche zu
+kennzeichnen. Der Gewinn: Die Unterscheidung zwischen *leer* und *als leer getarnt* bleibt
+messbar — und genau darum kreist die Fehlerklasse B1.
 
 **Beide Schichten werden als Parquet abgelegt.** `df_raw` ist damit typstabil (alles str)
 und der Injektor kann jeden beliebigen Fehlerwert schreiben.

@@ -49,6 +49,7 @@ __all__ = [
     "generator",
     "lauf_seed",
     "seed_als_int",
+    "teilstrom",
     "wurzel_seeds",
 ]
 
@@ -139,6 +140,37 @@ def lauf_seed(master_seed: int, strom: int, *faktoren: int) -> SeedSequence:
     if negative:
         raise ValueError(f"Seed-Bestandteile muessen nicht negativ sein, waren {negative}")
     return SeedSequence(entropie)
+
+
+def teilstrom(seed: SeedSequence, nummer: int) -> SeedSequence:
+    """Leitet einen benannten Teilstrom aus einer ``SeedSequence`` ab.
+
+    Ein Erzeugungsschritt — etwa die Ziehung der Personen oder die
+    Beitragsberechnung — bekommt damit einen eigenen, von den uebrigen Schritten
+    unabhaengigen Zufallsstrom.
+
+    Bewusst **nicht** ueber ``spawn()``: Das n-te Kind einer ``SeedSequence``
+    haengt davon ab, wie viele Kinder vorher gezogen wurden. Eine neu eingefuegte
+    Ziehung wuerde alle nachfolgenden Stroeme verschieben und den gesamten
+    Datensatz veraendern. Die Entropie wird stattdessen direkt aus
+    ``[seed, nummer]`` gebildet: Dieselbe Nummer ergibt immer denselben Strom,
+    unabhaengig von Reihenfolge, Anzahl und Zeitpunkt der Ableitungen
+    (Architekturregel A2, gleiche Begruendung wie bei :func:`lauf_seed`).
+
+    Args:
+        seed: Ausgangsstrom, zum Beispiel ``Seeds.basis``.
+        nummer: Feste Nummer des Teilstroms. Eine neue Ziehung bekommt eine neue
+            Nummer; bereits vergebene Nummern werden nicht mehr geaendert.
+
+    Returns:
+        Die ``SeedSequence`` des Teilstroms.
+
+    Raises:
+        ValueError: Wenn die Nummer negativ ist.
+    """
+    if nummer < 0:
+        raise ValueError(f"Nummer eines Teilstroms muss nicht negativ sein, war {nummer}")
+    return SeedSequence([seed_als_int(seed), nummer])
 
 
 def generator(seed: SeedSequence) -> Generator:

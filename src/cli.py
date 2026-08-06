@@ -4,6 +4,7 @@ Aufruf::
 
     python -m src.cli config
     python -m src.cli referenz [--ziel VERZEICHNIS] [--seed ZAHL]
+    python -m src.cli generieren --run-id KENNUNG [--seed ZAHL] [--n-anfragen ZAHL]
 
 Der Befehlsvorrat waechst mit den Phasen mit. Er enthaelt ausschliesslich
 Befehle, die es wirklich gibt — kein Platzhalter fuer noch nicht gebaute Phasen
@@ -69,6 +70,18 @@ def _baue_referenz(config: Config, ziel: Path | None) -> None:
     baue_referenzdaten(config, verzeichnis)
 
 
+def _erzeuge_datensatz(config: Config, run_id: str) -> None:
+    """Erzeugt den sauberen Datensatz eines Laufs.
+
+    Die Erzeugung steht in ``scripts/generate.py`` und wird von hier nur
+    aufgerufen — dieselbe Begruendung wie bei :func:`_baue_referenz`.
+    """
+    from scripts.generate import main as generieren  # noqa: PLC0415
+
+    generieren(["--run-id", run_id, "--seed", str(config.master_seed),
+                "--n-anfragen", str(config.n_anfragen)])
+
+
 def main(argumente: Sequence[str] | None = None) -> int:
     """Einstiegspunkt der Kommandozeile.
 
@@ -91,6 +104,13 @@ def main(argumente: Sequence[str] | None = None) -> int:
     referenz.add_argument("--ziel", type=Path, default=None, help="Zielverzeichnis")
     referenz.add_argument("--seed", type=int, default=None, help="Master-Seed uebersteuern")
 
+    erzeugen = unterbefehle.add_parser("generieren", help="Sauberen Datensatz eines Laufs erzeugen")
+    erzeugen.add_argument("--run-id", required=True, help="Kennung des Laufs")
+    erzeugen.add_argument("--seed", type=int, default=None, help="Master-Seed uebersteuern")
+    erzeugen.add_argument(
+        "--n-anfragen", type=int, default=None, help="Anzahl der Anfragen uebersteuern"
+    )
+
     optionen = parser.parse_args(argumente)
     config = lade_config(optionen.config)
 
@@ -100,6 +120,13 @@ def main(argumente: Sequence[str] | None = None) -> int:
 
     if optionen.seed is not None:
         config = dataclasses.replace(config, master_seed=optionen.seed)
+
+    if optionen.befehl == "generieren":
+        if optionen.n_anfragen is not None:
+            config = dataclasses.replace(config, n_anfragen=optionen.n_anfragen)
+        _erzeuge_datensatz(config, optionen.run_id)
+        return 0
+
     _baue_referenz(config, optionen.ziel)
     return 0
 

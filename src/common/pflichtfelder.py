@@ -22,7 +22,7 @@ from __future__ import annotations
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Final
 
-from src.common.enums import Quellschnittstelle
+from src.common.enums import Kanal, Quellschnittstelle
 
 if TYPE_CHECKING:  # pragma: no cover - nur fuer die Typpruefung
     from collections.abc import Mapping
@@ -32,8 +32,10 @@ __all__ = [
     "KERNPFLICHTFELDER",
     "PFLICHTFELDER_JE_SCHNITTSTELLE",
     "PROFILFELDER",
+    "PROFIL_JE_KANAL",
     "ist_pflicht",
     "optionale_felder",
+    "profil_des_kanals",
 ]
 
 _B420: Final = Quellschnittstelle.BIPRO_420
@@ -97,6 +99,55 @@ PFLICHTFELDER_JE_SCHNITTSTELLE: Final[Mapping[Quellschnittstelle, tuple[str, ...
 #: bei der jeweiligen Schnittstelle mit einer Wahrscheinlichkeit von 30 Prozent
 #: auf leer."
 BLANKO_WAHRSCHEINLICHKEIT: Final[float] = 0.30
+
+
+#: Wirksames Pflichtfeldprofil je Eingangskanal (spec/01, Abschnitt 5.1).
+#:
+#: **Warum diese Abbildung noetig ist.** Die Profiltabelle in spec/01, Abschnitt 5
+#: ist nach ``quell_schnittstelle`` geschluesselt. Dieses Feld gehoert aber zur
+#: Entitaet ``angebot``: Es beschreibt, ueber welche Schnittstelle **ein
+#: Versicherer sein Angebot liefert**. Die meisten Profilfelder liegen dagegen auf
+#: der Anfrageseite (``person``, ``risiko_*``, ``zahlung``) — sie werden **einmal
+#: je Anfrage** erfasst und an alle Versicherer verschickt. Ihr Befuellungsgrad
+#: haengt deshalb nicht am liefernden Versicherer, sondern am Eingangskanal.
+#: spec/01, Abschnitt 3.1 sagt zu ``kanal`` genau das: "-> erwartetes
+#: Pflichtfeldniveau".
+#:
+#: Ohne diese Abbildung waere das Profil auf der Anfrageseite nicht anwendbar: Eine
+#: Anfrage hat drei bis zwoelf Angebote mit unterschiedlichen Schnittstellen, und
+#: das strengste Profil unter ihnen wuerde faktisch immer greifen — dann waere
+#: jedes Feld ueberall gefuellt und R-057 haette nichts zu pruefen.
+#:
+#: Die Zuordnung selbst ist eine **Modellannahme** (docs/verteilungsquellen.md).
+#: Sie haelt die Vorgabe aus spec/01, Abschnitt 3.2 ein, dass ``email`` bei den
+#: Kanaelen WEB und APP Pflicht ist.
+PROFIL_JE_KANAL: Final[Mapping[Kanal, Quellschnittstelle]] = MappingProxyType(
+    {
+        Kanal.WEB: _RNEXT,
+        Kanal.APP: _B420,
+        Kanal.API_BIPRO: _B420,
+        Kanal.MAKLER: _GDV,
+        Kanal.TELEFON: _CSV,
+    }
+)
+
+
+def profil_des_kanals(kanal: Kanal | str) -> Quellschnittstelle:
+    """Gibt das Pflichtfeldprofil zurueck, das fuer diesen Eingangskanal gilt.
+
+    Args:
+        kanal: Wert aus :class:`~src.common.enums.Kanal` oder die zugehoerige
+            Zeichenkette.
+
+    Returns:
+        Die Quellschnittstelle, deren Profil auf die Felder der Anfrageseite
+        angewendet wird.
+
+    Raises:
+        KeyError: Bei einem unbekannten Kanal. Bewusst kein stiller Ersatzwert —
+            ein neuer Kanal muss hier ausdruecklich eingetragen werden.
+    """
+    return PROFIL_JE_KANAL[Kanal(kanal)]
 
 
 def ist_pflicht(feld: str, schnittstelle: Quellschnittstelle) -> bool:

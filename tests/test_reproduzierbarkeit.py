@@ -1,9 +1,13 @@
 """Prueft Architekturregel A2 — vollstaendige Reproduzierbarkeit.
 
-Kern des Tests: ``scripts/build_reference.py`` wird zweimal als eigener Prozess
-mit demselben Seed ausgefuehrt; die SHA-256-Hashes aller sieben Tabellen muessen
-uebereinstimmen. Bewusst als Unterprozess und nicht als Funktionsaufruf — nur so
-sind auch Prozessstart, Importreihenfolge und Dateiausgabe mitgeprueft.
+Zwei Kerntests, beide als eigener Prozess statt als Funktionsaufruf: Nur so sind
+Prozessstart, Importreihenfolge und Dateiausgabe mitgeprueft.
+
+1. ``scripts/build_reference.py`` zweimal mit demselben Seed — die SHA-256-Hashes
+   aller sieben Referenztabellen muessen uebereinstimmen.
+2. ``scripts/generate.py`` zweimal mit derselben ``run_id`` — die Hashes aller
+   vierzehn Datensatzdateien (sieben Entitaeten in zwei Schichten) muessen
+   uebereinstimmen.
 
 Der Gegentest ist ebenso wichtig: Mit einem **anderen** Seed muessen sich die
 Dateien unterscheiden. Ein Skript, das den Seed ignoriert, waere sonst
@@ -12,25 +16,37 @@ Dateien unterscheiden. Ein Skript, das den Seed ignoriert, waere sonst
 
 from __future__ import annotations
 
+import dataclasses
+import json
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
+import yaml
 from numpy.random import SeedSequence
 
-from src.common.pfade import REFERENZ_DATEIEN, sha256_datei
+from src.common.config import lade_config
+from src.common.pfade import CLEAN_MANIFEST, REFERENZ_DATEIEN, sha256_dataframe, sha256_datei
 from src.common.seeding import (
     Strom,
     faker_instanz,
     generator,
     lauf_seed,
     seed_als_int,
+    teilstrom,
     wurzel_seeds,
 )
+from src.common.serialisierung import ENTITAETEN
+from src.generator.pipeline import erzeuge_datensatz
 
 WURZEL = Path(__file__).resolve().parents[1]
 SKRIPT = WURZEL / "scripts" / "build_reference.py"
+GENERATOR_SKRIPT = WURZEL / "scripts" / "generate.py"
+
+#: Anfragezahl der Reproduzierbarkeitslaeufe. Klein genug fuer die Laufzeit,
+#: gross genug, dass jede Entitaet besetzt ist.
+REPRO_ANFRAGEN = 400
 
 
 def _baue(ziel: Path, seed: int) -> dict[str, str]:
@@ -92,6 +108,133 @@ def test_versionierte_referenzdaten_entsprechen_dem_master_seed(
         assert sha256_datei(referenzverzeichnis / name) == frisch[name], (
             f"{name} unter data/reference weicht vom Skriptergebnis ab"
         )
+
+
+# ---------------------------------------------------------------------------
+# Datensatz (Phase 2)
+# ---------------------------------------------------------------------------
+
+
+def _hashes_aus_manifest(manifest: Path) -> dict[str, str]:
+    """Liest die Dateihashes beider Schichten aus einem Manifest."""
+    inhalt = json.loads(manifest.read_text(encoding="utf-8"))
+    return {
+        f"{name}/{schicht}": werte["sha256_datei"]
+        for name, eintrag in inhalt["entitaeten"].items()
+        for schicht, werte in eintrag["schichten"].items()
+    }
+
+
+def _konfiguration_mit_laufverzeichnis(zielwurzel: Path) -> Path:
+    """Schreibt eine Konfigurationskopie, die ihre Laufartefakte nach ``zielwurzel`` legt.
+
+    Ohne sie wuerden die Testlaeufe unter ``data/runs`` im Arbeitsverzeichnis
+    landen.
+    """
+    rohdaten = yaml.safe_load((WURZEL / "config" / "default.yaml").read_text(encoding="utf-8"))
+    rohdaten["pfade"]["runs"] = str(zielwurzel)
+    pfad = zielwurzel / "config.yaml"
+    pfad.write_text(yaml.safe_dump(rohdaten, allow_unicode=True), encoding="utf-8")
+    return pfad
+
+
+def _erzeuge(konfiguration: Path, zielwurzel: Path, run_id: str, seed: int) -> Path:
+    """Fuehrt ``scripts/generate.py`` als eigenen Prozess aus."""
+    ergebnis = subprocess.run(
+        [
+            sys.executable,
+            str(GENERATOR_SKRIPT),
+            "--config",
+            str(konfiguration),
+            "--run-id",
+            run_id,
+            "--seed",
+            str(seed),
+            "--n-anfragen",
+            str(REPRO_ANFRAGEN),
+            "--still",
+        ],
+        cwd=WURZEL,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert ergebnis.returncode == 0, f"generate.py schlug fehl:\n{ergebnis.stderr}"
+    return zielwurzel / run_id / "clean" / CLEAN_MANIFEST
+
+
+@pytest.fixture(scope="module")
+def laufverzeichnis(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Ein temporaeres Verzeichnis fuer die Laufartefakte der Tests."""
+    return tmp_path_factory.mktemp("laeufe")
+
+
+@pytest.fixture(scope="module")
+def datensatz_hashes(
+    referenzverzeichnis: Path, laufverzeichnis: Path
+) -> tuple[dict[str, str], ...]:
+    """Zwei Laeufe mit demselben Seed, jeweils als eigener Prozess."""
+    assert referenzverzeichnis.is_dir()
+    konfiguration = _konfiguration_mit_laufverzeichnis(laufverzeichnis)
+    erster = _hashes_aus_manifest(_erzeuge(konfiguration, laufverzeichnis, "repro_a", 20260630))
+    zweiter = _hashes_aus_manifest(_erzeuge(konfiguration, laufverzeichnis, "repro_b", 20260630))
+    return (erster, zweiter)
+
+
+@pytest.mark.parametrize("entitaet", ENTITAETEN)
+@pytest.mark.parametrize("schicht", ["typed", "raw"])
+def test_gleicher_seed_erzeugt_bitgleiche_entitaet(
+    datensatz_hashes: tuple[dict[str, str], ...], entitaet: str, schicht: str
+) -> None:
+    """Zwei Laeufe mit demselben Seed liefern bitgleiche Parquetdateien."""
+    erster, zweiter = datensatz_hashes
+    schluessel = f"{entitaet}/{schicht}"
+    assert erster[schluessel] == zweiter[schluessel], f"{schluessel} ist nicht reproduzierbar"
+
+
+def test_anderer_seed_erzeugt_anderen_datensatz(
+    datensatz_hashes: tuple[dict[str, str], ...], laufverzeichnis: Path
+) -> None:
+    """Gegenprobe: Der Seed wirkt sich auf jede Entitaet aus."""
+    erster, _ = datensatz_hashes
+    konfiguration = _konfiguration_mit_laufverzeichnis(laufverzeichnis)
+    anders = _hashes_aus_manifest(
+        _erzeuge(konfiguration, laufverzeichnis, "repro_c", 987654321)
+    )
+    gleich = [name for name, wert in erster.items() if anders[name] == wert]
+    assert not gleich, f"Mit anderem Seed unveraendert geblieben: {gleich}"
+
+
+def test_datensatz_ist_im_speicher_reproduzierbar(referenzverzeichnis: Path) -> None:
+    """Zwei Aufrufe von :func:`erzeuge_datensatz` liefern identische Datenrahmen.
+
+    Ergaenzt den Prozesstest um den Fall, dass beide Laeufe im selben Prozess
+    stattfinden — dort faellt ein versehentlich geteilter Zufallszustand auf, den
+    getrennte Prozesse verdecken wuerden.
+    """
+    assert referenzverzeichnis.is_dir()
+    config = dataclasses.replace(lade_config(), n_anfragen=REPRO_ANFRAGEN)
+    seed_basis = wurzel_seeds(config.master_seed).basis
+    erster = erzeuge_datensatz(config, seed_basis)
+    zweiter = erzeuge_datensatz(config, seed_basis)
+    for name in ENTITAETEN:
+        assert sha256_dataframe(erster[name]) == sha256_dataframe(zweiter[name]), name
+
+
+def test_teilstroeme_sind_voneinander_unabhaengig() -> None:
+    """Verschiedene Teilstroeme liefern verschiedene Zufallsfolgen.
+
+    Waeren zwei Erzeugungsschritte an denselben Strom gebunden, waeren ihre
+    Ziehungen korreliert — im Datensatz nicht sichtbar, in der Auswertung aber
+    eine stille Abhaengigkeit.
+    """
+    basis = wurzel_seeds(20260630).basis
+    folgen = {
+        nummer: generator(teilstrom(basis, nummer)).integers(0, 2**32, size=8).tolist()
+        for nummer in range(12)
+    }
+    assert len({tuple(folge) for folge in folgen.values()}) == len(folgen)
+    assert folgen[3] == generator(teilstrom(basis, 3)).integers(0, 2**32, size=8).tolist()
 
 
 # ---------------------------------------------------------------------------
