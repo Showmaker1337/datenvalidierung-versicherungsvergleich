@@ -100,7 +100,7 @@ Begründung, Datum. Niemals stillschweigend ändern.
 │   ├── 01_datenmodell.md
 │   ├── 02_regelkatalog.md
 │   └── 03_fehlerklassen.md
-├── _prompts/                   # Phasenprompts für den Nutzer — KEIN Projektinhalt
+├── _prompts/                   # Phasenprompts — versioniert, aber keine Arbeitsanweisung
 ├── scripts/                    # ausführbare Einstiegspunkte je Phase
 ├── src/
 │   ├── common/                 # Enums, Konstanten, Config, Referenzdaten, Pfade, Seeding
@@ -196,7 +196,10 @@ Pflichttests:
   benannt, nicht stillschweigend leer gelassen.
 - Nicht mehrere Phasen auf einmal abarbeiten. Am Ende jeder Phase anhalten und den
   Stand berichten.
-- **`_prompts/` ist kein Projektinhalt.** Der Ordner enthält die Phasenprompts, die der
-  Nutzer nacheinander einfügt. Lies dort nichts von dir aus und arbeite keine Phase ab, die
-  nicht ausdrücklich beauftragt wurde. Insbesondere: Der Fehlerinjektor entsteht erst nach
-  dem Git-Tag `freeze-regelkatalog`, auch wenn seine Spezifikation bereits vorliegt.
+- **Aus `_prompts/` nichts von dir aus abarbeiten.** Der Ordner enthält die Phasenprompts,
+  die der Nutzer nacheinander einfügt. Lies dort nichts eigenmächtig und beginne keine Phase,
+  die nicht ausdrücklich beauftragt wurde. Insbesondere: Der Fehlerinjektor entsteht erst
+  nach dem Git-Tag `freeze-regelkatalog`, auch wenn seine Spezifikation bereits vorliegt.
+  **Versioniert wird der Ordner trotzdem** — er dokumentiert zusammen mit dem Commit-Verlauf,
+  in welcher Reihenfolge spezifiziert und implementiert wurde. „Kein Projektinhalt" heißt
+  „nicht abarbeiten", nicht „nicht committen".

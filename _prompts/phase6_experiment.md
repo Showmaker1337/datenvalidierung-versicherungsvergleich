@@ -7,6 +7,23 @@
 
 Baue den Experiment-Runner, die statistische Auswertung und die Abbildungen für die Arbeit.
 
+## Aufgabe 0 — Orientierung (immer zuerst)
+
+Dieser Prompt setzt voraus, dass die vorherigen Phasen abgeschlossen sind, aber **nicht**,
+dass du sie selbst gebaut hast. Verschaffe dir zuerst einen Überblick, bevor du etwas Neues
+schreibst:
+
+1. `CLAUDE.md` lesen — Architekturregeln und Konventionen.
+2. Die in diesem Prompt genannten Abschnitte der `spec/`-Dateien lesen.
+3. **Den vorhandenen Code sichten:** `src/common/` vollständig, dazu die Module der
+   vorherigen Phasen. Übernimm die dort etablierten Funktionsnamen, Signaturen und
+   Konventionen, statt neue zu erfinden.
+4. `docs/iteration_log.md` und `git log --oneline` überfliegen — dort stehen die
+   Entscheidungen der vorherigen Phasen.
+
+Erfinde keine Funktion neu, die es schon gibt. Findest du einen Widerspruch zwischen diesem
+Prompt und dem vorhandenen Code, melde ihn, statt eigenmächtig eine Seite zu ändern.
+
 ## Aufgabe 1 — Experimentdesign
 
 ### Hauptversuch (vollfaktoriell)

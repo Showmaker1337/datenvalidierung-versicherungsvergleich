@@ -12,6 +12,24 @@ den Regelkatalog nicht und darf nichts aus `src/rules/` importieren (Architektur
 — er erfüllt die fachlichen Abhängigkeiten, weil sie in der Domäne gelten, nicht weil eine
 Regel sie prüft.
 
+## Aufgabe 0 — Orientierung (immer zuerst)
+
+Dieser Prompt setzt Phase 1 voraus, aber **nicht**, dass du sie selbst gebaut hast.
+Verschaffe dir zuerst einen Überblick, bevor du etwas Neues schreibst:
+
+1. `CLAUDE.md` lesen — Architekturregeln und Konventionen.
+2. `spec/01_datenmodell.md` vollständig lesen, insbesondere die Abschnitte 2.8
+   (SF-Ordinalskala), 3 (Feldspezifikation), 5 (Pflichtfeldprofil) und 6 (Datenschichten).
+3. **`src/common/` vollständig sichten.** Dort liegen bereits `config.py`, `seeding.py`,
+   `enums.py`, `wertebereiche.py`, `geld.py`, `iban.py`, `referenz.py`, `pfade.py` und
+   `pflichtfelder.py`. Übernimm die dort etablierten Funktionsnamen und Signaturen, statt
+   neue zu erfinden.
+4. `docs/iteration_log.md`, `docs/verteilungsquellen.md` und `git log --oneline`
+   überfliegen — dort stehen die Entscheidungen aus Phase 1.
+
+Findest du einen Widerspruch zwischen diesem Prompt und dem vorhandenen Code, melde ihn,
+statt eigenmächtig eine Seite zu ändern.
+
 ## Aufgabe 1 — Modul `src/generator/`
 
 ```
@@ -59,6 +77,13 @@ dieser Reihenfolge auf:
    verletzt, weil je Anbieter mehrere Generationen existieren. Danach die
    Beitragsberechnung von unten nach oben (siehe Aufgabe 3).
 6. **Zahlung:** IBAN mit korrekter Prüfziffer über `common/iban.py`.
+7. **Pflichtfeldprofil anwenden.** Felder, die für die jeweilige `quell_schnittstelle` in
+   `spec/01`, Abschnitt 5 als *optional* markiert sind, werden mit einer Wahrscheinlichkeit
+   von 30 Prozent **leer** gelassen. Nutze dafür `common/pflichtfelder.py` aus Phase 1.
+   **Das ist Teil des sauberen Datensatzes, kein Fehler.** Ohne diesen Schritt sind alle
+   Felder überall gefüllt, der Datensatz ist unrealistisch homogen, und R-057 hätte später
+   nichts zu prüfen. Kernpflichtfelder aus R-001 bleiben unabhängig von der Schnittstelle
+   immer gefüllt.
 
 Kritische Abhängigkeiten, die häufig übersehen werden:
 

@@ -16,6 +16,7 @@ spec/
 prompts/
   phase0_git.md              ← zuerst: Git und GitHub
   phase1_setup.md
+  phase1b_nachtrag.md        ← Spezifikationslücken aus Phase 1
   phase2_generator.md
   phase3_regelengine.md      ← danach kommt der FREEZE
   phase4_injektor.md
@@ -53,6 +54,7 @@ claude
 |---|---|---|
 | 0 | `phase0_git.md` | Git-Repository, `.gitignore`, `.gitattributes`, privates GitHub-Repo |
 | 1 | `phase1_setup.md` | Projektgerüst, `src/common/`, Referenzdaten |
+| 1b | `phase1b_nachtrag.md` | Währungskatalog, SF-Ordinalskala, Monotonie-Korrektur |
 | 2 | `phase2_generator.md` | `df_clean` — der saubere synthetische Datensatz |
 | 3 | `phase3_regelengine.md` | 58 Regeln implementiert, Clean-Baseline-Lauf ohne Meldungen |
 | **→** | **FREEZE** | `git tag freeze-regelkatalog` — **du selbst, nicht Claude Code** |
@@ -62,6 +64,18 @@ claude
 
 Nach jeder Phase: Tests laufen lassen, Ergebnis prüfen, committen. Erst dann die nächste
 Phase starten. Claude Code ist angewiesen, am Ende jeder Phase anzuhalten und zu berichten.
+
+**Für jede Phase einen neuen Chat.** Die Prompts ab Phase 2 beginnen mit einer
+Orientierungs-Aufgabe: `CLAUDE.md` lesen, die genannten Spec-Abschnitte lesen, den
+vorhandenen Code in `src/common/` sichten, `docs/iteration_log.md` und `git log`
+überfliegen. Damit sind sie ohne Gesprächshistorie lauffähig — der gesamte Projektzustand
+liegt auf der Platte, nicht im Chat.
+
+Ein frischer Chat ist dabei besser als `/compact`: Der neue Chat liest die **echten
+Dateien**, `/compact` behält nur eine Zusammenfassung des Gesprächs — und eine
+Zusammenfassung ist immer eine Interpretation. `/compact` ist das Werkzeug für den anderen
+Fall: mitten in einer Phase, wenn der Kontext knapp wird und ein Neustart den Faden
+zerreißen würde.
 
 ---
 
