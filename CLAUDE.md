@@ -165,6 +165,8 @@ Nicht verwenden: Deequ/PyDeequ (Spark), dbt, Soda Core, SDV.
   Typregeln ebenfalls, fachliche Regeln auf dem geparsten `df_typed`. Die Serialisierungs-
   regeln stehen in `spec/01_datenmodell.md`, Abschnitt 6. **Ohne diese Trennung sind
   mehrere Regeln per Konstruktion nicht verletzbar.**
+- **Commit-Nachrichten** auf Deutsch, im Imperativ, eine Zeile, ohne Emoji.
+- **Je Phase mindestens ein Commit.** Der Phasenabschluss wird als eigener Commit markiert.
 
 ---
 
