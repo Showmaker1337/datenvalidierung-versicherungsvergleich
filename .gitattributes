@@ -1,0 +1,11 @@
+* text=auto eol=lf
+
+# Referenzdaten: feste Zeilenenden, damit die Hashes stabil bleiben
+data/reference/*.csv text eol=lf
+
+# Binärformate niemals anfassen
+*.parquet binary
+*.png binary
+*.pdf binary
+*.docx binary
+*.xlsx binary
