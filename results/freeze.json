@@ -1,0 +1,59 @@
+{
+  "abgrenzung": {
+    "eingefroren": [
+      "Praedikate der Regeln",
+      "Wertebereiche und Schwellenwerte",
+      "Geltungsbereiche",
+      "Schweregrade",
+      "Zuordnung zu den Achsen A, B und C"
+    ],
+    "hinweis": "Jede Aenderung am eingefrorenen Teil ist Iteration 2 und wird in docs/iteration_log.md mit eigener Ergebnistabelle berichtet.",
+    "nicht_eingefroren": [
+      "Spalte Literatur im Katalog",
+      "Spalte Fachliche Grundlage im Katalog",
+      "Formulierungen in spec/"
+    ]
+  },
+  "clean_baseline": {
+    "false_positive_rate_zellen": 0.0,
+    "markierte_zellen": 0,
+    "meldungen_gesamt": 0,
+    "run_id": "baseline01",
+    "satzbefunde_gesamt": 0,
+    "seeds_gegengeprueft": [20260630, 11111, 424242, 987654],
+    "zellen_gesamt": 1769095
+  },
+  "commit_hash": "30ca5ea429a0abddec7050af1d1a42cdf9942548",
+  "commit_hash_main": "30ca5ea429a0abddec7050af1d1a42cdf9942548",
+  "datum": "2026-08-06",
+  "erzeugt_von": "beim Setzen des Tags von Hand erstellt; die Zahlen stammen aus results/clean_baseline.json, results/regelkatalog.csv und dem Testlauf desselben Commits",
+  "regeln": {
+    "gesamt": 58,
+    "je_gruppe": {
+      "G1": 25,
+      "G2": 17,
+      "G3": 6,
+      "G4": 3,
+      "G5": 7
+    },
+    "je_schicht": {
+      "raw": 11,
+      "typed": 47
+    },
+    "je_schweregrad": {
+      "HART": 47,
+      "WARNUNG": 11
+    },
+    "nicht_in_zellmetrik": ["R-047", "R-048"]
+  },
+  "repository": "https://github.com/Showmaker1337/Bachelorarbeit_Programm",
+  "tag": "freeze-regelkatalog",
+  "tag_objekt_hash": "3f64827ce95801aec6df29d0d18232404c4af206",
+  "tests": {
+    "gesamt": 593,
+    "regeltestfaelle": 163,
+    "regeltestfaelle_negativ": 82,
+    "regeltestfaelle_positiv": 81
+  },
+  "zweck": "Belegt, dass der Regelkatalog vor der Implementierung des Fehlerinjektors feststand. Der Commit-Hash ist in der Bachelorarbeit zu zitieren; das Tag-Objekt ist die Huelle des annotierten Tags, nicht der Codestand."
+}

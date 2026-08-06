@@ -37,8 +37,12 @@ Je Änderung ein Abschnitt mit allen fünf Angaben:
 
 Der Katalog in `spec/02_regelkatalog.md` mit 58 Regeln (R-001 bis R-058).
 
-- **Stand:** noch nicht implementiert, Freeze steht aus.
-- **Tag:** `freeze-regelkatalog` — wird nach Phase 3 gesetzt.
+- **Stand:** implementiert, Clean-Baseline-Lauf ohne Meldungen, **eingefroren**.
+- **Tag:** `freeze-regelkatalog`, gesetzt am 2026-08-06.
+- **Commit-Hash:** `30ca5ea429a0abddec7050af1d1a42cdf9942548`
+
+Die vollständigen Freeze-Angaben stehen am Ende dieses Dokuments und maschinenlesbar in
+`results/freeze.json`.
 
 ### Vorbemerkung zu R-053 — Korrektur **vor** dem Freeze
 
@@ -365,6 +369,61 @@ Der Bericht steht in `results/clean_baseline.json`, die Laufzeiten je Regel in
 unbelegt.
 
 ---
+
+## Abschluss von Iteration 1 — der Freeze
+
+Gesetzt am **2026-08-06**, nach grüner Testsuite, sauberer Typ- und Lintprüfung und einem
+erneut ausgeführten Clean-Baseline-Lauf ohne Verstöße.
+
+| Angabe | Wert |
+|---|---|
+| Tag | `freeze-regelkatalog` |
+| **Commit-Hash** | **`30ca5ea429a0abddec7050af1d1a42cdf9942548`** |
+| Tag-Objekt | `3f64827ce95801aec6df29d0d18232404c4af206` |
+| Datum | 2026-08-06 |
+| Regeln | 58 — G1 25, G2 17, G3 6, G4 3, G5 7; davon 47 HART und 11 WARNUNG |
+| Clean-Baseline | 0 Zellmeldungen, 0 Satzbefunde, 0 markierte Zellen von 1.769.095 |
+| Regeltestfälle | 163 (81 positiv, 82 negativ); Testsuite gesamt 593 |
+| Remote | `https://github.com/Showmaker1337/Bachelorarbeit_Programm` |
+
+**Zu zitieren ist der Commit-Hash, nicht das Tag-Objekt.** `git rev-parse freeze-regelkatalog`
+gibt bei einem annotierten Tag die Hülle des Tag-Objekts zurück; den Codestand liefert
+`git rev-parse freeze-regelkatalog^{commit}`. Beide Werte stehen oben, damit im Anhang der
+Arbeit nicht der falsche landet.
+
+### Was der Freeze umfasst — und was nicht
+
+**Eingefroren sind die Regeln selbst.** Dazu gehören:
+
+- die Prädikate — was eine Regel prüft,
+- Wertebereiche und Schwellenwerte, einschließlich der Werte in `config/default.yaml`,
+- die Geltungsbereiche, also welche Entitäten und Felder eine Regel betrifft,
+- die Schweregrade `HART` und `WARNUNG`,
+- die Zuordnung zu den Achsen A (Granularität), B (Fehlerklasse) und C (Erkennbarkeitsgrad).
+
+Jede Änderung daran ist ab jetzt eine **Iteration 2**: Regel-ID, alte Fassung, neue Fassung,
+Begründung, Datum — und eine eigene Ergebnistabelle in der Auswertung. Niemals
+stillschweigend.
+
+**Nicht eingefroren sind die Belege daneben.** Dazu gehören:
+
+- die Spalte „Literatur" im Katalog,
+- die Spalte „Fachliche Grundlage" im Katalog,
+- Formulierungen, Beispiele und Begründungstexte in `spec/`.
+
+Diese Angaben dokumentieren die **Herleitung**, nicht die Prüfung. Sie dürfen jederzeit
+korrigiert werden, solange sich das geprüfte Prädikat nicht ändert.
+
+**Warum diese Unterscheidung nötig ist.** Der Freeze belegt, dass die Regeln vor dem
+Fehlerinjektor feststanden. Er belegt **nicht**, dass jede Fußnote von Anfang an richtig war.
+Die Literaturbelege des Katalogs werden noch geprüft; ohne diese Abgrenzung müsste jede
+korrigierte Quellenangabe als Regeländerung deklariert werden — sachlich falsch und für die
+Aussagekraft von Iteration 2 schädlich, weil echte Regeländerungen dann im Rauschen
+verschwänden.
+
+**Die Probe im Zweifelsfall:** Ändert sich durch die Korrektur die Menge der gemeldeten
+Zellen auf irgendeinem Datensatz? Wenn ja, ist es eine Regeländerung und damit Iteration 2.
+Wenn nein, ist es eine Korrektur am Beleg.
 
 ---
 

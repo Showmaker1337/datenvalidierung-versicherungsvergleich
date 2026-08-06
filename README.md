@@ -252,7 +252,44 @@ sauber" trägt. Ohne sie wäre jede später berichtete Precision unbelegt.
 
 ## Freeze des Regelkatalogs
 
-*Der Tag wird nach Abnahme dieser Phase gesetzt.*
+Der Regelkatalog wurde **vor** dem Fehlerinjektor entwickelt und anschließend eingefroren.
+Der Commit-Hash dieses Tags belegt, dass die Validierungsregeln nicht nachträglich auf die
+injizierten Fehler zugeschnitten wurden. **Ohne diesen Beleg ist die Behauptung nicht
+überprüfbar** — er gehört deshalb in den Anhang der Arbeit.
+
+| Angabe | Wert |
+|---|---|
+| Tag | `freeze-regelkatalog` |
+| **Commit-Hash** | **`30ca5ea429a0abddec7050af1d1a42cdf9942548`** |
+| Tag-Objekt | `3f64827ce95801aec6df29d0d18232404c4af206` |
+| Datum | 2026-08-06 |
+| Regeln im Katalog | 58 (25 / 17 / 6 / 3 / 7 über G1 bis G5; 47 HART, 11 WARNUNG) |
+| Clean-Baseline-Lauf | **null Verstöße** bei 1.769.095 geprüften Zellen |
+| Regeltestfälle | 163 (81 positiv, 82 negativ), Testsuite gesamt 593 |
+
+Zu zitieren ist der **Commit-Hash**. `git rev-parse freeze-regelkatalog` liefert bei einem
+annotierten Tag die Hülle des Tag-Objekts, nicht den Codestand; den Commit liefert
+`git rev-parse freeze-regelkatalog^{commit}`.
+
+```bash
+git show freeze-regelkatalog
+```
+
+Maschinenlesbar in [`results/freeze.json`](results/freeze.json) — die Datei wandert ins
+Reproduzierbarkeitspaket.
+
+### Was der Freeze umfasst
+
+**Eingefroren sind die Regeln selbst:** Prädikate, Wertebereiche, Schwellenwerte,
+Geltungsbereiche, Schweregrade und die Zuordnung zu den Achsen A, B und C. Jede Änderung
+daran ist ab jetzt eine **Iteration 2** und wird in
+[`docs/iteration_log.md`](docs/iteration_log.md) mit eigener Ergebnistabelle berichtet.
+
+**Nicht eingefroren sind die Belege daneben:** die Spalten „Literatur" und „Fachliche
+Grundlage" im Katalog sowie Formulierungen in `spec/`. Sie dokumentieren die Herleitung und
+dürfen jederzeit korrigiert werden, solange sich das geprüfte Prädikat nicht ändert. Der
+Freeze belegt, dass die Regeln vor dem Injektor feststanden — nicht, dass jede Fußnote von
+Anfang an richtig war.
 
 - **Tag:** `freeze-regelkatalog`
 - **Commit-Hash:** _(nach Phase 3 eintragen)_
