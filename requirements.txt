@@ -1,0 +1,43 @@
+# Abhaengigkeiten des Prototyps — Versionen gepinnt (Architekturregel A2).
+#
+# Aufloesung geprueft am 2026-08-06 unter CPython 3.12.10 (Windows 11).
+# Alle Pakete wurden gemeinsam installiert und importiert; pandera validiert
+# lazy gegen pandas 3.0.
+#
+# Installation:
+#   python -m venv .venv
+#   .venv/Scripts/python.exe -m pip install -r requirements.txt      (Windows)
+#   .venv/bin/python -m pip install -r requirements.txt              (Linux/macOS)
+
+# --- Datenhaltung und Austauschformat -------------------------------------
+pandas==3.0.5
+numpy==2.5.1
+pyarrow==25.0.0
+
+# --- Regel-Engine ---------------------------------------------------------
+pandera==0.32.1
+
+# --- Basisdaten -----------------------------------------------------------
+Faker==40.36.0
+
+# --- Baselines ------------------------------------------------------------
+pydantic==2.13.4          # B0 — reine Typ- und Constraint-Validierung
+scikit-learn==1.9.0       # B2 — IsolationForest
+cuallee==0.15.4           # B3 — derselbe Regelinhalt, anderes Framework
+
+# --- Statistik und Abbildungen -------------------------------------------
+scipy==1.18.0
+matplotlib==3.11.1
+
+# --- Konfiguration --------------------------------------------------------
+PyYAML==6.0.3
+
+# --- Tests ----------------------------------------------------------------
+pytest==9.1.1
+hypothesis==6.165.2
+
+# --- Werkzeuge (Linting und Typpruefung) ----------------------------------
+ruff==0.16.1
+mypy==2.3.0
+types-PyYAML==6.0.12.20260724
+pandas-stubs==3.0.5.260730

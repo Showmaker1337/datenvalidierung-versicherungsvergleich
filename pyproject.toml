@@ -1,0 +1,106 @@
+[project]
+name = "regelbasierte-datenvalidierung"
+version = "0.1.0"
+description = "Prototyp zur regelbasierten Datenvalidierung in Versicherungsvergleichssystemen"
+requires-python = ">=3.12"
+
+# ---------------------------------------------------------------------------
+# pytest
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+# Das Repository-Wurzelverzeichnis liegt auf dem Importpfad, damit "src.common.*"
+# ohne editierbare Installation importierbar ist.
+pythonpath = ["."]
+addopts = "-q --strict-markers --strict-config"
+filterwarnings = ["error"]
+
+# ---------------------------------------------------------------------------
+# ruff — strikt: vollstaendiger Regelsatz, eng begrenzte Ausnahmen
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "scripts", "tests"]
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    # Gegenseitig ausschliessende pydocstyle-Regeln; die jeweils andere Variante
+    # (D211, D212) bleibt aktiv.
+    "D203",
+    "D213",
+    # Kollidieren mit dem Formatter.
+    "COM812",
+    "ISC001",
+    # Fehlermeldungen werden im Klartext an die Exception uebergeben. Die
+    # Alternative (Meldung erst in eine Variable schreiben) blaeht jedes "raise"
+    # auf drei Zeilen auf, ohne die Lesbarkeit zu verbessern.
+    "EM101",
+    "EM102",
+    "TRY003",
+    # Deutsche Typografie: Umlaute, Gedankenstriche und Anfuehrungszeichen in
+    # Docstrings, Kommentaren und Meldungstexten sind hier Absicht.
+    "RUF001",
+    "RUF002",
+    "RUF003",
+    # Fachliche Bezeichner sind deutsch (CLAUDE.md, Abschnitt 5). Die Ausnahmen
+    # heissen deshalb "...Fehler" und nicht "...Error".
+    "N818",
+    # Bewusst keine Lizenz- und Copyright-Vermerke: Bei einer Abschlussarbeit
+    # haengt die Lizenzfrage von der Hochschulordnung ab (siehe README).
+    "CPY001",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = [
+    "S101",     # assert ist in Tests das Ausdrucksmittel
+    "PLR2004",  # erwartete Zahlenwerte stehen im Test bewusst literal
+    "INP001",   # tests/ ist bewusst kein Paket
+    "S603",     # subprocess mit fest verdrahteten Argumenten
+]
+"scripts/*" = [
+    "T201",     # Fortschrittsausgabe auf stdout ist gewuenscht
+    "INP001",   # scripts/ wird per Pfad-Bootstrap ausgefuehrt
+]
+"src/cli.py" = ["T201"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["src"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.flake8-annotations]
+mypy-init-return = true
+
+[tool.ruff.format]
+line-ending = "lf"
+
+# ---------------------------------------------------------------------------
+# mypy — strikt
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.12"
+files = ["src", "scripts", "tests"]
+strict = true
+warn_unreachable = true
+disallow_any_unimported = true
+no_implicit_reexport = true
+show_error_codes = true
+pretty = true
+
+# Diese Pakete liefern keine (vollstaendigen) Typstubs. Die Zuweisung von
+# Rueckgabewerten wird dadurch nicht ungeprueft: alle Grenzflaechen im Projekt
+# sind explizit annotiert.
+[[tool.mypy.overrides]]
+module = [
+    "faker.*",
+    "pandera.*",
+    "cuallee.*",
+    "sklearn.*",
+    "scipy.*",
+    "matplotlib.*",
+]
+ignore_missing_imports = true

@@ -1,0 +1,44 @@
+# Konfiguration des Prototyps.
+#
+# Diese Datei ist die einzige Stelle, an der fachliche Stellschrauben stehen.
+# Sie wird ausschliesslich von src/common/config.py gelesen; jede andere
+# Komponente bekommt das erzeugte Config-Objekt uebergeben (CLAUDE.md, Abschnitt 2).
+#
+# Unbekannte Schluessel fuehren zu einem Abbruch, fehlende ebenfalls — es gibt
+# keine stillen Defaultwerte.
+
+stichtag: "2026-06-30" # Referenzdatum fuer alle Altersberechnungen
+master_seed: 20260630
+n_anfragen: 10000
+angebote_je_anfrage: { min: 3, max: 12 }
+sparten_verteilung: { "051": 0.35, "052": 0.20, "053": 0.15, "130": 0.30 }
+pfade:
+  reference: "data/reference"
+  runs: "data/runs"
+  results: "results"
+
+# Schwellenwerte der heuristischen Regeln (C2).
+# Sie stehen bewusst hier und nicht im Code, weil sie in der Arbeit
+# diskutiert und variiert werden.
+schwellen:
+  r047_spreizung_max: 6.0 # max/min Zahlbeitrag je Anfrage
+  r048_zuers_toleranz_relativ: 0.30
+  r053_korridor_kfz_eur: [40, 6000]
+  r053_korridor_hausrat_eur: [20, 2000]
+  r054_faktor: 12.0
+  r054_toleranz_relativ: 0.05
+  r022_wohnflaeche: [10, 1000]
+  r031_toleranz_eur: 0.02
+  r036_toleranz_je_rate_eur: 0.01 # skaliert mit der Ratenanzahl
+
+# Umfang der einmalig erzeugten Referenztabellen (spec/01_datenmodell.md,
+# Abschnitt 2). Diese Werte gehen in scripts/build_reference.py ein; eine
+# Aenderung erzeugt andere Referenzdateien und damit andere Hashes.
+referenzdaten:
+  n_plz: 8000
+  n_zulassungsbezirke: 400
+  n_typklassen: 3000
+  n_hersteller: 40
+  n_vu: 14
+  # Anteile der ZUERS-Zonen 1 bis 4 (GDV Naturgefahren-Datenservice).
+  zuers_anteile: [0.924, 0.061, 0.011, 0.004]
