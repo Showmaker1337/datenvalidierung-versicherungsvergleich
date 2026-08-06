@@ -117,13 +117,60 @@ Pflichtfeldniveau als auch die Einheitenkonvention.
 
 ### 2.6 `sf_beitragssatz.csv`
 
-`sf_klasse` (str) → `beitragssatz_prozent` (int), **monoton fallend** über die
-numerischen Klassen. Ankerwerte: SF 1 ≈ 58 %, SF 50 ≈ 16 %. Sonderklassen: `M` = 245 %,
-`S` = 155 %, `0` = 100 %, `1/2` = 70 %.
+`sf_klasse` (str) → `beitragssatz_prozent` (int).
+
+**Monotonie: nicht-steigend, nicht streng fallend.** Über die numerischen Klassen SF 1 bis
+SF 50 gilt `satz(SF n+1) ≤ satz(SF n)`. Plateaus sind ausdrücklich zulässig und erwünscht.
+
+Der Grund ist zweifach. Rechnerisch: Zwischen den Ankerwerten 58 und 16 liegen 43 ganze
+Zahlen, zu besetzen sind 50 Klassen — strenge Monotonie ist bei ganzzahligen Prozentwerten
+unmöglich. Fachlich: Reale Beitragssatztabellen flachen bei hohen Schadenfreiheitsklassen
+ohnehin ab; zwischen SF 40 und SF 45 unterscheidet sich der Satz bei vielen Versicherern
+nicht mehr. Die Plateaus bilden also die Realität ab, sie sind kein Kompromiss.
+
+Ankerwerte: SF 1 ≈ 58 %, SF 50 ≈ 16 %. Sonderklassen: `M` = 245 %, `S` = 155 %,
+`0` = 100 %, `1/2` = 70 %.
 
 Es gibt keine branchenweit verbindliche Tabelle — die Sätze sind versichererindividuell.
-In der Arbeit als Modellannahme kennzeichnen und die Regel als **Monotoniebedingung**
-formulieren, nicht als Abgleich gegen eine feste Tabelle.
+In der Arbeit als Modellannahme kennzeichnen. Zwei weitere Vereinfachungen gehören
+ebenfalls benannt: Die meisten Versicherer enden bei SF 35, nicht bei SF 50, und viele
+moderne Tabellen setzen SF 1 auf 100 % statt auf 58 %.
+
+### 2.7 `waehrungen.csv`
+
+`code` (str, 3 Zeichen) → `name` (str) → `numerisch` (int). Der vollständige ISO-4217-Katalog,
+rund 180 Einträge. Grundlage für R-012.
+
+**Erzeugung:** einmalig über das Python-Paket `pycountry` (enthält die ISO-4217-Liste),
+danach als CSV versioniert. Nicht aus dem Gedächtnis in den Quelltext schreiben — eine
+falsche Währungsliste fällt niemandem auf und macht die Regel wertlos. Zur Laufzeit wird
+nichts nachgeladen.
+
+### 2.8 Ordinalskala der SF-Klassen
+
+R-029 und R-030 brauchen einen Zahlwert für die SF-Klasse. Die Sonderklassen sind keine
+Zahlen, aber sie haben eine fachliche Ordnung. Definiert werden deshalb **zwei getrennte
+Abbildungen**, weil die beiden Regeln Verschiedenes messen:
+
+| SF-Klasse | `schadenfreie_jahre()` | `sf_ordnung()` |
+|---|---|---|
+| `M` (Malus) | 0 | −3 |
+| `S` (Schadenklasse) | 0 | −2 |
+| `0` | 0 | −1 |
+| `1/2` | 0 | 0 |
+| `SF1` … `SF50` | 1 … 50 | 1 … 50 |
+
+**`schadenfreie_jahre()` für R-029.** Die Regel prüft, ob jemand mehr schadenfreie Jahre
+angibt, als er den Führerschein besitzen kann. Alle Sonderklassen bedeuten null
+schadenfreie Jahre, die Regel ist dort also trivial erfüllt — und das ist fachlich korrekt,
+nicht ein Ausweichen.
+
+**`sf_ordnung()` für R-030.** Die Regel vergleicht zwei SF-Klassen miteinander. Dafür wird
+eine vollständige Ordnung über alle Werte gebraucht, einschließlich der Sonderklassen. Mit
+dieser Abbildung greift R-030 auch für Sonderklassen, statt sie stillschweigend zu
+überspringen.
+
+Beide Funktionen gehören nach `src/common/`, weil Generator und Regel-Engine sie brauchen.
 
 ---
 

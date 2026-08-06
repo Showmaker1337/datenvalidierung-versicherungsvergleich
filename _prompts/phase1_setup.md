@@ -114,7 +114,7 @@ schwellen:
 Ein Skript `scripts/build_reference.py`, das alle Tabellen aus
 `spec/01_datenmodell.md`, Abschnitt 2, deterministisch erzeugt und nach
 `data/reference/` schreibt: `plz_ort.csv`, `regionalklassen.csv`, `typklassen.csv`,
-`vu_stammdaten.csv`, `zuers_zonen.csv`, `sf_beitragssatz.csv`.
+`vu_stammdaten.csv`, `zuers_zonen.csv`, `sf_beitragssatz.csv`, `waehrungen.csv`.
 
 Beachte:
 
@@ -164,7 +164,7 @@ Lege außerdem die leeren Paketverzeichnisse `src/generator/`, `src/rules/`,
 
 1. `pytest` läuft grün durch.
 2. `ruff check` und `mypy src/` sind sauber.
-3. `python scripts/build_reference.py` erzeugt alle sechs Referenztabellen.
+3. `python scripts/build_reference.py` erzeugt alle sieben Referenztabellen.
 4. Zwei Läufe mit demselben Seed erzeugen identische Hashes.
 5. `data/reference/` liegt im Repository, `data/runs/` ist über `.gitignore` ausgeschlossen.
 

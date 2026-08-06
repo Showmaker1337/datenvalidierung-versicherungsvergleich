@@ -32,6 +32,11 @@ matplotlib==3.11.1
 # --- Konfiguration --------------------------------------------------------
 PyYAML==6.0.3
 
+# --- Referenzdaten --------------------------------------------------------
+# Liefert den ISO-4217-Katalog fuer data/reference/waehrungen.csv.
+# Die Version bestimmt den Inhalt der Datei und damit ihren Hashwert.
+pycountry==26.2.16
+
 # --- Tests ----------------------------------------------------------------
 pytest==9.1.1
 hypothesis==6.165.2

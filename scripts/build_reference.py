@@ -1,4 +1,4 @@
-"""Erzeugt die sechs Referenztabellen unter ``data/reference`` — deterministisch.
+"""Erzeugt die sieben Referenztabellen unter ``data/reference`` — deterministisch.
 
 Aufruf::
 
@@ -686,14 +686,14 @@ def baue_sf_beitragssatz() -> pd.DataFrame:
     Jahre bringen viel, die spaeteren wenig. Verankert an SF 1 mit 58 Prozent und
     SF 50 mit 16 Prozent (spec/01, Abschnitt 2.6).
 
-    **Monotonie:** Der Satz faellt ueber SF 1 bis SF 50 monoton, aber nicht
-    *streng* monoton. Das ist keine Nachlaessigkeit, sondern rechnerisch
-    zwingend: Zwischen 58 und 16 liegen 43 ganze Zahlen, zu besetzen sind 50
-    Klassen. Eine streng fallende Folge ganzer Zahlen ist mit diesen Ankerwerten
-    unmoeglich. Die entstehenden Plateaus liegen im oberen SF-Bereich und
-    entsprechen dem Verhalten realer Tabellen. ``spec/01`` fordert "monoton
-    fallend"; die Alternativen (Dezimalstellen statt ganzer Zahlen oder weitere
-    Ankerwerte) sind in ``docs/verteilungsquellen.md`` festgehalten.
+    **Monotonie:** ``spec/01``, Abschnitt 2.6 fordert einen **nicht-steigenden**
+    Verlauf, ``satz(SF n+1) <= satz(SF n)``. Plateaus sind ausdruecklich zulaessig
+    und erwuenscht: Reale Beitragssatztabellen flachen bei hohen
+    Schadenfreiheitsklassen ab, zwischen SF 40 und SF 45 unterscheidet sich der
+    Satz bei vielen Versicherern nicht mehr. Die Plateaus bilden die Realitaet ab.
+
+    ``min(..., letzter)`` setzt die Bedingung durch: Der Satz kann nie steigen,
+    auch wenn die Rundung es sonst zuliesse.
 
     Returns:
         Den Datenrahmen mit ``sf_klasse`` und ``beitragssatz_prozent``.
@@ -723,12 +723,66 @@ def baue_sf_beitragssatz() -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------------------
+# waehrungen.csv
+# ---------------------------------------------------------------------------
+
+
+def baue_waehrungen() -> pd.DataFrame:
+    """Erzeugt ``waehrungen.csv`` aus dem ISO-4217-Katalog des Pakets ``pycountry``.
+
+    Grundlage der ersten Stufe von R-012 (spec/01, Abschnitt 2.7).
+
+    Die Liste wird **nicht** aus dem Gedaechtnis in den Quelltext geschrieben. Eine
+    falsche Waehrungsliste faellt niemandem auf und macht die Regel wertlos: Die
+    Regel meldete dann Fehler, wo keine sind, oder — schlimmer — meldete keine, wo
+    welche sind. ``pycountry`` fuehrt den offiziellen Katalog mit.
+
+    Die Version von ``pycountry`` ist deshalb in ``requirements.txt`` gepinnt: Sie
+    bestimmt den Inhalt der Datei und damit ihren Hashwert. Ein Wechsel der Version
+    kann die Tabelle veraendern (ISO 4217 wird fortgeschrieben) und ist wie jede
+    andere Aenderung an den Referenzdaten zu behandeln.
+
+    Sortiert nach ``code``, damit die Datei reproduzierbar ist — die Reihenfolge,
+    in der ``pycountry`` seine Eintraege liefert, ist keine zugesicherte
+    Eigenschaft.
+
+    Returns:
+        Den Datenrahmen mit ``code``, ``name`` und ``numerisch``.
+
+    Raises:
+        ValueError: Wenn der Katalog leer ist oder ein Eintrag unvollstaendig.
+    """
+    import pycountry  # noqa: PLC0415  (nur beim Aufbau der Referenzdaten gebraucht)
+
+    zeilen: list[tuple[str, str, int]] = []
+    for waehrung in pycountry.currencies:
+        code = waehrung.alpha_3
+        name = waehrung.name
+        numerisch = getattr(waehrung, "numeric", None)
+        if not code or not name or not numerisch:
+            raise ValueError(f"Unvollstaendiger ISO-4217-Eintrag: {code!r} / {name!r}")
+        zeilen.append((code, name, int(numerisch)))
+
+    if not zeilen:
+        raise ValueError("pycountry lieferte keinen einzigen Waehrungseintrag")
+
+    zeilen.sort()
+    return pd.DataFrame(
+        {
+            "code": [code for code, _, _ in zeilen],
+            "name": [name for _, name, _ in zeilen],
+            "numerisch": [numerisch for _, _, numerisch in zeilen],
+        }
+    )
+
+
+# ---------------------------------------------------------------------------
 # Ablauf
 # ---------------------------------------------------------------------------
 
 
 def baue_referenzdaten(config: Config, ziel: Path, *, still: bool = False) -> dict[str, Path]:
-    """Erzeugt alle sechs Referenztabellen und schreibt sie als CSV.
+    """Erzeugt alle sieben Referenztabellen und schreibt sie als CSV.
 
     Args:
         config: Geladene Konfiguration.
@@ -748,6 +802,7 @@ def baue_referenzdaten(config: Config, ziel: Path, *, still: bool = False) -> di
         "vu_stammdaten": baue_vu_stammdaten(config),
         "zuers_zonen": baue_zuers_zonen(config, plz_ort),
         "sf_beitragssatz": baue_sf_beitragssatz(),
+        "waehrungen": baue_waehrungen(),
     }
 
     geschrieben: dict[str, Path] = {}

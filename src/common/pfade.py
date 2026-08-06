@@ -54,6 +54,7 @@ REFERENZ_DATEIEN: Final[tuple[str, ...]] = (
     "vu_stammdaten.csv",
     "zuers_zonen.csv",
     "sf_beitragssatz.csv",
+    "waehrungen.csv",
 )
 
 

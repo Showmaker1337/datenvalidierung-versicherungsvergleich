@@ -38,6 +38,7 @@ __all__ = [
     "lade_tabelle",
     "lade_typklassen",
     "lade_vu_stammdaten",
+    "lade_waehrungen",
     "lade_zuers_zonen",
     "leere_zwischenspeicher",
 ]
@@ -89,6 +90,11 @@ SPALTEN: Final[Mapping[str, Mapping[str, str]]] = {
     "sf_beitragssatz": {
         "sf_klasse": "string",
         "beitragssatz_prozent": "int64",
+    },
+    "waehrungen": {
+        "code": "string",
+        "name": "string",
+        "numerisch": "int64",
     },
 }
 
@@ -205,6 +211,16 @@ def lade_zuers_zonen(config: Config) -> pd.DataFrame:
 def lade_sf_beitragssatz(config: Config) -> pd.DataFrame:
     """Laedt ``sf_beitragssatz.csv`` (SF-Klasse auf Beitragssatz)."""
     return lade_tabelle("sf_beitragssatz", config)
+
+
+def lade_waehrungen(config: Config) -> pd.DataFrame:
+    """Laedt ``waehrungen.csv`` (vollstaendiger ISO-4217-Katalog).
+
+    Grundlage der ersten Stufe von R-012. Die zweite Stufe — ``waehrung`` muss im
+    Kontext dieses Systems ``EUR`` sein — prueft nicht gegen diese Tabelle,
+    sondern gegen :data:`src.common.enums.WAEHRUNG_STANDARD`.
+    """
+    return lade_tabelle("waehrungen", config)
 
 
 def lade_alle(config: Config) -> dict[str, pd.DataFrame]:

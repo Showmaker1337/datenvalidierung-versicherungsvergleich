@@ -31,7 +31,7 @@ Regionalklassen-Zuordnung, SF-Beitragssatztabelle, Typklassen-Zuordnung.
 
 ## 2. Entscheidungen der Phase 1 — Referenzdaten
 
-Alle sechs Tabellen entstehen deterministisch in `scripts/build_reference.py` aus
+Alle sieben Tabellen entstehen deterministisch in `scripts/build_reference.py` aus
 `master_seed` und `config/default.yaml`. Zur Laufzeit wird **nichts** nachgeladen.
 
 ### 2.1 `plz_ort.csv` — synthetisch, nach dem gescheiterten Realbezug
@@ -150,42 +150,109 @@ feste Tabelle (`spec/01`, Abschnitt 2.6).
 
 Die Ankerwerte SF 1 = 58 % und SF 50 = 16 % werden exakt getroffen.
 
-#### Offener Punkt: „monoton" versus „streng monoton"
+#### Monotonie: nicht-steigend, nicht streng fallend
 
-`spec/01`, Abschnitt 2.6, führt `beitragssatz_prozent` als **`int`** und fordert einen
-über die numerischen Klassen **monoton fallenden** Verlauf. Der Phasenprompt formuliert
-strenger: „streng monoton fallend".
+`spec/01`, Abschnitt 2.6, fordert ausdrücklich `satz(SF n+1) ≤ satz(SF n)`. **Plateaus sind
+zulässig und erwünscht.** Der Grund ist zweifach:
 
-**Beides zusammen ist rechnerisch unmöglich.** Zwischen 58 und 16 liegen 43 ganze Zahlen;
-zu besetzen sind 50 Klassen. Eine streng fallende Folge ganzer Zahlen müsste 50
-verschiedene Werte annehmen.
+- **Rechnerisch.** Zwischen den Ankerwerten 58 und 16 liegen 43 ganze Zahlen; zu besetzen
+  sind 50 Klassen. Eine streng fallende Folge ganzzahliger Prozentwerte müsste 50
+  verschiedene Werte annehmen — das ist unmöglich.
+- **Fachlich.** Reale Beitragssatztabellen flachen bei hohen Schadenfreiheitsklassen
+  ohnehin ab; zwischen SF 40 und SF 45 unterscheidet sich der Satz bei vielen Versicherern
+  nicht mehr. Die Plateaus bilden die Realität ab, sie sind kein Kompromiss.
 
-**Umgesetzt ist die Fassung aus der Spezifikation:** ganze Zahlen, Verlauf nicht steigend.
-Es entstehen 12 Plateaus — das erste zwischen SF 26 und SF 27, die übrigen elf ab SF 31,
-also durchgehend im oberen SF-Bereich, wo reale Beitragssatztabellen ebenfalls abflachen.
-`tests/test_referenz.py` prüft entsprechend „nicht steigend" und den Abfall über die
-Gesamtspanne.
+Umgesetzt sind 12 Plateaus — das erste zwischen SF 26 und SF 27, die übrigen elf ab SF 31,
+also durchgehend im oberen SF-Bereich. `tests/test_referenz.py` prüft „nicht steigend", den
+Abfall über die Gesamtspanne **und** dass kein Plateau unterhalb von SF 20 auftritt: Dort
+bringt jedes schadenfreie Jahr real noch eine spürbare Ersparnis, ein flacher Verlauf wäre
+dort ein Modellfehler.
 
-Wenn strenge Monotonie gewünscht ist, gibt es genau zwei saubere Wege — beide erfordern
-eine Änderung an `spec/01_datenmodell.md`:
+#### Zwei weitere Vereinfachungen, in der Arbeit zu benennen
 
-| Weg | Änderung | Nebenwirkung |
+| Vereinfachung | Modell | Realität |
 |---|---|---|
-| A | `beitragssatz_prozent` als `Decimal` mit einer Nachkommastelle | Feldtyp ändert sich; Serialisierung und Regelformulierung sind anzupassen |
-| B | Ankerwerte spreizen, etwa SF 1 = 62 %, SF 50 = 13 % | die in `spec/01` genannten Ankerwerte „≈ 58" und „≈ 16" werden verlassen |
+| Höchste Klasse | SF 50 | Die **meisten Versicherer enden bei SF 35**. Klassen darüber existieren nur bei einzelnen Anbietern. Der breitere Bereich ist im Modell nützlich, weil er die Monotoniebedingung über eine längere Spanne prüfbar macht — er ist aber nicht marktüblich. |
+| Startwert | SF 1 = 58 % | **Viele moderne Tabellen setzen SF 1 auf 100 %** und staffeln erst darunter. Der hier gewählte Wert folgt dem älteren Schema, in dem SF 1 bereits einen deutlichen Rabatt gegenüber der Klasse 0 bedeutet. |
 
-Bis zur Entscheidung bleibt es bei der Fassung der Spezifikation.
+Beide Punkte berühren die Regelmechanik nicht — R-013 prüft gegen den Katalog, und der
+Beitragssatz ist als Monotoniebedingung formuliert, nicht als Abgleich gegen feste Werte.
+Für die Realitätsnähe sind sie relevant und gehören deshalb in die Diskussion.
+
+### 2.7 `waehrungen.csv` — belegte Referenzdaten
+
+| Merkmal | Quelle |
+|---|---|
+| `code`, `name`, `numerisch` | ISO 4217, bezogen über das Python-Paket `pycountry` |
+
+Die einzige Referenztabelle dieses Projekts, die **nicht** synthetisch ist und keine
+Modellannahme enthält: Der ISO-4217-Katalog ist ein offizieller Standard, `pycountry`
+führt ihn mit. Erzeugt werden 178 Einträge, sortiert nach `code`.
+
+**Warum nicht im Quelltext.** Eine von Hand gepflegte Währungsliste fällt niemandem auf,
+wenn sie falsch ist — und macht R-012 wertlos: Die Regel meldete dann Fehler, wo keine
+sind, oder, schlimmer, keine, wo welche sind. `tests/test_referenz.py` bindet die
+Referenzdatei deshalb an `pycountry` zurück.
+
+**Versionsabhängigkeit.** ISO 4217 wird fortgeschrieben. Die Version von `pycountry`
+(26.2.16) ist in `requirements.txt` gepinnt, weil sie den Inhalt der Datei und damit ihren
+Hashwert bestimmt. Ein Versionswechsel kann die Tabelle verändern und ist wie jede andere
+Änderung an den Referenzdaten zu behandeln.
+
+**Zwei Stufen in R-012.** Der Katalog trägt nur die erste Stufe — existiert der Code
+überhaupt? Die zweite Stufe fragt, ob er im Kontext dieses Systems zulässig ist, und dort
+lautet die Antwort `EUR`. Beide Stufen werden getrennt gemeldet. Ein `USD` wäre
+*syntaktisch gültig*, aber *fachlich unzulässig*; ein `EURO` wäre beides nicht. Diese
+Unterscheidung taucht in der Arbeit als Beispiel wieder auf.
+
+### 2.8 Ordinalskala der SF-Klassen
+
+`spec/01`, Abschnitt 2.8 definiert **zwei** Abbildungen, weil R-029 und R-030
+Verschiedenes messen. Beide liegen in `src/common/enums.py`.
+
+| SF-Klasse | `schadenfreie_jahre()` | `sf_ordnung()` |
+|---|---|---|
+| `M` | 0 | −3 |
+| `S` | 0 | −2 |
+| `0` | 0 | −1 |
+| `1/2` | 0 | 0 |
+| `SF1` … `SF50` | 1 … 50 | 1 … 50 |
+
+`schadenfreie_jahre()` bedient R-029 (nicht länger schadenfrei als Führerscheinbesitz).
+Alle Sonderklassen bedeuten null schadenfreie Jahre; die Regel ist dort trivial erfüllt.
+Das ist fachlich korrekt: Wer in der Malusklasse steht, hat gerade keine schadenfreie
+Historie vorzuweisen.
+
+`sf_ordnung()` bedient R-030 (Vollkasko-Klasse nicht besser als Haftpflicht-Klasse). Sie
+braucht eine **totale** Ordnung, damit die Regel auch dann greift, wenn eine der beiden
+Klassen eine Sonderklasse ist, statt den Vergleich stillschweigend zu überspringen.
+
+Der Unterschied ist wesentlich und im Test festgehalten: Bei `schadenfreie_jahre()` sind
+`M` und `1/2` gleich, bei `sf_ordnung()` liegen drei Stufen dazwischen. Eine einzige
+Abbildung könnte nicht beides leisten.
+
+Beide Funktionen geben `None` zurück, wenn der Wert nicht im Katalog steht. Das ist kein
+Fehler der Funktion, sondern ein Befund von R-013 — deshalb wird keine Ausnahme geworfen
+(vergleiche `spec/01`, Abschnitt 6: „Parsefehler = Befund, kein Absturz").
 
 ---
 
-## 3. Was in dieser Phase bewusst **nicht** festgelegt wurde
+## 3. Nachtrag zu Phase 1 — die drei gemeldeten Lücken
 
-- **ISO-4217-Katalog (R-012).** Der vollständige Katalog gültiger Währungscodes ist noch
-  nicht hinterlegt. Er wird in Phase 3 als Referenzdatei ergänzt und nicht aus dem
-  Gedächtnis in den Quelltext geschrieben. Bis dahin existiert nur die Konstante
-  `WAEHRUNG_STANDARD = "EUR"`.
-- **Numerischer Wert der SF-Sonderklassen.** `sf_numerischer_teil()` liefert für `M`, `S`,
-  `0` und `1/2` bewusst `None`. R-029 und R-030 sprechen vom „numerischen Teil"
-  beziehungsweise von „wenn beide numerisch"; welchen Zahlwert die Sonderklassen dabei
-  annehmen, legt die Spezifikation nicht fest. Eine Festlegung (etwa `"0" → 0`) gehört
-  vor der Umsetzung in `spec/02_regelkatalog.md`.
+Alle drei in Phase 1 gemeldeten Lücken sind entschieden und umgesetzt.
+
+| Lücke | Entscheidung | Fundstelle |
+|---|---|---|
+| SF-Monotonie „monoton" gegen „streng monoton" | nicht-steigend; Plateaus sind zulässig und fachlich richtig | `spec/01`, Abschnitt 2.6 |
+| Zahlwert der SF-Sonderklassen | zwei getrennte Abbildungen statt einer | `spec/01`, Abschnitt 2.8 |
+| ISO-4217-Katalog | siebte Referenztabelle `waehrungen.csv`, erzeugt über `pycountry` | `spec/01`, Abschnitt 2.7 |
+
+Zusätzlich bestätigt: Faker wird über `seed_instance()` geseedet, das klassenweite
+`Faker.seed()` ist in `CLAUDE.md`, Abschnitt 4 nun ausdrücklich verboten — globaler Zustand
+widerspricht Architekturregel A2.
+
+## 4. Was weiterhin offen bleibt
+
+Nichts aus Phase 1. Die Verteilungen für `geburtsdatum`, `wohnflaeche_qm`, `baujahr`,
+`jahresfahrleistung_km` und das Beitragsniveau werden in Phase 2 festgelegt und hier
+ergänzt.

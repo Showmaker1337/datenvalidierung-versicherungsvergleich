@@ -46,7 +46,8 @@ __all__ = [
     "Sparte",
     "Zahlweise",
     "ist_kfz_sparte",
-    "sf_numerischer_teil",
+    "schadenfreie_jahre",
+    "sf_ordnung",
 ]
 
 
@@ -323,27 +324,93 @@ SF_KLASSEN_NUMERISCH: Final[tuple[str, ...]] = tuple(
 SF_KLASSEN: Final[tuple[str, ...]] = SF_KLASSEN_SONDER + SF_KLASSEN_NUMERISCH
 
 
-def sf_numerischer_teil(sf_klasse: str) -> int | None:
-    """Gibt den numerischen Teil einer Schadenfreiheitsklasse zurueck.
+#: Ordinalwerte der Sonderklassen fuer :func:`sf_ordnung` (spec/01, Abschnitt 2.8).
+_SF_ORDNUNG_SONDER: Final[Mapping[str, int]] = MappingProxyType(
+    {"M": -3, "S": -2, "0": -1, "1/2": 0}
+)
 
-    Args:
-        sf_klasse: Wert aus :data:`SF_KLASSEN`, zum Beispiel ``"SF12"``.
 
-    Returns:
-        Die Stufe als ``int`` fuer ``SF1`` bis ``SF50``, sonst ``None``.
-
-    Die vier Sonderklassen ``M``, ``S``, ``0`` und ``1/2`` liefern bewusst
-    ``None``: ``spec/02_regelkatalog.md`` formuliert R-029 und R-030 ueber den
-    "numerischen Teil" beziehungsweise "wenn beide numerisch" und legt fuer die
-    Sonderklassen keinen Zahlwert fest. Eine Zuordnung ``"0" -> 0`` waere eine
-    zusaetzliche Annahme und gehoert erst nach Klaerung in die Spezifikation.
-    """
+def _stufe(sf_klasse: str) -> int | None:
+    """Gibt die Stufe einer numerischen Klasse ``SF1`` bis ``SF50`` zurueck, sonst ``None``."""
     if not sf_klasse.startswith("SF"):
         return None
-    rest = sf_klasse[2:]
+    rest = sf_klasse.removeprefix("SF")
     if not rest.isdigit():
         return None
     stufe = int(rest)
     if not 1 <= stufe <= SF_MAX_NUMERISCH:
         return None
     return stufe
+
+
+def schadenfreie_jahre(sf_klasse: str) -> int | None:
+    """Gibt die Zahl der schadenfreien Jahre zurueck, die eine SF-Klasse ausdrueckt.
+
+    Abbildung nach ``spec/01_datenmodell.md``, Abschnitt 2.8. Grundlage von R-029:
+    Niemand kann laenger schadenfrei fahren, als er den Fuehrerschein besitzt.
+
+    ============  ===========
+    SF-Klasse     Rueckgabe
+    ============  ===========
+    ``M``         0
+    ``S``         0
+    ``0``         0
+    ``1/2``       0
+    ``SF1``       1
+    ``SF50``      50
+    ============  ===========
+
+    Alle vier Sonderklassen bedeuten **null** schadenfreie Jahre. R-029 ist dort
+    trivial erfuellt — und das ist fachlich korrekt, kein Ausweichen: Wer in der
+    Malusklasse steht, hat gerade keine schadenfreie Historie vorzuweisen.
+
+    Args:
+        sf_klasse: Wert aus :data:`SF_KLASSEN`.
+
+    Returns:
+        Die Zahl der schadenfreien Jahre, oder ``None``, wenn der Wert kein
+        gueltiger Katalogwert ist. ``None`` ist hier kein Fehler dieser Funktion,
+        sondern ein Befund von R-013 — deshalb wird keine Ausnahme geworfen.
+    """
+    if sf_klasse in _SF_ORDNUNG_SONDER:
+        return 0
+    return _stufe(sf_klasse)
+
+
+def sf_ordnung(sf_klasse: str) -> int | None:
+    """Gibt den Ordinalwert einer SF-Klasse auf der vollstaendigen Skala zurueck.
+
+    Abbildung nach ``spec/01_datenmodell.md``, Abschnitt 2.8. Grundlage von R-030:
+    Die Vollkasko-Klasse darf nicht besser sein als die Haftpflicht-Klasse.
+
+    ============  ===========
+    SF-Klasse     Rueckgabe
+    ============  ===========
+    ``M``         −3
+    ``S``         −2
+    ``0``         −1
+    ``1/2``       0
+    ``SF1``       1
+    ``SF50``      50
+    ============  ===========
+
+    Hoehere Werte stehen fuer die guenstigere Einstufung; die Skala ist ueber
+    **alle** Katalogwerte total. Nur so greift R-030 auch dann, wenn eine der
+    beiden Klassen eine Sonderklasse ist, statt den Vergleich stillschweigend zu
+    ueberspringen.
+
+    Der Unterschied zu :func:`schadenfreie_jahre` ist wesentlich: Dort sind ``M``
+    und ``1/2`` beide null, hier sind sie drei Stufen voneinander entfernt. Die
+    beiden Regeln messen Verschiedenes.
+
+    Args:
+        sf_klasse: Wert aus :data:`SF_KLASSEN`.
+
+    Returns:
+        Den Ordinalwert, oder ``None`` bei einem Wert ausserhalb des Katalogs
+        (Befund von R-013).
+    """
+    sonder = _SF_ORDNUNG_SONDER.get(sf_klasse)
+    if sonder is not None:
+        return sonder
+    return _stufe(sf_klasse)

@@ -13,10 +13,17 @@ import re
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
+import pycountry
 import pytest
 
 from src.common import wertebereiche as wb
-from src.common.enums import SF_KLASSEN, SF_KLASSEN_NUMERISCH, Antriebsart, Quellschnittstelle
+from src.common.enums import (
+    SF_KLASSEN,
+    SF_KLASSEN_NUMERISCH,
+    WAEHRUNG_STANDARD,
+    Antriebsart,
+    Quellschnittstelle,
+)
 from src.common.pfade import REFERENZ_DATEIEN
 from src.common.referenz import (
     ReferenzFehler,
@@ -26,6 +33,7 @@ from src.common.referenz import (
     lade_tabelle,
     lade_typklassen,
     lade_vu_stammdaten,
+    lade_waehrungen,
     lade_zuers_zonen,
     leere_zwischenspeicher,
 )
@@ -51,7 +59,7 @@ ZUERS_TOLERANZ_PP: float = 0.3
 
 @pytest.mark.parametrize("dateiname", REFERENZ_DATEIEN)
 def test_referenzdatei_ist_versioniert(referenzverzeichnis: Path, dateiname: str) -> None:
-    """Alle sechs Referenztabellen liegen im Repository."""
+    """Alle sieben Referenztabellen liegen im Repository."""
     pfad = referenzverzeichnis / dateiname
     assert pfad.is_file(), f"{pfad} fehlt"
     assert pfad.stat().st_size > 0, f"{pfad} ist leer"
@@ -331,13 +339,12 @@ def test_sf_tabelle_deckt_den_katalog_ab(config: Config) -> None:
     assert set(rahmen["sf_klasse"]) == set(SF_KLASSEN)
 
 
-def test_sf_beitragssatz_faellt_monoton(config: Config) -> None:
-    """Der Satz faellt ueber SF1 bis SF50 monoton (spec/01, Abschnitt 2.6).
+def test_sf_beitragssatz_ist_nicht_steigend(config: Config) -> None:
+    """``satz(SF n+1) <= satz(SF n)`` ueber SF 1 bis SF 50 (spec/01, Abschnitt 2.6).
 
-    Geprueft wird "nicht steigend", nicht "streng fallend": Zwischen den
-    Ankerwerten 58 und 16 liegen 43 ganze Zahlen, zu besetzen sind 50 Klassen.
-    Eine streng fallende Folge ganzer Zahlen ist damit unmoeglich. Die
-    Begruendung steht in ``docs/verteilungsquellen.md``.
+    Die Spezifikation fordert ausdruecklich einen **nicht-steigenden** Verlauf,
+    keinen streng fallenden. Plateaus sind zulaessig und erwuenscht: Reale
+    Beitragssatztabellen flachen bei hohen Schadenfreiheitsklassen ab.
     """
     tabelle = _sf_saetze(config)
     saetze = [tabelle[klasse] for klasse in SF_KLASSEN_NUMERISCH]
@@ -345,6 +352,23 @@ def test_sf_beitragssatz_faellt_monoton(config: Config) -> None:
     differenzen = [spaeter - frueher for frueher, spaeter in itertools.pairwise(saetze)]
     assert all(differenz <= 0 for differenz in differenzen), "Der Beitragssatz darf nie steigen"
     assert saetze[0] > saetze[-1], "Ueber die gesamte Spanne muss der Satz fallen"
+
+
+def test_sf_plateaus_liegen_bei_hohen_klassen(config: Config) -> None:
+    """Wo der Verlauf flach wird, ist fachlich bedeutsam (spec/01, Abschnitt 2.6).
+
+    Plateaus im unteren SF-Bereich waeren ein Modellfehler — dort bringt jedes
+    schadenfreie Jahr real noch eine spuerbare Ersparnis.
+    """
+    tabelle = _sf_saetze(config)
+    saetze = [tabelle[klasse] for klasse in SF_KLASSEN_NUMERISCH]
+    plateaus = [
+        stufe
+        for stufe, (frueher, spaeter) in enumerate(itertools.pairwise(saetze), start=1)
+        if frueher == spaeter
+    ]
+    assert plateaus, "Ohne Plateaus waere die Tabelle bei ganzzahligen Prozentwerten unmoeglich"
+    assert min(plateaus) >= 20, f"Plateau bereits bei SF {min(plateaus)}"
 
 
 def test_sf_ankerwerte(config: Config) -> None:
@@ -367,3 +391,66 @@ def test_sonderklassen_liegen_ueber_den_numerischen(config: Config) -> None:
     hoechster_numerisch = max(tabelle[klasse] for klasse in SF_KLASSEN_NUMERISCH)
     assert tabelle["M"] > hoechster_numerisch
     assert tabelle["S"] > hoechster_numerisch
+
+
+# ---------------------------------------------------------------------------
+# waehrungen.csv
+# ---------------------------------------------------------------------------
+
+
+def test_waehrungskatalog_ist_vollstaendig(config: Config) -> None:
+    """Der ISO-4217-Katalog umfasst rund 180 Eintraege (spec/01, Abschnitt 2.7)."""
+    rahmen = lade_waehrungen(config)
+    assert 150 <= len(rahmen) <= 220, f"{len(rahmen)} Eintraege sind kein ISO-4217-Katalog"
+
+
+def test_euro_ist_enthalten(config: Config) -> None:
+    """Ohne ``EUR`` waere R-012 auf dem gesamten Datensatz verletzt."""
+    rahmen = lade_waehrungen(config)
+    euro = rahmen[rahmen["code"] == "EUR"]
+    assert len(euro) == 1
+    assert int(euro["numerisch"].iloc[0]) == 978
+
+
+def test_waehrung_des_datensatzes_steht_im_katalog(config: Config) -> None:
+    """Die beiden Stufen von R-012 greifen ineinander: ``EUR`` ist gueltig *und* zulaessig."""
+    rahmen = lade_waehrungen(config)
+    assert WAEHRUNG_STANDARD in set(rahmen["code"])
+
+
+def test_waehrungscodes_sind_wohlgeformt(config: Config) -> None:
+    """Dreistellige Grossbuchstaben, eindeutig (ISO 4217)."""
+    rahmen = lade_waehrungen(config)
+    assert rahmen["code"].str.fullmatch(r"[A-Z]{3}").all()
+    assert rahmen["code"].is_unique
+    assert (rahmen["name"].str.len() > 0).all()
+
+
+def test_numerische_waehrungscodes_sind_eindeutig(config: Config) -> None:
+    """ISO 4217 vergibt je Waehrung genau eine dreistellige Zahl."""
+    rahmen = lade_waehrungen(config)
+    assert rahmen["numerisch"].is_unique
+    assert int(rahmen["numerisch"].min()) >= 1
+    assert int(rahmen["numerisch"].max()) <= 999
+
+
+def test_waehrungen_sind_nach_code_sortiert(config: Config) -> None:
+    """Feste Reihenfolge — sonst waere die Datei nicht reproduzierbar."""
+    codes = list(lade_waehrungen(config)["code"])
+    assert codes == sorted(codes)
+
+
+def test_waehrungskatalog_stammt_nicht_aus_dem_gedaechtnis(config: Config) -> None:
+    """Die Tabelle stimmt mit ``pycountry`` ueberein (spec/01, Abschnitt 2.7).
+
+    Eine von Hand gepflegte Waehrungsliste faellt niemandem auf, wenn sie falsch
+    ist — und macht R-012 wertlos. Dieser Test bindet die Referenzdatei an die
+    gepinnte Bibliotheksversion.
+    """
+    rahmen = lade_waehrungen(config)
+    gelesen = {
+        str(code): str(name)
+        for code, name in zip(rahmen["code"], rahmen["name"], strict=True)
+    }
+    erwartet = {waehrung.alpha_3: waehrung.name for waehrung in pycountry.currencies}
+    assert gelesen == erwartet

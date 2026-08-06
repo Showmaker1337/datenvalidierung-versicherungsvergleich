@@ -129,7 +129,7 @@ Begründung, Datum. Niemals stillschweigend ändern.
 |---|---|---|
 | DataFrames | pandas | Parquet als Austauschformat |
 | Regel-Engine | pandera | `lazy=True`, damit alle Verstöße gesammelt werden |
-| Basisdaten | Faker (`de_DE`) | zwingend über `Faker.seed()` geseedet |
+| Basisdaten | Faker (`de_DE`) | über `faker.seed_instance()` geseedet, **nicht** über das klassenweite `Faker.seed()` — Letzteres setzt globalen Zustand und widerspricht A2 |
 | Baseline B0 | pydantic v2 | reine Typ- und Constraint-Validierung |
 | Baseline B2 | scikit-learn | `IsolationForest` |
 | Baseline B3 | cuallee (bevorzugt) oder great_expectations | derselbe Regelinhalt, anderes Framework |
@@ -165,8 +165,6 @@ Nicht verwenden: Deequ/PyDeequ (Spark), dbt, Soda Core, SDV.
   Typregeln ebenfalls, fachliche Regeln auf dem geparsten `df_typed`. Die Serialisierungs-
   regeln stehen in `spec/01_datenmodell.md`, Abschnitt 6. **Ohne diese Trennung sind
   mehrere Regeln per Konstruktion nicht verletzbar.**
-- **Commit-Nachrichten** auf Deutsch, im Imperativ, eine Zeile, ohne Emoji.
-- **Je Phase mindestens ein Commit.** Der Phasenabschluss wird als eigener Commit markiert.
 
 ---
 

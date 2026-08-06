@@ -65,7 +65,7 @@ konkreten Kommandos werden hier eingetragen, sobald sie existieren.
 python -m src.cli config
 ```
 
-Zeigt die geladene Konfiguration und die Kurzhashes der sechs Referenztabellen.
+Zeigt die geladene Konfiguration und die Kurzhashes der sieben Referenztabellen.
 
 ```bash
 python scripts/build_reference.py
@@ -165,15 +165,16 @@ dürfen.
 
 ### Referenzdaten
 
-Sechs Tabellen unter `data/reference/`, einmalig deterministisch erzeugt und versioniert:
+Sieben Tabellen unter `data/reference/`, einmalig deterministisch erzeugt und versioniert:
 `plz_ort.csv` (8.000 PLZ, 400 Zulassungsbezirke), `regionalklassen.csv`, `typklassen.csv`
-(3.000 HSN/TSN-Kombinationen), `vu_stammdaten.csv` (14 Anbieter), `zuers_zonen.csv` und
-`sf_beitragssatz.csv`.
+(3.000 HSN/TSN-Kombinationen), `vu_stammdaten.csv` (14 Anbieter), `zuers_zonen.csv`,
+`sf_beitragssatz.csv` und `waehrungen.csv` (ISO-4217-Katalog, 178 Einträge).
 
-Sämtliche Daten sind synthetisch. Welche Verteilung woher stammt und welche Annahme wo
-getroffen wurde, steht in [`docs/verteilungsquellen.md`](docs/verteilungsquellen.md) —
-einschließlich der Begründung, warum der Bezug echter PLZ-Daten über die OpenPLZ API
-geprüft und verworfen wurde.
+Bis auf `waehrungen.csv` sind sämtliche Daten synthetisch — der Währungskatalog ist ein
+offizieller Standard und wird über das Paket `pycountry` bezogen, nicht von Hand gepflegt.
+Welche Verteilung woher stammt und welche Annahme wo getroffen wurde, steht in
+[`docs/verteilungsquellen.md`](docs/verteilungsquellen.md) — einschließlich der Begründung,
+warum der Bezug echter PLZ-Daten über die OpenPLZ API geprüft und verworfen wurde.
 
 ## Lizenz
 

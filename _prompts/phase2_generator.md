@@ -31,7 +31,7 @@ src/generator/
 Öffentliche Schnittstelle:
 
 ```python
-def erzeuge_datensatz(config: Config, seed_base: int) -> dict[str, pd.DataFrame]
+def erzeuge_datensatz(config: Config, seed_basis: SeedSequence) -> dict[str, pd.DataFrame]
 ```
 
 Rückgabe: ein Dict mit den Schlüsseln `anfrage`, `person`, `risiko_kfz`,
@@ -62,9 +62,11 @@ dieser Reihenfolge auf:
 
 Kritische Abhängigkeiten, die häufig übersehen werden:
 
-- `sf_klasse_hp`: numerischer Teil ≤ Alter(VN) − 17. Ziehe zuerst das Alter, dann die
-  Obergrenze der SF-Klasse.
-- `sf_klasse_vk` ≤ `sf_klasse_hp`.
+- `sf_klasse_hp`: `schadenfreie_jahre(...)` ≤ Alter(VN) − 17. Ziehe zuerst das Alter, dann
+  die Obergrenze der SF-Klasse. Die Abbildung ist in `spec/01`, Abschnitt 2.8 definiert und
+  liegt bereits in `src/common/`.
+- `sf_ordnung(sf_klasse_vk)` ≤ `sf_ordnung(sf_klasse_hp)` — die vollständige Ordnung
+  einschließlich der Sonderklassen, ebenfalls aus `spec/01`, Abschnitt 2.8.
 - `fuehrerschein_datum` ≥ Geburtsdatum + 17 Jahre.
 - `erstzulassung` ≤ `zulassung_auf_vn` ≤ `stichtag`.
 - `art_kennzeichen` = `54` nur bei elektrischer oder hybrider Antriebsart.
@@ -115,9 +117,11 @@ Daten aus.
 
 ## Aufgabe 4 — Determinismus
 
-- Die einzige Zufallsquelle ist der aus `seed_base` erzeugte Generator aus
-  `common/seeding.py`.
-- Faker wird über `Faker.seed()` gesetzt.
+- Die einzige Zufallsquelle ist der aus `seed_basis` erzeugte Generator aus
+  `common/seeding.py`. `seed_basis` ist eine `SeedSequence`, kein Integer — so hat es
+  Phase 1 angelegt.
+- Faker wird über `faker.seed_instance()` je Instanz geseedet, **nicht** über das
+  klassenweite `Faker.seed()` — Letzteres setzt globalen Zustand und widerspricht A2.
 - Keine Iteration über `set`. Sortiere Schlüssel explizit, wo die Reihenfolge das Ergebnis
   beeinflusst.
 - Kein `date.today()`. Das Referenzdatum ist `config.stichtag`.
@@ -152,7 +156,7 @@ Experimentlauf abbrechen.
   Sparten-Anteile innerhalb der Toleranz.
 - `tests/test_generator/test_serialisierung.py`: Roundtrip `parse(serialisiere(x)) == x`
   für alle Entitäten und alle Datentypen, inklusive leerer Werte.
-- `tests/test_reproduzierbarkeit.py` erweitern: zwei Läufe mit gleichem `seed_base`
+- `tests/test_reproduzierbarkeit.py` erweitern: zwei Läufe mit gleichem `seed_basis`
   erzeugen identische Hashes über alle Entitäten.
 
 ## Aufgabe 7 — Dokumentation
@@ -168,10 +172,10 @@ ausdrücklich „Modellannahme" eintragen. Diese Tabelle geht später in den Anh
 2. 10.000 Anfragen werden in unter fünf Minuten erzeugt, mit rund 60.000 Angebotszeilen
    (rechtsschiefe Verteilung der Angebotszahl, Modus 5).
 3. `parse(serialisiere(df_typed))` ergibt wieder `df_typed` — Roundtrip-Test.
-3. Zwei Läufe mit gleichem Seed → identische Hashes.
-4. `tests/test_architecture.py` weiterhin grün — der Generator importiert nichts aus
+4. Zwei Läufe mit gleichem Seed → identische Hashes.
+5. `tests/test_architecture.py` weiterhin grün — der Generator importiert nichts aus
    `src/rules/` oder `src/injector/`.
-5. `docs/verteilungsquellen.md` ist vollständig.
+6. `docs/verteilungsquellen.md` ist vollständig.
 
 ## Nicht in dieser Phase
 

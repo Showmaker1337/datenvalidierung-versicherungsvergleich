@@ -1,7 +1,7 @@
 """Prueft Architekturregel A2 — vollstaendige Reproduzierbarkeit.
 
 Kern des Tests: ``scripts/build_reference.py`` wird zweimal als eigener Prozess
-mit demselben Seed ausgefuehrt; die SHA-256-Hashes aller sechs Tabellen muessen
+mit demselben Seed ausgefuehrt; die SHA-256-Hashes aller sieben Tabellen muessen
 uebereinstimmen. Bewusst als Unterprozess und nicht als Funktionsaufruf — nur so
 sind auch Prozessstart, Importreihenfolge und Dateiausgabe mitgeprueft.
 

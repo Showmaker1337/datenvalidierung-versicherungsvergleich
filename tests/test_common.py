@@ -22,13 +22,16 @@ from src.common.enums import (
     BAUARTKLASSEN,
     RATENANZAHL_JE_ZAHLWEISE,
     SF_KLASSEN,
+    SF_KLASSEN_NUMERISCH,
+    SF_KLASSEN_SONDER,
     ZAHLWEISEN_IM_GENERATOR,
     Anfragestatus,
     Quellschnittstelle,
     Sparte,
     Zahlweise,
     ist_kfz_sparte,
-    sf_numerischer_teil,
+    schadenfreie_jahre,
+    sf_ordnung,
 )
 from src.common.geld import GeldFehler, als_string, aus_string, runde, summe, von_float, zu_decimal
 from src.common.pfade import Artefakt, PfadFehler, lauf_verzeichnis, sha256_dataframe, sha256_datei
@@ -229,15 +232,105 @@ def test_bauartklassen_enthalten_kein_j() -> None:
     assert set(BAUARTKLASSEN) == set("012345678ABCDEFGHI")
 
 
-def test_sf_katalog_und_numerischer_teil() -> None:
-    """SF-Klassen sind Strings; nur ``SF1`` bis ``SF50`` haben einen numerischen Teil."""
+def test_sf_katalog_ist_vollstaendig() -> None:
+    """Vier Sonderklassen und SF1 bis SF50, alle als String (R-013)."""
     assert len(SF_KLASSEN) == 54
-    assert sf_numerischer_teil("SF12") == 12
-    assert sf_numerischer_teil("SF50") == 50
-    for sonderklasse in ("M", "S", "0", "1/2"):
-        assert sf_numerischer_teil(sonderklasse) is None
-    for unsinn in ("SF0", "SF51", "SF", "12", ""):
-        assert sf_numerischer_teil(unsinn) is None
+    assert set(SF_KLASSEN_SONDER) == {"M", "S", "0", "1/2"}
+    assert SF_KLASSEN_NUMERISCH[0] == "SF1"
+    assert SF_KLASSEN_NUMERISCH[-1] == "SF50"
+
+
+# --- schadenfreie_jahre() fuer R-029 ---------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("sf_klasse", "erwartet"),
+    [
+        ("M", 0),
+        ("S", 0),
+        ("0", 0),
+        ("1/2", 0),
+        ("SF1", 1),
+        ("SF12", 12),
+        ("SF50", 50),
+    ],
+)
+def test_schadenfreie_jahre(sf_klasse: str, erwartet: int) -> None:
+    """Abbildung nach spec/01, Abschnitt 2.8."""
+    assert schadenfreie_jahre(sf_klasse) == erwartet
+
+
+def test_alle_sonderklassen_bedeuten_null_schadenfreie_jahre() -> None:
+    """R-029 ist bei Sonderklassen trivial erfuellt — fachlich korrekt, kein Ausweichen."""
+    assert all(schadenfreie_jahre(klasse) == 0 for klasse in SF_KLASSEN_SONDER)
+
+
+def test_schadenfreie_jahre_deckt_den_gesamten_katalog_ab() -> None:
+    """Kein gueltiger Katalogwert darf ``None`` liefern — sonst uebersaehe R-029 ihn."""
+    assert all(schadenfreie_jahre(klasse) is not None for klasse in SF_KLASSEN)
+
+
+# --- sf_ordnung() fuer R-030 -----------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("sf_klasse", "erwartet"),
+    [
+        ("M", -3),
+        ("S", -2),
+        ("0", -1),
+        ("1/2", 0),
+        ("SF1", 1),
+        ("SF12", 12),
+        ("SF50", 50),
+    ],
+)
+def test_sf_ordnung(sf_klasse: str, erwartet: int) -> None:
+    """Abbildung nach spec/01, Abschnitt 2.8."""
+    assert sf_ordnung(sf_klasse) == erwartet
+
+
+def _ordnung(sf_klasse: str) -> int:
+    """Wie :func:`sf_ordnung`, bricht aber bei einem Wert ausserhalb des Katalogs ab."""
+    wert = sf_ordnung(sf_klasse)
+    assert wert is not None, f"{sf_klasse!r} ist kein gueltiger Katalogwert"
+    return wert
+
+
+def test_sf_ordnung_ist_ueber_den_gesamten_katalog_streng_steigend() -> None:
+    """Vollstaendige Ordnung: M < S < 0 < 1/2 < SF1 < ... < SF50."""
+    reihenfolge = ["M", "S", "0", "1/2", *SF_KLASSEN_NUMERISCH]
+    werte = [_ordnung(klasse) for klasse in reihenfolge]
+    assert werte == sorted(werte)
+    assert len(set(werte)) == len(werte), "Kein Wert darf doppelt vorkommen"
+
+
+def test_sf_ordnung_grenzfaelle() -> None:
+    """Die beiden Faelle, die eine unvollstaendige Ordnung stillschweigend uebergehen wuerde."""
+    # M ist schlechter als S — mit einer Abbildung auf 0 waeren beide gleich.
+    assert _ordnung("M") < _ordnung("S")
+    # 1/2 ist schlechter als SF1, aber besser als 0.
+    assert _ordnung("0") < _ordnung("1/2") < _ordnung("SF1")
+
+
+def test_die_beiden_abbildungen_messen_verschiedenes() -> None:
+    """Kernaussage aus spec/01, Abschnitt 2.8: eine Funktion reicht nicht.
+
+    Bei ``schadenfreie_jahre`` sind ``M`` und ``1/2`` gleich (beide null Jahre),
+    bei ``sf_ordnung`` liegen drei Stufen dazwischen.
+    """
+    assert schadenfreie_jahre("M") == schadenfreie_jahre("1/2")
+    assert sf_ordnung("M") != sf_ordnung("1/2")
+
+
+# --- Werte ausserhalb des Katalogs -----------------------------------------
+
+
+@pytest.mark.parametrize("unsinn", ["SF0", "SF51", "SF", "12", "", "sf12", "SFx", "N", "1/3"])
+def test_ungueltige_sf_klasse_liefert_none(unsinn: str) -> None:
+    """Ein Wert ausserhalb des Katalogs ist ein Befund von R-013, kein Absturz."""
+    assert schadenfreie_jahre(unsinn) is None
+    assert sf_ordnung(unsinn) is None
 
 
 def test_anfragestatus_reihenfolge_ist_vollstaendig() -> None:
