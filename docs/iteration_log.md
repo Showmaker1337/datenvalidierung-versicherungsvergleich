@@ -430,3 +430,93 @@ Wenn nein, ist es eine Korrektur am Beleg.
 ## Iteration 2 — Korrekturen nach dem Freeze
 
 *Noch keine Einträge.*
+
+---
+
+## Phase 4 — Befunde beim Bau des Fehlerinjektors
+
+**Keiner dieser Punkte ist eine Iteration 2.** Der Regelkatalog ist unverändert: kein
+Prädikat, kein Wertebereich, kein Schwellenwert, kein Geltungsbereich, kein Schweregrad und
+keine Achsenzuordnung wurde angefasst. Geändert wurden ausschließlich der Injektor,
+`spec/03_fehlerklassen.md` (die Spezifikation des Injektors) und die Belegtexte.
+
+Die Entscheidungsprobe aus dem Freeze: *Ändert sich durch die Korrektur die Menge der
+gemeldeten Zellen auf irgendeinem Datensatz?* Für jeden Punkt unten lautet die Antwort
+**nein** — die Regeln melden auf jedem Datensatz genau dasselbe wie vor Phase 4.
+
+### Befund 1 — F5-d und F5-e sind als Senkung umzusetzen
+
+- **Datum:** 2026-08-10
+- **Sachlage:** `spec/03` ließ die Richtung offen („um 0,50 € / 0,01 € verändern"). Bei
+  jährlicher Zahlweise ist die Ratenanzahl 1 und der Ratenzuschlag 0; auf sauberen Daten gilt
+  dort `rate = brutto`, die Ungleichung von R-036 ist also **exakt ausgeschöpft**.
+- **Folge einer Erhöhung:** F5-d verletzte zusätzlich R-036 und würde von zwei Regeln
+  gemeldet — die Zuordnung Variante → Regel in der Ergebnistabelle wäre falsch. F5-e landete
+  exakt auf der Grenze von R-036; eine „erwartet unentdeckte" Variante darf nicht auf einer
+  Grenzgleichheit balancieren.
+- **Entscheidung:** Beide Varianten senken den Bruttobeitrag. R-036 bekommt dadurch
+  zusätzlichen Spielraum, R-031 entscheidet allein. Als Fehlerbild ist die Senkung ebenso
+  realistisch wie die Erhöhung.
+- **Auswirkung auf die Messung:** Keine auf die Regeln. F5-d wird sauber von R-031 gefangen,
+  F5-e sauber von keiner Regel — wie vorgesehen.
+
+### Befund 2 — F1-a und F1-b sind für den Katalog nicht unterscheidbar
+
+- **Datum:** 2026-08-10
+- **Sachlage:** F1-a lässt das Feld fehlen (`pd.NA`), F1-b liefert es leer (Leerstring). Auf
+  der Speicherebene ist das ein Unterschied; nach dem Parsen ist er verschwunden, weil
+  `spec/01`, Abschnitt 6 jeden leeren Wert als Leerstring serialisiert.
+- **Folge für die Auswertung:** Der Recall beider Varianten fällt gleich aus. Das ist die
+  Fortsetzung des in Phase 3 zu R-025 festgehaltenen Informationsverlusts der
+  Serialisierung — vorhergesagt und begründet, nicht überraschend.
+- **Regeländerung:** keine. Der Befund gehört in die Diskussion, nicht in den Katalog.
+
+### Befund 3 — F4-g löst zwangsläufig mehr als eine Regel aus
+
+- **Datum:** 2026-08-10
+- **Sachlage:** Ein negativer Nettobeitrag verletzt R-021 (Beitrag > 0) **und** R-031
+  (Brutto = Netto + Steuer). Eine negative Deckungssumme verletzt R-021 und R-024
+  (PflVG-Mindestdeckung).
+- **Bewertung:** Das ist keine Schwäche der Variante, sondern eine Eigenschaft eines
+  Vorzeichenfehlers: In einem arithmetisch verknüpften Satz kann er gar nicht isoliert
+  auftreten.
+- **Entscheidung:** Kein Eingriff. Die Nebentreffer werden in Phase 5 über `verstoss_id` und
+  `injektor_variante_id` getrennt ausgewiesen.
+
+### Befund 4 — drei Varianten schöpfen ihr Kontingent nicht aus
+
+- **Datum:** 2026-08-10
+- **Sachlage:** F4-f, F7-c und F7-d wirken auf der Entität `tarif`, und die hat bei der
+  ausgelieferten Konfiguration nur **231 Zeilen**. Bei zwei Prozent Fehlerrate erreicht F4-f
+  57 statt 240 Injektionen, F7-c und F7-d je 231 statt 605.
+- **Entscheidung:** Der nicht ausgeschöpfte Rest geht an die übrigen Varianten derselben
+  Klasse; das Klassenkontingent wird also exakt erreicht. Die tatsächliche Zahl je Variante
+  steht im `manifest.json`.
+- **Auswirkung auf die Messung:** Der Recall dieser drei Varianten beruht auf einer kleineren
+  Stichprobe. Die Zahl ist in der Ergebnistabelle als Stichprobenumfang mitzuführen, sonst
+  wirkt ein Konfidenzintervall breiter, als es sollte.
+
+### Befund 5 — mitgezogene Rangzellen sind keine Fehler
+
+- **Datum:** 2026-08-10
+- **Sachlage:** `spec/03`, Abschnitt 2 verlangt bei den Skalierungsvarianten, die Rangfolge
+  mitzuziehen, sonst löst zusätzlich R-044 aus. Die nachgeführte Zelle `angebot.rang` ist nach
+  der Skalierung aber **richtig** — sie trägt den korrekten Rang zum verfälschten Beitrag.
+- **Das Dilemma:** Stünde sie ununterscheidbar im `error_log`, wäre sie ein garantiertes
+  False Negative und der Recall fiele, ohne dass ein Detektor etwas übersehen hätte. Stünde
+  sie gar nicht im Log, fände der Diff-Gegencheck eine Abweichung ohne Protokolleintrag.
+- **Entscheidung:** Zusätzliche Spalte `mitgezogen` im zellbasierten Log. Sie steht im Log,
+  geht aber weder in das Zelluniversum noch in die Fehlerrate ein.
+- **Größenordnung:** Bei zwei Prozent Fehlerrate und 10.000 Anfragen entstehen zu 5.362
+  Trägerzellen der Klasse F8 zusätzlich 2.957 mitgezogene Rangzellen, bei HO2 zu 5.374
+  Trägerzellen 1.233. Ohne die Unterscheidung fiele der gemessene Recall von F8 rechnerisch um
+  gut ein Drittel — allein durch die Buchführung.
+
+### Ergebnis des Gegenchecks
+
+Über alle zehn Fehlerklassen und den Mischmodus, bei 10.000 Anfragen und zwei Prozent
+Fehlerrate: **keine Abweichung**. Diff und Ground Truth stimmen zellweise überein, jede
+hinzugefügte Zeile steht im satzbasierten Log, keine Zelle ist doppelt injiziert, und für
+jede Log-Zeile gilt `wert_clean != wert_dirty`.
+
+Der Bericht steht in `results/ground_truth_check.json`.

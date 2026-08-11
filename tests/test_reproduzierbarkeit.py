@@ -21,6 +21,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 import yaml
@@ -39,6 +40,13 @@ from src.common.seeding import (
 )
 from src.common.serialisierung import ENTITAETEN
 from src.generator.pipeline import erzeuge_datensatz
+from src.injector import injiziere
+
+if TYPE_CHECKING:  # pragma: no cover - nur fuer die Typpruefung
+    import pandas as pd
+
+    from src.common.config import Config
+    from src.injector import Injektionsergebnis
 
 WURZEL = Path(__file__).resolve().parents[1]
 SKRIPT = WURZEL / "scripts" / "build_reference.py"
@@ -219,6 +227,132 @@ def test_datensatz_ist_im_speicher_reproduzierbar(referenzverzeichnis: Path) -> 
     zweiter = erzeuge_datensatz(config, seed_basis)
     for name in ENTITAETEN:
         assert sha256_dataframe(erster[name]) == sha256_dataframe(zweiter[name]), name
+
+
+# ---------------------------------------------------------------------------
+# Injektion (Phase 4)
+# ---------------------------------------------------------------------------
+
+
+def _injiziere(
+    daten_clean: dict[str, pd.DataFrame], config: Config, klasse: str, nummer: int
+) -> Injektionsergebnis:
+    """Fuehrt eine Injektion mit einem aus der Nummer abgeleiteten Strom aus."""
+    return injiziere(
+        daten_clean,
+        0.02,
+        {klasse: 1.0},
+        lauf_seed(config.master_seed, Strom.INJEKTION, nummer),
+        "repro_inject",
+        config=config,
+    )
+
+
+@pytest.mark.parametrize("klasse", ["F1", "F3", "F6", "F8", "HO1", "HO2"])
+def test_gleicher_seed_inject_erzeugt_gleichen_ground_truth(
+    daten_clean: dict[str, pd.DataFrame], config_injektor: Config, klasse: str
+) -> None:
+    """Zwei Injektionen mit demselben ``seed_inject`` liefern identische Logs."""
+    erster = _injiziere(daten_clean, config_injektor, klasse, 1)
+    zweiter = _injiziere(daten_clean, config_injektor, klasse, 1)
+
+    assert sha256_dataframe(erster.error_log) == sha256_dataframe(zweiter.error_log)
+    assert sha256_dataframe(erster.error_log_records) == sha256_dataframe(
+        zweiter.error_log_records
+    )
+    for entitaet in ENTITAETEN:
+        assert sha256_dataframe(erster.df_raw_dirty[entitaet]) == sha256_dataframe(
+            zweiter.df_raw_dirty[entitaet]
+        ), entitaet
+
+
+@pytest.mark.parametrize("klasse", ["F1", "F3", "F6", "F8", "HO1", "HO2"])
+def test_anderer_seed_inject_erzeugt_anderen_ground_truth(
+    daten_clean: dict[str, pd.DataFrame], config_injektor: Config, klasse: str
+) -> None:
+    """Gegenprobe: Der Injektionsstrom wirkt sich tatsaechlich aus.
+
+    Ohne diese Gegenprobe waere die Reproduzierbarkeit im leeren Sinn erfuellt —
+    ein Injektor, der den Seed ignoriert, waere ebenfalls "reproduzierbar".
+    """
+    erster = _injiziere(daten_clean, config_injektor, klasse, 1)
+    anderer = _injiziere(daten_clean, config_injektor, klasse, 2)
+
+    if len(erster.error_log) > 0:
+        assert sha256_dataframe(erster.error_log) != sha256_dataframe(anderer.error_log)
+    else:
+        assert sha256_dataframe(erster.error_log_records) != sha256_dataframe(
+            anderer.error_log_records
+        )
+
+
+def test_injektion_haengt_nicht_am_basisstrom(
+    daten_clean: dict[str, pd.DataFrame], config_injektor: Config
+) -> None:
+    """Der Injektionsstrom ist vom Basisstrom getrennt.
+
+    Nur dadurch laesst sich derselbe saubere Datensatz mit vielen verschiedenen
+    Fehlerkonfigurationen verfaelschen und die Injektionsvarianz von der
+    Datenvarianz trennen (spec/03, Abschnitt 3).
+    """
+    seeds = wurzel_seeds(config_injektor.master_seed)
+    ueber_basis = injiziere(
+        daten_clean, 0.02, {"F3": 1.0}, seeds.basis, "repro_a", config=config_injektor
+    )
+    ueber_injektion = injiziere(
+        daten_clean, 0.02, {"F3": 1.0}, seeds.injektion, "repro_b", config=config_injektor
+    )
+    assert sha256_dataframe(ueber_basis.error_log) != sha256_dataframe(
+        ueber_injektion.error_log
+    )
+
+
+def test_injektionsskript_ist_prozessweit_reproduzierbar(
+    tmp_path: Path, referenzverzeichnis: Path
+) -> None:
+    """Zwei Laeufe von ``scripts/inject.py`` erzeugen bitgleiche Logdateien."""
+    assert referenzverzeichnis.is_dir()
+    rohdaten = yaml.safe_load((WURZEL / "config" / "default.yaml").read_text(encoding="utf-8"))
+    rohdaten["pfade"]["results"] = str(tmp_path / "results")
+    hashes: list[tuple[str, str]] = []
+    for durchlauf in ("a", "b"):
+        rohdaten["pfade"]["runs"] = str(tmp_path / durchlauf)
+        konfiguration = tmp_path / f"config_{durchlauf}.yaml"
+        konfiguration.write_text(yaml.safe_dump(rohdaten, allow_unicode=True), encoding="utf-8")
+        lauf = subprocess.run(
+            [
+                sys.executable,
+                str(WURZEL / "scripts" / "inject.py"),
+                "--config",
+                str(konfiguration),
+                "--serie",
+                "repro",
+                "--design",
+                "A",
+                "--klasse",
+                "F8",
+                "--rate",
+                "0.02",
+                "--wdh",
+                "1",
+                "--n-anfragen",
+                "200",
+                "--still",
+            ],
+            cwd=WURZEL,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert lauf.returncode == 0, lauf.stderr
+        ziel = tmp_path / durchlauf / "repro" / "A" / "F8" / "r0200" / "w01"
+        hashes.append(
+            (
+                sha256_datei(ziel / "error_log.parquet"),
+                sha256_datei(ziel / "error_log_records.parquet"),
+            )
+        )
+    assert hashes[0] == hashes[1]
 
 
 def test_teilstroeme_sind_voneinander_unabhaengig() -> None:

@@ -113,13 +113,53 @@ Begründung, Datum. Niemals stillschweigend ändern.
 │   └── cli.py                  # Einstiegspunkt
 ├── data/
 │   ├── reference/              # Referenztabellen (versioniert, im Repo)
-│   └── runs/<run_id>/          # Laufartefakte (nicht im Repo)
+│   └── runs/                   # Laufartefakte (nicht im Repo), zwei Formen — siehe unten
 ├── tests/
 ├── docs/
 │   ├── iteration_log.md
 │   └── verteilungsquellen.md   # Je Feld: woher stammt die Verteilungsannahme
 └── results/                    # Tabellen und Abbildungen für die Arbeit
 ```
+
+### Zwei Formen von Laufverzeichnissen
+
+**Ad-hoc-Läufe ohne Faktorstufen** behalten die flache Form:
+
+```
+data/runs/<run_id>/             # z. B. baseline01, freeze_check
+```
+
+**Experimentläufe** bekommen die verschachtelte Form:
+
+```
+data/runs/<serie>/<design>/<klasse>/<rate>/<wdh>/     # z. B. s01/A/F3/r0200/w07
+```
+
+In Phase 6 variieren Fehlerklasse, Fehlerrate, Wiederholung und Varianzdesign. Ein Pfad, der
+nur die Fehlerrate kodierte, ließe tausende Läufe einander überschreiben. Für den
+Mischmodus-Teilversuch tritt `mix` an die Stelle der Klasse.
+
+Die `run_id` eines Experimentlaufs trägt dieselbe Information als **ein Token**:
+
+```
+<serie>_<design>_<klasse>_r<bp>_w<nn>            # z. B. s01_A_F3_r0200_w07
+```
+
+`<bp>` ist die Rate in Basispunkten, vierstellig (`round(rate * 10000)`, also 0,02 → `0200`),
+`<nn>` die Wiederholung zweistellig. Dieselben beiden Token bilden die Pfadsegmente `<rate>`
+und `<wdh>`. Damit bleibt A2 wörtlich erfüllt — der Lauf ist allein aus `run_id` und
+Konfiguration reproduzierbar, weil die `run_id` alle Faktorstufen trägt. Sie steht in jedem
+`manifest.json` und in jeder Zeile beider Ground-Truth-Logs.
+
+Aufgebaut werden beide Formen ausschließlich über `src/common/pfade.py`
+(`lauf_verzeichnis`, `experiment_verzeichnis`, `experiment_run_id`).
+
+**`df_raw_dirty` wird nicht dauerhaft gespeichert.** Bei mehreren tausend Läufen à rund
+60.000 Zeilen entstünden zweistellige Gigabyte, und der verfälschte Datensatz ist aus
+`seed_basis` und `seed_inject` jederzeit exakt reproduzierbar. Dauerhaft aufbewahrt werden
+`error_log.parquet`, `error_log_records.parquet`, `config.yaml`, `manifest.json` und später
+`detections.parquet` und `metrics.json`. Das Flag `--behalten` legt die verfälschten Daten
+zum Hinsehen zusätzlich unter `dirty/` ab; Standard ist aus.
 
 ---
 

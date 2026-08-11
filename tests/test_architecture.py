@@ -15,9 +15,13 @@ selten laeuft.
 Geprueft wird **transitiv**. Ein Umweg ueber ein drittes Paket ist dieselbe
 Abhaengigkeit, nur schwerer zu sehen.
 
-Der Test enthaelt eine Selbstpruefung an einem kuenstlichen Baum. Ohne sie waere
-er wertlos, solange die Pakete leer sind: Er wuerde gruen bleiben, weil er nichts
-sieht, und nicht, weil nichts da ist.
+Der Test enthaelt eine **Negativkontrolle**: Er legt dem Pruefmechanismus einen
+kuenstlichen Importgraphen mit einer verbotenen Kante vor und erwartet, dass er
+sie meldet. Ein Test, der nicht fehlschlagen kann, belegt nichts — und dieser
+Test traegt in der Arbeit die Aussage, dass Injektor und Regelwerk unabhaengig
+sind. Solange ``src/injector`` nur eine leere ``__init__.py`` enthielt, war die
+A1-Pruefung **trivial gruen**: Es gab keinen Import, den sie haette finden
+koennen. Seit Phase 4 prueft sie echten Code.
 """
 
 from __future__ import annotations
@@ -175,6 +179,33 @@ def _pfad_suchen(graph: dict[str, set[str]], start: str, ziel: str) -> list[str]
     return None
 
 
+def verstoesse(
+    graph: dict[str, set[str]], verboten: tuple[tuple[str, str], ...]
+) -> list[tuple[str, str, list[str]]]:
+    """Findet alle verbotenen Kanten eines Importgraphen, direkt und transitiv.
+
+    Dies ist **der** Pruefmechanismus, auf den sich die Arbeit beruft. Er steht
+    als eigene Funktion da, damit ihn sowohl die Pruefung des echten Projekts als
+    auch die Negativkontrolle aufrufen koennen — sonst pruefte die
+    Negativkontrolle etwas anderes als der eigentliche Test.
+
+    Args:
+        graph: Ergebnis von :func:`paketgraph`.
+        verboten: Verbotene Kanten als Paare (Quelle, Ziel).
+
+    Returns:
+        Je gefundener Verletzung ein Tripel aus Quelle, Ziel und dem konkreten
+        Importpfad. Eine leere Liste bedeutet: keine Verletzung.
+    """
+    gefunden: list[tuple[str, str, list[str]]] = []
+    for quelle, ziel in verboten:
+        if ziel not in erreichbar(graph, quelle):
+            continue
+        pfad = _pfad_suchen(graph, quelle, ziel) or [quelle, ziel]
+        gefunden.append((quelle, ziel, pfad))
+    return gefunden
+
+
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
@@ -206,13 +237,101 @@ def test_keine_verbotene_abhaengigkeit(
     graph: dict[str, set[str]], quelle: str, ziel: str
 ) -> None:
     """Weder direkt noch ueber Umwege darf die verbotene Kante bestehen."""
-    if ziel not in erreichbar(graph, quelle):
-        return
-    pfad = _pfad_suchen(graph, quelle, ziel)
-    pytest.fail(
-        f"Architekturregel A1 verletzt: {quelle} erreicht {ziel} ueber "
-        f"{' -> '.join(pfad or [quelle, ziel])}"
+    gefunden = verstoesse(graph, ((quelle, ziel),))
+    if gefunden:
+        _, _, pfad = gefunden[0]
+        pytest.fail(f"Architekturregel A1 verletzt: {' -> '.join(pfad)}")
+
+
+def test_injektor_und_regelwerk_sind_unabhaengig(graph: dict[str, set[str]]) -> None:
+    """Die zentrale Aussage der Arbeit, an ihrem Beleg geprueft.
+
+    Der Injektor darf den Regelkatalog nicht kennen — weder die Regeln noch ihre
+    Konstanten noch ihre Hilfsfunktionen (``spec/03_fehlerklassen.md``,
+    Abschnitt 6). Und der Gegencheck darf den Injektor nicht kennen, sonst prueft
+    er nichts. Beides wird hier zusammen und ausdruecklich geprueft, weil genau
+    diese beiden Kanten in der Arbeit zitiert werden.
+    """
+    kern = (
+        ("src.injector", "src.rules"),
+        ("src.injector", "src.generator"),
+        ("src.verify", "src.injector"),
     )
+    gefunden = verstoesse(graph, kern)
+    assert not gefunden, "\n".join(
+        f"{quelle} erreicht {ziel} ueber {' -> '.join(pfad)}"
+        for quelle, ziel, pfad in gefunden
+    )
+
+
+def test_injektor_enthaelt_pruefbaren_code() -> None:
+    """Die A1-Pruefung darf nicht deshalb gruen sein, weil sie nichts sieht.
+
+    Solange ``src/injector`` nur eine leere ``__init__.py`` enthielt, war die
+    Pruefung trivial erfuellt. Dieser Test haelt fest, dass dort inzwischen
+    echter Code steht — sonst waere die Aussage des Architekturtests wertlos.
+    """
+    for paket, mindestdateien, mindestzeilen in (("injector", 8, 500), ("verify", 2, 200)):
+        dateien = sorted((WURZEL / "src" / paket).rglob("*.py"))
+        assert len(dateien) >= mindestdateien, (
+            f"src/{paket} enthaelt nur {len(dateien)} Moduldateien; "
+            "die Architekturpruefung haette dort nichts zu pruefen"
+        )
+        zeilen = sum(
+            len(datei.read_text(encoding="utf-8").splitlines()) for datei in dateien
+        )
+        assert zeilen > mindestzeilen, f"src/{paket} enthaelt nur {zeilen} Zeilen"
+
+
+def test_negativkontrolle_meldet_verbotene_kante(tmp_path: Path) -> None:
+    """Der Pruefmechanismus meldet eine verbotene Kante, die es wirklich gibt.
+
+    **Ohne diesen Test belegt der Architekturtest nichts.** Er koennte gruen
+    sein, weil keine Verletzung existiert — oder weil der Mechanismus keine
+    finden kann. Hier bekommt derselbe Mechanismus einen kuenstlichen Baum
+    vorgelegt, in dem die verbotene Kante ausdruecklich enthalten ist, und muss
+    sie melden.
+    """
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "__init__.py").write_text("", encoding="utf-8")
+    for name, inhalt in (
+        ("common", ""),
+        ("rules", "WERT = 1\n"),
+        ("umweg", "from src.rules import WERT\n"),
+        ("injector", "from src.umweg import WERT\n"),
+    ):
+        (tmp_path / "src" / name).mkdir()
+        (tmp_path / "src" / name / "__init__.py").write_text(inhalt, encoding="utf-8")
+
+    kuenstlich = paketgraph(tmp_path, "src")
+    gefunden = verstoesse(kuenstlich, (("src.injector", "src.rules"),))
+
+    assert gefunden, "Der Pruefmechanismus hat eine eingebaute Verletzung nicht gefunden"
+    quelle, ziel, pfad = gefunden[0]
+    assert (quelle, ziel) == ("src.injector", "src.rules")
+    assert pfad == ["src.injector", "src.umweg", "src.rules"], (
+        f"Der gemeldete Importpfad ist nicht der eingebaute: {pfad}"
+    )
+
+
+def test_negativkontrolle_meldet_saubere_kante_nicht(tmp_path: Path) -> None:
+    """Gegenprobe zur Negativkontrolle: ohne verbotene Kante meldet der Mechanismus nichts.
+
+    Ein Pruefmechanismus, der immer meldet, waere ebenso wertlos wie einer, der
+    nie meldet.
+    """
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "__init__.py").write_text("", encoding="utf-8")
+    for name, inhalt in (
+        ("common", "WERT = 1\n"),
+        ("rules", "from src.common import WERT\n"),
+        ("injector", "from src.common import WERT\n"),
+    ):
+        (tmp_path / "src" / name).mkdir()
+        (tmp_path / "src" / name / "__init__.py").write_text(inhalt, encoding="utf-8")
+
+    kuenstlich = paketgraph(tmp_path, "src")
+    assert not verstoesse(kuenstlich, (("src.injector", "src.rules"),))
 
 
 @pytest.mark.parametrize("paket", ["src.generator", "src.rules", "src.injector"])
@@ -222,9 +341,17 @@ def test_nur_common_wird_geteilt(graph: dict[str, set[str]], paket: str) -> None
     CLAUDE.md, Abschnitt 2: "Alle drei Pakete duerfen aus ``src/common/``
     importieren, sonst nichts voneinander." Diese Fassung ist strenger als die
     Aufzaehlung in A1 und schliesst auch kuenftige Pakete als Umweg aus.
+
+    Eigene Unterpakete sind kein Umweg: ``src.injector.varianten`` gehoert zum
+    Injektor. Die Regel richtet sich gegen Abhaengigkeiten **zwischen** den drei
+    Paketen, nicht gegen deren innere Gliederung.
     """
-    erlaubt = {"src", "src.common"}
-    fremde = sorted(erreichbar(graph, paket) - erlaubt)
+    erlaubt = {"src", "src.common", paket}
+    fremde = sorted(
+        eintrag
+        for eintrag in erreichbar(graph, paket) - erlaubt
+        if not eintrag.startswith(f"{paket}.")
+    )
     assert not fremde, (
         f"{paket} erreicht projektinterne Pakete ausserhalb von src.common: {fremde}"
     )

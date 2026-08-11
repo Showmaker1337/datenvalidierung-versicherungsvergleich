@@ -52,7 +52,7 @@ Skripte unter `scripts/` setzen ihn beim Start selbst.
 | 2 | `df_clean` — der saubere synthetische Datensatz in beiden Schichten | `python scripts/generate.py --run-id <id>` (abgeschlossen) |
 | 3 | Regelkatalog implementiert, Clean-Baseline-Lauf ohne Meldungen | `python scripts/validate.py --run-id <id> --dataset clean` (abgeschlossen) |
 | **→** | **Freeze des Regelkatalogs** (`git tag freeze-regelkatalog`) | — |
-| 4 | `df_raw_dirty` + Ground Truth + unabhängiger Gegencheck | folgt in Phase 4 |
+| 4 | `df_raw_dirty` + Ground Truth + unabhängiger Gegencheck | `python scripts/inject.py --serie s01 --design A --klasse F3 --rate 0.02 --wdh 7` (abgeschlossen) |
 | 5 | Metriken sowie die Baselines B0, B2 und B3 | folgt in Phase 5 |
 | 6 | Hauptversuch, Teilversuche, Statistik, Abbildungen und Tabellen | folgt in Phase 6 |
 
@@ -100,6 +100,21 @@ Führt den vollständigen Regelkatalog auf dem sauberen Datensatz aus. Geschrieb
 die Laufzeit je Regel (`rule_timing.json`). Optionen: `--config DATEI`, `--still`.
 
 ```bash
+python scripts/inject.py --serie s01 --design A --klasse F3 --rate 0.02 --wdh 7 --clean-run lauf01
+```
+
+Verfälscht die Rohschicht kontrolliert, schreibt beide Ground-Truth-Logs und lässt den
+unabhängigen Gegencheck darüber laufen. Geschrieben werden nach
+`data/runs/<serie>/<design>/<klasse>/<rate>/<wdh>/` die Dateien `error_log.parquet`,
+`error_log_records.parquet`, `config.yaml` und `manifest.json` sowie nach
+`results/ground_truth_check.json` der Bericht des Gegenchecks. Der Rückgabewert ist `1`,
+wenn der Gegencheck eine Abweichung findet.
+
+Optionen: `--config DATEI`, `--clean-run ID` (ohne Angabe wird der saubere Datensatz aus dem
+Master-Seed erzeugt), `--seed ZAHL`, `--n-anfragen ZAHL`, `--behalten`, `--still`. Für den
+Mischmodus-Teilversuch `--klasse mix`.
+
+```bash
 python scripts/export_katalog.py
 ```
 
@@ -145,6 +160,23 @@ bleiben.
 
 Laufartefakte unter `data/runs/` sind bewusst nicht versioniert — sie sind aus Master-Seed
 und Konfiguration exakt reproduzierbar.
+
+### Laufverzeichnisse — zwei Formen
+
+Ad-hoc-Läufe ohne Faktorstufen behalten die flache Form `data/runs/<run_id>/`.
+Experimentläufe bekommen die verschachtelte Form
+`data/runs/<serie>/<design>/<klasse>/<rate>/<wdh>/`, weil in Phase 6 Fehlerklasse,
+Fehlerrate, Wiederholung und Varianzdesign variieren und ein Pfad, der nur die Fehlerrate
+kodierte, tausende Läufe einander überschreiben ließe.
+
+Die `run_id` trägt dieselbe Information als ein Token: `s01_A_F3_r0200_w07`. Dabei ist der
+Ratenteil die Rate in Basispunkten, vierstellig (0,02 → `0200`), und der Wiederholungsteil
+zweistellig. Damit bleibt A2 wörtlich erfüllt: Der Lauf ist allein aus `run_id` und
+Konfiguration reproduzierbar. Für den Mischmodus tritt `mix` an die Stelle der Klasse.
+
+`df_raw_dirty` wird **nicht** dauerhaft gespeichert; der verfälschte Datensatz ist aus
+`seed_basis` und `seed_inject` jederzeit exakt reproduzierbar. `--behalten` legt ihn zum
+Hinsehen zusätzlich unter `dirty/` ab.
 
 ## Der saubere Datensatz (Phase 2)
 
@@ -250,6 +282,99 @@ und der eine dabei gefundene Regelfehler in
 Diese Kennzahl ist der Beleg dafür, dass die Grundannahme „alles nicht Injizierte ist
 sauber" trägt. Ohne sie wäre jede später berichtete Precision unbelegt.
 
+## Der Fehlerinjektor (Phase 4)
+
+Der Injektor verfälscht die **Rohschicht** `df_raw` kontrolliert und protokolliert jede
+einzelne Verfälschung. Sechzig Injektionsvarianten über acht Fehlerklassen und zwei
+Held-out-Klassen (`spec/03_fehlerklassen.md`, Abschnitt 2).
+
+Er importiert **nichts** aus `src/rules` und nichts aus `src/generator`. Er kennt weder die
+Regeln noch ihre Konstanten noch ihre Hilfsfunktionen und verwendet keine Regel-IDs in seiner
+Logik. Die Varianten bilden **empirische Fehlerursachen** ab — Erfassungsfehler,
+Schnittstellenkonvertierung, Legacy-Migration, Freitexteingabe —, nicht die Komplemente der
+Prüfbedingungen. Die Zuordnung Variante → Regel entsteht erst in der Auswertung.
+
+Diese Trennung ist der Kern der methodischen Absicherung gegen den Zirkularitätsvorwurf und
+wird am Importgraphen belegt (`tests/test_architecture.py`, einschließlich einer
+Negativkontrolle, die dem Prüfmechanismus eine verbotene Kante vorlegt).
+
+### Die Bezugsgröße der Fehlerrate — sie ändert jede Ergebnistabelle
+
+> Die Fehlerrate ist der Anteil verfälschter Zellen am **klassenspezifischen adressierbaren
+> Zelluniversum** — also an der Menge aller Zellen, die von mindestens einer Variante dieser
+> Fehlerklasse überhaupt getroffen werden können.
+
+Der Grund ist rechnerisch zwingend: Jede Klasse adressiert nur einen Teil des Datensatzes.
+Bezöge man die Rate auf alle befüllten Zellen, wären die oberen Ratenstufen für die meisten
+Klassen unerreichbar. Gemessen bei 10.000 Anfragen:
+
+| Klasse | Universum | Einheit | injiziert bei 2 % |
+|---|---|---|---|
+| F1 Fehlender Wert | 1.137.175 | Zellen | 22.744 |
+| F2 Format und Syntax | 111.731 | Zellen | 2.235 |
+| F3 Wertebereich und Katalog | 57.376 | Zellen | 1.148 |
+| F4 Fachlich unmöglich | 84.055 | Zellen | 1.681 |
+| F5 Intra-Record-Inkonsistenz | 232.660 | Zellen | 4.653 |
+| F6 Duplikate | 73.398 | **Sätze** | 1.468 |
+| F7 Aktualität | 120.895 | Zellen | 2.418 |
+| F8 Einheiten | 268.034 | Zellen | 5.362 |
+| HO1 Semantische Duplikate | 12.400 | **Sätze** | 248 |
+| HO2 Semantisch falsch | 268.564 | Zellen | 5.374 |
+
+**„2 Prozent Fehlerrate" bedeutet je Klasse eine andere absolute Fehlerzahl** — hier zwischen
+248 und 22.744, also um den Faktor 90 auseinander. Verlangt die angeforderte Rate mehr
+Einheiten, als das Universum hergibt, bricht der Injektor mit klarer Meldung ab; er füllt
+**nicht** stillschweigend weniger auf.
+
+Bei F6 und HO1 ist die Bezugseinheit die **duplizierbare Zeile**, nicht die Zelle: Beide
+Klassen fügen Zeilen hinzu und haben keine Zielzelle. Das `manifest.json` weist die Einheit je
+Klasse aus.
+
+### Zwei Ebenen des Ground Truth
+
+| Datei | Inhalt |
+|---|---|
+| `error_log.parquet` | eine Zeile je verfälschter Zelle |
+| `error_log_records.parquet` | eine Zeile je satzbezogenem Fehler (F6, F7-c, HO1) |
+
+Eine hinzugefügte Duplikatzeile hat keinen sauberen Vorgängerwert, und `df_dirty` hat dann
+mehr Zeilen als `df_clean` — ein zellweises Diff ist dort undefiniert. Ohne die zweite Ebene
+bräche die Auswertung genau bei der Fehlerklasse, die laut Branchenempirie die häufigste ist.
+
+Das zellbasierte Log trägt eine Spalte `mitgezogen`. Sie trennt **Trägerzellen** vom Rang, der
+bei den Skalierungsvarianten nur der Satzstimmigkeit wegen nachgeführt wird. Eine mitgezogene
+Zelle ist nach der Skalierung richtig, nicht falsch; sie als injizierten Fehler zu zählen
+ergäbe ein garantiertes False Negative. Sie muss trotzdem im Log stehen, sonst fände der
+Gegencheck eine Abweichung ohne Protokolleintrag. Nur die Trägerzellen gehen in die
+Fehlerrate ein.
+
+### Der unabhängige Gegencheck
+
+`src/verify/diff_check.py` berechnet ein zellweises Diff zwischen `df_clean` und `df_dirty`
+über `row_id` und gleicht es gegen beide Logs ab. Das Modul liegt bewusst **außerhalb** von
+`src/injector` und teilt keinen Code mit ihm — ein Gegencheck, der die Logik des Geprüften
+teilt, bestätigt nur, dass diese Logik mit sich selbst übereinstimmt. Der Architekturtest
+prüft die Kante am Importgraphen.
+
+Ergebnis über alle zehn Klassen und den Mischmodus bei 10.000 Anfragen: **keine Abweichung**.
+Der Bericht steht in [`results/ground_truth_check.json`](results/ground_truth_check.json) und
+gehört in den Anhang der Arbeit.
+
+### Was der Injektor bewusst nicht erkennbar macht
+
+Vier Varianten sollen **nicht** gefunden werden. Sie sind die Kontrollbedingung des
+Experiments:
+
+| Variante | Warum sie unentdeckt bleibt |
+|---|---|
+| F5-e | Bruttobeitrag um 0,01 € gesenkt — innerhalb der Toleranz von R-031. Prüft, ob die Toleranzgrenze korrekt implementiert ist |
+| F7-d | Tarifgeneration zurückgesetzt, Gültigkeitszeitraum unverändert — das Feld `tarifgeneration` wird nicht regelgeprüft |
+| F8-e | **Alle** Angebote einer Anfrage durch 12 geteilt. R-054 prüft relational gegen den Median der übrigen Angebote, und der wandert mit |
+| HO1, HO2 | Semantische Duplikate und semantisch falsche, formal gültige Werte — dafür bräuchte es ein Ähnlichkeitsmaß beziehungsweise die wahre Ausprägung |
+
+F8-e zeigt die strukturelle Grenze relationaler Plausibilitätsprüfungen und gehört
+ausdrücklich in die Diskussion der Arbeit.
+
 ## Freeze des Regelkatalogs
 
 Der Regelkatalog wurde **vor** dem Fehlerinjektor entwickelt und anschließend eingefroren.
@@ -348,6 +473,33 @@ dürfen.
 Die reinen Spaltenprüfungen der Gruppe G1 laufen über **pandera** mit `lazy=True`, damit
 alle Verstöße einer Spalte gesammelt statt beim ersten abgebrochen werden. Für G2 bis G5
 sind es eigene Prüffunktionen — dafür ist pandera nicht gedacht.
+
+### `src/injector/` — der Fehlerinjektor
+
+| Modul | Inhalt |
+|---|---|
+| `modell.py` | `Fehlerklasse`, `Variante`, `Aenderung`, `Injektionskontext`, Log-Schemata. Weist typisierte Daten zurück, statt still zu konvertieren |
+| `rohwerte.py` | Lesen und Schreiben einzelner Werte der Rohschicht (`TTMMJJJJ`, ISO 8601, `Decimal`) |
+| `varianten/` | Die 60 Varianten je Fehlerklasse; `__init__` prüft die Zusammenstellung **beim Import** |
+| `auswahl.py` | Adressierbares Zelluniversum je Klasse, Kontingente je Variante, Mischung der Kandidaten |
+| `protokoll.py` | Aufbau von `error_log` und `error_log_records` |
+| `pipeline.py` | Orchestrierung; öffentlicher Einstiegspunkt `injiziere` |
+
+Das Kontingent einer Klasse wird **gleichmäßig auf ihre Varianten** verteilt, damit der
+Recall je Variante aussagekräftig bleibt: Zöge man die Zellen einfach aus dem
+Klassenuniversum, bekämen Varianten mit kleiner Kandidatenmenge — etwa F2-a, das eine
+führende Null voraussetzt — zu wenige Treffer. Kann eine Variante ihr Kontingent nicht
+füllen, geht der Rest an die übrigen Varianten derselben Klasse.
+
+### `src/verify/` — der unabhängige Gegencheck
+
+| Modul | Inhalt |
+|---|---|
+| `diff_check.py` | Zellweises Diff `df_clean` gegen `df_dirty` über `row_id`, abgeglichen gegen beide Ground-Truth-Logs |
+
+Importiert **nichts** aus `src/injector` und kennt weder die Variantendefinitionen noch die
+Log-Schemakonstanten des Injektors. Die Spaltennamen, gegen die es prüft, stammen aus
+`spec/03`, nicht aus dem Quelltext des Injektors.
 
 ### Referenzdaten
 

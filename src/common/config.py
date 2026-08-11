@@ -32,6 +32,7 @@ __all__ = [
     "Pfade",
     "Referenzdaten",
     "Schwellen",
+    "als_dict",
     "lade_config",
     "projekt_wurzel",
 ]
@@ -492,6 +493,11 @@ def lade_config(pfad: Path | None = None) -> Config:
     )
     _pruefe_schluessel(rohdaten, erlaubt, "")
 
+    return _baue(rohdaten, quelle)
+
+
+def _baue(rohdaten: Mapping[str, Any], quelle: Path) -> Config:
+    """Setzt die geprueften Abschnitte zur Konfiguration zusammen."""
     return Config(
         stichtag=_lies_stichtag(rohdaten),
         master_seed=_als_int(
@@ -505,3 +511,64 @@ def lade_config(pfad: Path | None = None) -> Config:
         referenzdaten=_lies_referenzdaten(rohdaten),
         quelldatei=quelle,
     )
+
+
+def als_dict(config: Config) -> dict[str, Any]:
+    """Bildet die Konfiguration auf JSON- und YAML-faehige Werte ab.
+
+    Pfade werden **relativ zum Projektwurzelverzeichnis** abgelegt. Absolute
+    Pfade waeren rechnerabhaengig und wuerden den Hashwert eines Manifests von
+    der Arbeitsumgebung abhaengig machen (Architekturregel A2). Geldbetraege
+    werden als Zeichenkette gefuehrt, damit die ``Decimal``-Darstellung nicht
+    ueber einen ``float`` laeuft.
+
+    Args:
+        config: Geladene Konfiguration.
+
+    Returns:
+        Eine Abbildung mit denselben Schluesseln wie ``config/default.yaml``.
+    """
+
+    def relativ(pfad: Path) -> str:
+        try:
+            return pfad.relative_to(config.pfade.wurzel).as_posix()
+        except ValueError:
+            return pfad.name
+
+    schwellen = config.schwellen
+    return {
+        "stichtag": config.stichtag.isoformat(),
+        "master_seed": config.master_seed,
+        "n_anfragen": config.n_anfragen,
+        "angebote_je_anfrage": {
+            "min": config.angebote_je_anfrage.minimum,
+            "max": config.angebote_je_anfrage.maximum,
+        },
+        "sparten_verteilung": dict(config.sparten_verteilung),
+        "pfade": {
+            "reference": relativ(config.pfade.reference),
+            "runs": relativ(config.pfade.runs),
+            "results": relativ(config.pfade.results),
+        },
+        "schwellen": {
+            "r022_wohnflaeche": list(schwellen.r022_wohnflaeche),
+            "r031_toleranz_eur": str(schwellen.r031_toleranz_eur),
+            "r036_toleranz_je_rate_eur": str(schwellen.r036_toleranz_je_rate_eur),
+            "r047_spreizung_max": schwellen.r047_spreizung_max,
+            "r048_zuers_toleranz_relativ": schwellen.r048_zuers_toleranz_relativ,
+            "r053_korridor_kfz_eur": [str(wert) for wert in schwellen.r053_korridor_kfz_eur],
+            "r053_korridor_hausrat_eur": [
+                str(wert) for wert in schwellen.r053_korridor_hausrat_eur
+            ],
+            "r054_faktor": schwellen.r054_faktor,
+            "r054_toleranz_relativ": schwellen.r054_toleranz_relativ,
+        },
+        "referenzdaten": {
+            "n_plz": config.referenzdaten.n_plz,
+            "n_zulassungsbezirke": config.referenzdaten.n_zulassungsbezirke,
+            "n_typklassen": config.referenzdaten.n_typklassen,
+            "n_hersteller": config.referenzdaten.n_hersteller,
+            "n_vu": config.referenzdaten.n_vu,
+            "zuers_anteile": list(config.referenzdaten.zuers_anteile),
+        },
+    }

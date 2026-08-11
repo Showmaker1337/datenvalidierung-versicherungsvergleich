@@ -28,6 +28,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Final
 
 from src.common import referenz
+from src.common.config import als_dict as konfiguration_als_dict
 from src.common.enums import Quellschnittstelle, ist_kfz_sparte, schadenfreie_jahre
 from src.common.pfade import (
     CLEAN_MANIFEST,
@@ -419,59 +420,6 @@ def erzeuge_datensatz(config: Config, seed_basis: SeedSequence) -> dict[str, pd.
     )
 
 
-def _konfiguration_als_dict(config: Config) -> dict[str, object]:
-    """Bildet die Konfiguration auf JSON-faehige Werte ab.
-
-    Pfade werden **relativ zum Projektwurzelverzeichnis** abgelegt. Absolute Pfade
-    waeren rechnerabhaengig und wuerden den Hashwert des Manifests von der
-    Arbeitsumgebung abhaengig machen.
-    """
-
-    def relativ(pfad: Path) -> str:
-        try:
-            return pfad.relative_to(config.pfade.wurzel).as_posix()
-        except ValueError:
-            return pfad.name
-
-    schwellen = config.schwellen
-    return {
-        "stichtag": config.stichtag.isoformat(),
-        "master_seed": config.master_seed,
-        "n_anfragen": config.n_anfragen,
-        "angebote_je_anfrage": {
-            "min": config.angebote_je_anfrage.minimum,
-            "max": config.angebote_je_anfrage.maximum,
-        },
-        "sparten_verteilung": dict(config.sparten_verteilung),
-        "pfade": {
-            "reference": relativ(config.pfade.reference),
-            "runs": relativ(config.pfade.runs),
-            "results": relativ(config.pfade.results),
-        },
-        "schwellen": {
-            "r022_wohnflaeche": list(schwellen.r022_wohnflaeche),
-            "r031_toleranz_eur": str(schwellen.r031_toleranz_eur),
-            "r036_toleranz_je_rate_eur": str(schwellen.r036_toleranz_je_rate_eur),
-            "r047_spreizung_max": schwellen.r047_spreizung_max,
-            "r048_zuers_toleranz_relativ": schwellen.r048_zuers_toleranz_relativ,
-            "r053_korridor_kfz_eur": [str(wert) for wert in schwellen.r053_korridor_kfz_eur],
-            "r053_korridor_hausrat_eur": [
-                str(wert) for wert in schwellen.r053_korridor_hausrat_eur
-            ],
-            "r054_faktor": schwellen.r054_faktor,
-            "r054_toleranz_relativ": schwellen.r054_toleranz_relativ,
-        },
-        "referenzdaten": {
-            "n_plz": config.referenzdaten.n_plz,
-            "n_zulassungsbezirke": config.referenzdaten.n_zulassungsbezirke,
-            "n_typklassen": config.referenzdaten.n_typklassen,
-            "n_hersteller": config.referenzdaten.n_hersteller,
-            "n_vu": config.referenzdaten.n_vu,
-            "zuers_anteile": list(config.referenzdaten.zuers_anteile),
-        },
-    }
-
-
 def schreibe_datensatz(
     config: Config,
     run_id: str,
@@ -524,7 +472,7 @@ def schreibe_datensatz(
             "master_seed": config.master_seed,
             "seed_basis": seed_als_int(seed_basis),
         },
-        "konfiguration": _konfiguration_als_dict(config),
+        "konfiguration": konfiguration_als_dict(config),
         "referenzdaten": {
             name: sha256_datei(config.pfade.reference / name) for name in REFERENZ_DATEIEN
         },

@@ -25,6 +25,8 @@ if TYPE_CHECKING:  # pragma: no cover - nur fuer die Typpruefung
 
 __all__ = [
     "CLEAN_MANIFEST",
+    "DIRTY",
+    "MISCHMODUS",
     "REFERENZ_DATEIEN",
     "Artefakt",
     "PfadFehler",
@@ -32,12 +34,16 @@ __all__ = [
     "artefakt_pfad",
     "clean_verzeichnis",
     "entitaet_pfad",
+    "experiment_run_id",
+    "experiment_verzeichnis",
     "lauf_verzeichnis",
     "pruefe_run_id",
+    "raten_token",
     "sha256_bytes",
     "sha256_dataframe",
     "sha256_datei",
     "sha256_verzeichnis",
+    "wiederholungs_token",
 ]
 
 #: Blockgroesse beim Einlesen grosser Dateien.
@@ -113,8 +119,32 @@ class Schicht(StrEnum):
 #: Verzeichnis des sauberen Datensatzes unterhalb des Laufverzeichnisses.
 _CLEAN: Final[str] = "clean"
 
+#: Verzeichnis des verfaelschten Datensatzes unterhalb des Laufverzeichnisses.
+#:
+#: Es entsteht nur, wenn ``scripts/inject.py`` mit ``--behalten`` aufgerufen wird.
+#: Regulaer wird ``df_raw_dirty`` **nicht** dauerhaft gespeichert: Bei mehreren
+#: tausend Laeufen zu je rund 60.000 Zeilen entstuenden zweistellige Gigabyte, und
+#: der verfaelschte Datensatz ist aus ``seed_basis`` und ``seed_inject`` jederzeit
+#: exakt reproduzierbar.
+DIRTY: Final[str] = "dirty"
+
 #: Manifest des sauberen Datensatzes: Zeilenzahlen, Hashwerte, Seeds, Konfiguration.
 CLEAN_MANIFEST: Final[str] = "manifest.json"
+
+#: Pfadsegment und Klassenkuerzel des Mischmodus-Teilversuchs (spec/03, Abschnitt 3).
+MISCHMODUS: Final[str] = "mix"
+
+#: Zulaessiges Muster eines Serien- und eines Designnamens.
+_MUSTER_SEGMENT: Final[re.Pattern[str]] = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$")
+
+#: Basispunkte einer Fehlerrate von 100 Prozent — Nenner der Ratenkodierung.
+_BASISPUNKTE: Final[int] = 10000
+
+#: Stellenzahl der Rate in Basispunkten im Pfad und in der ``run_id``.
+_RATEN_STELLEN: Final[int] = 4
+
+#: Stellenzahl der Wiederholungsnummer im Pfad und in der ``run_id``.
+_WIEDERHOLUNGS_STELLEN: Final[int] = 2
 
 
 def pruefe_run_id(run_id: str) -> str:
@@ -187,6 +217,136 @@ def clean_verzeichnis(config: Config, run_id: str, *, anlegen: bool = False) -> 
     if anlegen:
         for schicht in Schicht:
             (verzeichnis / schicht.value).mkdir(parents=True, exist_ok=True)
+    return verzeichnis
+
+
+def raten_token(fehlerrate: float) -> str:
+    """Kodiert eine Fehlerrate als vierstellige Basispunktangabe.
+
+    Args:
+        fehlerrate: Fehlerrate als Anteil, zum Beispiel ``0.02``.
+
+    Returns:
+        Das Token, zum Beispiel ``r0200`` fuer zwei Prozent.
+
+    Raises:
+        PfadFehler: Wenn die Rate nicht positiv ist oder mehr als vier Stellen
+            in Basispunkten braucht.
+    """
+    if fehlerrate <= 0:
+        raise PfadFehler(f"Die Fehlerrate muss groesser als null sein, war {fehlerrate}")
+    basispunkte = round(fehlerrate * _BASISPUNKTE)
+    if basispunkte >= _BASISPUNKTE * 10:
+        raise PfadFehler(
+            f"Die Fehlerrate {fehlerrate} ist in vier Stellen Basispunkten nicht darstellbar"
+        )
+    return f"r{basispunkte:0{_RATEN_STELLEN}d}"
+
+
+def wiederholungs_token(wiederholung: int) -> str:
+    """Kodiert eine Wiederholungsnummer zweistellig.
+
+    Args:
+        wiederholung: Nummer der Wiederholung.
+
+    Returns:
+        Das Token, zum Beispiel ``w07``.
+
+    Raises:
+        PfadFehler: Wenn die Nummer negativ ist.
+    """
+    if wiederholung < 0:
+        raise PfadFehler(f"Die Wiederholung muss nicht negativ sein, war {wiederholung}")
+    return f"w{wiederholung:0{_WIEDERHOLUNGS_STELLEN}d}"
+
+
+def _pruefe_segment(wert: str, name: str) -> str:
+    """Prueft ein Pfadsegment auf Verwendbarkeit als Verzeichnisname."""
+    if not _MUSTER_SEGMENT.match(wert):
+        raise PfadFehler(
+            f"Unzulaessiger Wert fuer {name}: {wert!r}. Erlaubt sind Buchstaben, Ziffern, "
+            "Bindestrich und Unterstrich, hoechstens 32 Zeichen."
+        )
+    return wert
+
+
+def experiment_run_id(
+    serie: str, design: str, klasse: str, fehlerrate: float, wiederholung: int
+) -> str:
+    """Bildet die Lauf-Kennung eines Experimentlaufs aus seinen Faktorstufen.
+
+    Die Kennung traegt **alle** Faktorstufen als ein Token, zum Beispiel
+    ``s01_A_F3_r0200_w07``. Damit bleibt Architekturregel A2 woertlich erfuellt:
+    Der Lauf ist allein aus ``run_id`` und Konfiguration reproduzierbar.
+
+    Args:
+        serie: Name der Versuchsserie.
+        design: Kennbuchstabe des Varianzdesigns.
+        klasse: Fehlerklasse oder :data:`MISCHMODUS`.
+        fehlerrate: Fehlerrate als Anteil.
+        wiederholung: Nummer der Wiederholung.
+
+    Returns:
+        Die Kennung.
+
+    Raises:
+        PfadFehler: Wenn ein Bestandteil nicht als Verzeichnisname taugt.
+    """
+    kennung = "_".join(
+        (
+            _pruefe_segment(serie, "serie"),
+            _pruefe_segment(design, "design"),
+            _pruefe_segment(klasse, "klasse"),
+            raten_token(fehlerrate),
+            wiederholungs_token(wiederholung),
+        )
+    )
+    return pruefe_run_id(kennung)
+
+
+def experiment_verzeichnis(  # noqa: PLR0913, PLR0917 - die Faktorstufen bilden den Pfad
+    config: Config,
+    serie: str,
+    design: str,
+    klasse: str,
+    fehlerrate: float,
+    wiederholung: int,
+    *,
+    anlegen: bool = False,
+) -> Path:
+    """Gibt das Verzeichnis eines Experimentlaufs zurueck.
+
+    Das Schema ist ``data/runs/<serie>/<design>/<klasse>/<rate>/<wdh>/``. Ein
+    Pfad, der nur die Fehlerrate kodierte, liesse die tausenden Laeufe der
+    Phase 6 einander ueberschreiben. Ad-hoc-Laeufe ohne Faktorstufen behalten die
+    flache Form :func:`lauf_verzeichnis`.
+
+    Args:
+        config: Geladene Konfiguration.
+        serie: Name der Versuchsserie.
+        design: Kennbuchstabe des Varianzdesigns.
+        klasse: Fehlerklasse oder :data:`MISCHMODUS`.
+        fehlerrate: Fehlerrate als Anteil.
+        wiederholung: Nummer der Wiederholung.
+        anlegen: Legt das Verzeichnis samt Elternverzeichnissen an.
+
+    Returns:
+        Das Laufverzeichnis als absoluten Pfad.
+
+    Raises:
+        PfadFehler: Wenn ein Bestandteil nicht als Verzeichnisname taugt.
+    """
+    experiment_run_id(serie, design, klasse, fehlerrate, wiederholung)
+    verzeichnis = (
+        config.pfade.runs
+        / serie
+        / design
+        / klasse
+        / raten_token(fehlerrate)
+        / wiederholungs_token(wiederholung)
+    )
+    if anlegen:
+        verzeichnis.mkdir(parents=True, exist_ok=True)
     return verzeichnis
 
 

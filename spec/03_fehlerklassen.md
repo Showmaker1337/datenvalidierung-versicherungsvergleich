@@ -110,8 +110,8 @@ Range-Prüfung (1 ≤ x ≤ 9) lässt sie durch, nur die Domain-Prüfung fängt 
 | F5-a | Brutto und Netto vertauschen (Brutto < Netto) | ja (R-031) |
 | F5-b | Steuerbetrag mit falschem Satz berechnen (19 % statt 16,15 % bei Hausrat) | ja (R-032/R-033) |
 | F5-c | Steuersatz der falschen Sparte eintragen | ja (R-033) |
-| F5-d | Bruttobeitrag um 0,50 € verändern (kleiner Arithmetikfehler oberhalb der Toleranz) | ja (R-031), Grenzfall |
-| F5-e | Bruttobeitrag um 0,01 € verändern (**innerhalb** der Toleranz) | nein — **erwartet unentdeckt**, prüft die Toleranzdefinition |
+| F5-d | Bruttobeitrag um 0,50 € **senken** (kleiner Arithmetikfehler oberhalb der Toleranz) | ja (R-031), Grenzfall |
+| F5-e | Bruttobeitrag um 0,01 € **senken** (**innerhalb** der Toleranz) | nein — **erwartet unentdeckt**, prüft die Toleranzdefinition |
 | F5-f | SF-Klasse auf einen Wert über (Alter − 17) setzen | ja (R-029) |
 | F5-g | E-Kennzeichen setzen, Antriebsart auf BENZIN belassen | ja (R-039) |
 | F5-h | Sublimit über die Versicherungssumme heben | ja (R-042) |
@@ -120,6 +120,27 @@ Range-Prüfung (1 ≤ x ≤ 9) lässt sie durch, nur die Domain-Prüfung fängt 
 Variante F5-e ist bewusst so gebaut, dass sie **nicht** erkannt werden soll. Sie prüft,
 ob die Toleranzgrenze korrekt implementiert ist, und liefert einen erklärbaren False
 Negative — ein Befund, kein Fehler.
+
+#### F5-d und F5-e sind Senkungen, keine Erhöhungen
+
+Die Richtung war ursprünglich offen gelassen („um 0,50 € / 0,01 € verändern"). Festgelegt
+ist beides als **Verringerung** des Bruttobeitrags. Der Grund liegt bei R-036
+(`zahlbeitrag_rate_eur` × Ratenanzahl ≥ `bruttobeitrag_jahr_eur` − 0,01 × Ratenanzahl): Bei
+jährlicher Zahlweise ist die Ratenanzahl 1 und der Ratenzuschlag 0, auf sauberen Daten gilt
+dort also `rate = brutto` — die Ungleichung ist exakt ausgeschöpft.
+
+- Eine **Erhöhung** um 0,50 € verletzte dort zusätzlich R-036. F5-d würde von zwei Regeln
+  gemeldet, und die Zuordnung Variante → Regel in der Ergebnistabelle wäre falsch — genau
+  der Fehler, den dieser Abschnitt bei der kohärenten Skalierung schon einmal beschreibt.
+- Eine **Erhöhung** um 0,01 € landete bei jährlicher Zahlweise exakt auf der Grenze von
+  R-036. Sie bestünde die Prüfung zwar (`≥`), aber eine „erwartet unentdeckte" Variante darf
+  nicht auf einer Grenzgleichheit balancieren.
+- Eine **Senkung** ist in beiden Fällen eindeutig: R-036 bekommt zusätzlichen Spielraum,
+  R-031 entscheidet allein.
+
+Als Fehlerbild ist die Senkung ebenso realistisch wie die Erhöhung — ein Rundungs- oder
+Übertragungsfehler kennt keine Vorzugsrichtung. Die Festlegung ändert keine Regel und ist
+deshalb kein Fall von Iteration 2.
 
 ### F6 — Exakte Duplikate
 
@@ -196,10 +217,30 @@ Rangfolge mitzuziehen oder der R-044-Nebentreffer auszuweisen.
 
 Eine Fehlerrate von 20 Prozent „aller befüllten Zellen" ist für die meisten Klassen
 **rechnerisch unerreichbar**, weil jede Klasse nur eine begrenzte Menge an Zielfeldern hat.
-Beispiel bei 10.000 Anfragen: F4 adressiert nur rund 19.500 Zellen (Erstzulassung,
-Baujahr, Wohnfläche, Deckungssummen, Fahrzeugwert) — die maximal erreichbare Rate
-bezogen auf alle rund 2 Millionen befüllten Zellen liegt damit bei etwa 1 Prozent. Für
-F7-c sind es sogar nur rund 180 Tarifzeilen insgesamt.
+Beispiel bei 10.000 Anfragen: F3 adressiert nur 57.376 Zellen (Typklassen, Zahlweise,
+ZÜRS-Zone, SF-Klassen, Bauartklasse, Regionalklassen) — die maximal erreichbare Rate
+bezogen auf alle rund 1,77 Millionen Zellen liegt damit bei etwa 3 Prozent. Für F7-c und
+F7-d sind es sogar nur 231 Tarifzeilen insgesamt.
+
+> **Gemessene Universumsgrößen** bei 10.000 Anfragen, 62.826 Angeboten und 231 Tarifen
+> (Lauf `s01_A_*_r0200_w01` auf `baseline01`):
+>
+> | Klasse | Universum | Einheit |
+> |---|---|---|
+> | F1 | 1.137.175 | Zellen |
+> | F2 | 111.731 | Zellen |
+> | F3 | 57.376 | Zellen |
+> | F4 | 84.055 | Zellen |
+> | F5 | 232.660 | Zellen |
+> | F6 | 73.398 | Sätze |
+> | F7 | 120.895 | Zellen |
+> | F8 | 268.034 | Zellen |
+> | HO1 | 12.400 | Sätze |
+> | HO2 | 268.564 | Zellen |
+>
+> Bei zwei Prozent Fehlerrate liegen die absoluten Fehlerzahlen damit zwischen 248 (HO1)
+> und 22.744 (F1) — um den Faktor 90 auseinander. Genau deshalb muss die Bezugsgröße in
+> der Arbeit stehen.
 
 Würde man die Rate auf alle befüllten Zellen beziehen, schlüge der Injektor bei den
 oberen Ratenstufen für die Hälfte der Klassen fehl — und zwar erst nach Stunden Laufzeit.
@@ -331,6 +372,96 @@ Verbindlich. Jede einzelne ist als Test in `tests/test_ground_truth.py` umzusetz
    allen Faktorstufen und Seeds, `error_log.parquet`, `error_log_records.parquet`,
    `detections.parquet`, `metrics.json` sowie SHA-256-Hashes von `df_clean` und
    `df_dirty`. Damit ist jeder Einzelwert der Ergebnistabelle rückverfolgbar.
+
+---
+
+## 5a. Präzisierungen aus der Implementierung (Phase 4)
+
+Alle folgenden Punkte betreffen den **Injektor**, nicht den Regelkatalog. Sie ändern kein
+Prädikat, keinen Wertebereich und keinen Schwellenwert und sind deshalb **kein Fall von
+Iteration 2**. Festgehalten werden sie, weil jeder von ihnen die Interpretation des Ground
+Truth berührt.
+
+### 5a.1 `seed_base` und `seed_inject` sind Zeichenketten
+
+Abschnitt 4.1 führt beide als `int`. `seed_als_int` liefert einen **128-Bit-Wert**; er passt
+in keine `int64`-Parquetspalte. Ihn abzuschneiden wäre genau die Art stiller Ungenauigkeit,
+die Architekturregel A2 ausschließt. Beide Spalten werden deshalb als Dezimalzeichenkette
+geführt.
+
+### 5a.2 Zusätzliche Spalte `mitgezogen` im zellbasierten Log
+
+Die kohärente Skalierung verlangt, die Rangfolge mitzuziehen (Abschnitt 2). Die dabei
+veränderte Zelle `angebot.rang` ist nach der Skalierung **richtig**, nicht falsch: Sie trägt
+den korrekten Rang zum verfälschten Beitrag.
+
+- Stünde sie ununterscheidbar als injizierter Fehler im Log, wäre sie ein garantiertes False
+  Negative, und der gemessene Recall fiele, ohne dass ein Detektor etwas übersehen hätte.
+  Das ist die Phantom-Ground-Truth aus Protokollregel 3 in anderer Gestalt.
+- Stünde sie **gar nicht** im Log, fände der Diff-Gegencheck eine Abweichung ohne
+  Protokolleintrag.
+
+Beides löst die Spalte `mitgezogen` (`bool`): Sie steht im Log, geht aber weder in das
+adressierbare Zelluniversum noch in die Fehlerrate ein. Die Auswertung in Phase 5 wertet
+ausschließlich die Trägerzellen (`mitgezogen = False`) als injizierte Fehler.
+
+Gemessen bei zwei Prozent Fehlerrate: F8 erzeugt zu 5.362 Trägerzellen 2.957 mitgezogene
+Rangzellen, HO2 zu 5.374 Trägerzellen 1.233. Alle übrigen Klassen erzeugen keine.
+
+### 5a.3 F7-c steht in beiden Logs
+
+Abschnitt 4.2 nennt F7-c als Fall des satzbasierten Logs, weil die Verletzung den
+Gültigkeitszeitraum einer Tarifzeile als Ganzes betrifft. Die Variante verändert aber eine
+konkrete Zelle (`tarif.gueltig_bis`), und die **muss** im zellbasierten Log stehen, sonst
+fände der Diff-Gegencheck eine Abweichung ohne Protokolleintrag. Sie erscheint deshalb in
+beiden Logs; im satzbasierten ohne `referenz_row_id`, weil nichts dupliziert wurde. Die
+Spalte ist entsprechend nullable.
+
+### 5a.4 Bezugseinheit der Fehlerrate bei F6 und HO1
+
+Beide Klassen fügen Zeilen hinzu und haben keine Zielzelle. Ihr adressierbares Universum ist
+die Menge der **duplizierbaren Zeilen**, und die Fehlerrate bezieht sich darauf. Das
+`manifest.json` weist die Einheit je Klasse aus (`zelle` beziehungsweise `satz`), damit die
+Zahlen in der Auswertung nicht stillschweigend verwechselt werden.
+
+### 5a.5 F1-a und F1-b auf der Speicherebene
+
+F1-a lässt das Feld **fehlen** (`pd.NA` in der Rohschicht), F1-b liefert es **leer**
+(Leerstring). Auf der Speicherebene ist das ein Unterschied, wie ihn jede Schnittstelle
+kennt, die zwischen `null` und `""` trennt. Nach dem Parsen ist er verschwunden — und im Log
+stehen beide als Leerstring, weil das Diff des Gegenchecks sie ebenso zusammenführt.
+
+Folge für die Auswertung: Die beiden Varianten sind für den Regelkatalog **nicht
+unterscheidbar**. Ihr Recall wird gleich ausfallen. Das ist der Informationsverlust der
+Serialisierung aus Abschnitt 2 (Variante F1-b), hier zum zweiten Mal sichtbar.
+
+### 5a.6 Zielfelder von F1 und F4-g
+
+- **F1** adressiert alle Felder außer `row_id` sowie den Primär- und Fremdschlüsseln. Ein
+  verlorener Schlüssel ist eine **referentielle** Störung und damit eine andere Fehlerart
+  als die hier modellierte Unvollständigkeit.
+- **F4-g** („Beitrag oder Versicherungssumme negativ") trifft `nettobeitrag_jahr_eur`,
+  `versicherungssumme_eur` und die drei Deckungssummen. Als Beitrag ist der **Nettobeitrag**
+  gewählt: Er ist die Ausgangsgröße der Beitragsrechnung und damit das Feld, das eine Storno-
+  oder Gutschriftverarbeitung negativ führt.
+
+**Bekannte Nebentreffer, in der Auswertung auszuweisen:** F4-g verletzt neben R-021 auch die
+Beitragsarithmetik (R-031) beziehungsweise die PflVG-Mindestdeckung (R-024). Das ist keine
+Schwäche der Variante, sondern eine Eigenschaft eines Vorzeichenfehlers: Er kann in einem
+arithmetisch verknüpften Satz gar nicht isoliert auftreten. Die `verstoss_id` der Regel-Engine
+und die Spalte `injektor_variante_id` erlauben die getrennte Auswertung.
+
+### 5a.7 Einzelne Varianten schöpfen ihr Kontingent nicht aus
+
+Das Kontingent einer Klasse wird gleichmäßig auf ihre Varianten verteilt, damit der Recall
+**je Variante** aussagekräftig bleibt. Reicht die Kandidatenmenge einer Variante nicht, geht
+der Rest an die übrigen Varianten derselben Klasse; reicht auch das nicht, bricht der Injektor
+ab.
+
+Betroffen sind die drei Varianten auf Tarifebene: Es gibt nur 231 Tarifzeilen. Bei zwei
+Prozent Fehlerrate erreicht F4-f 57 statt 240 Injektionen, F7-c und F7-d je 231 statt 605.
+Die tatsächliche Zahl je Variante steht im `manifest.json` und ist in der Ergebnistabelle als
+Stichprobenumfang mitzuführen.
 
 ---
 

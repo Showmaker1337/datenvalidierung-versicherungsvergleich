@@ -1,7 +1,7 @@
 # Phase 5 — Evaluator und Baselines
 
-> Voraussetzung: Phase 4 abgeschlossen, Gegencheck sauber.
-> Kopiere alles ab der Trennlinie in Claude Code.
+> Voraussetzung: Phase 4 und 4b abgeschlossen, Gegencheck sauber.
+> Neuer Chat. Kopiere alles ab der Trennlinie in Claude Code.
 
 ---
 
@@ -57,7 +57,7 @@ strukturell auf ein Drittel gedeckelt, als Artefakt der Berichtskonvention. Beri
 Sichten und diskutiere die Differenz; das ist ein eigener Absatz in der Arbeit und nimmt
 eine sichere Kolloquiumsfrage vorweg.
 
-### Fünf Festlegungen, die explizit implementiert und dokumentiert werden
+### Sechs Festlegungen, die explizit implementiert und dokumentiert werden
 
 1. **Keine Doppelzählung.** `T(D)` ist die **Vereinigungsmenge** der markierten Zellen,
    nicht die Summe der Regeltreffer. Nutze die Sicht `markierte_zellen` aus Phase 3.
@@ -79,6 +79,23 @@ eine sichere Kolloquiumsfrage vorweg.
 5. **Micro und Macro.** Micro-Averaging über alle Zellen entspricht der Literatur;
    Macro-Averaging über Fehlerklassen zusätzlich berichten, damit seltene Klassen sichtbar
    bleiben.
+6. **Mitgezogene Zellen: als Schalter, nicht als stille Festlegung.** Der Injektor
+   markiert im `error_log` mit `mitgezogen`, welche Zellen nur zur Wahrung der Kohärenz
+   nachgeführt wurden — vor allem die Rangzellen bei der Skalierung des Beitragstupels.
+   Diese Zellen sind gegenüber den verfälschten Daten **korrekt**; ein Verfahren, das sie
+   nicht meldet, macht keinen Fehler. Sie gehören deshalb nicht in `E`.
+
+   **Genau deshalb darf die Entscheidung nicht unsichtbar sein.** Sie hebt den Recall von
+   F8 und HO2 spürbar — bei F8 stehen 5.362 fehlerhaften Zellen 2.957 mitgezogene
+   gegenüber. Eine Prüferin, die das im Code entdeckt und nicht in der Arbeit, liest es als
+   „Falsch-Negative wegdefiniert".
+
+   Implementiere die Berücksichtigung als Parameter `mitgezogen_als_fehler: bool = False`
+   und berechne für jeden Lauf **beide** Varianten. `metrics.json` und
+   `results/metrics_long.parquet` führen beide Werte. In der Arbeit steht die
+   Hauptauswertung mit `False`, die Gegenrechnung als Sensitivitätszeile im Anhang, dazu
+   der Satz, warum eine nachgeführte Rangzelle kein Datenqualitätsmangel ist. Zwei Zahlen
+   nebeneinander beenden die Diskussion, eine Zahl allein eröffnet sie.
 
 ### Was immer geloggt wird
 
@@ -90,9 +107,18 @@ eine sichere Kolloquiumsfrage vorweg.
 - **Kreuztabelle `regel_id` × `fehlerklasse`**: Welche Regel fängt welchen Fehlertyp? Diese
   Matrix zeigt Über- und Unterdeckung des Katalogs und wird eine der aussagekräftigsten
   Abbildungen der Arbeit.
-- **Recall je `injektor_variante_id`.** Das ist der empirische Beleg gegen den
-  Zirkularitätsvorwurf: Varianten, die die Regelbedingung nicht spiegeln, zeigen einen
-  niedrigeren Recall.
+- **Recall je `injektor_variante_id`, immer mit `n`.** Das ist der empirische Beleg gegen
+  den Zirkularitätsvorwurf: Varianten, die die Regelbedingung nicht spiegeln, zeigen einen
+  niedrigeren Recall. Die Zahl der tatsächlich injizierten Fehler je Variante steht im
+  `manifest.json` und schwankt stark — F4-f, F7-c und F7-d sind durch nur 231 Tarifzeilen
+  begrenzt. Führe `n` in **jeder** variantenweisen Tabelle mit und rechne ein
+  Clopper-Pearson-Intervall dazu.
+
+  Das gilt besonders für die drei erwartet unentdeckten Varianten F5-e, F7-d und F8-e.
+  „Recall 0" ist die inhaltlich wichtigste Aussage des Injektors — aber bei n = 5 ist sie
+  statistisch fast leer, und ohne Intervall daneben liest sie sich stärker, als sie ist.
+  Nimm für diese Tabelle die Läufe aus dem Modus `--modus variante` (erschöpfendes n je
+  Variante), nicht die des faktoriellen Plans, und weise die Herkunft aus.
 
 Ausgabe: `metrics.json` je Lauf plus `results/metrics_long.parquet` als Langformat-Tabelle
 über alle Läufe (eine Zeile je Lauf × Verfahren × Fehlerklasse × Metrik).
@@ -183,6 +209,9 @@ Protokoll und keine Verfahrensdetails.
   tatsächlich erfasst, die Zellebene sie hingegen ausschließt.
 - `tests/test_evaluation/test_constraint_ebene.py`: Ein dreispaltiger Verstoß mit einer
   injizierten Zelle ergibt zellbasiert 1 TP und 2 FP, constraint-basiert 1 TP und 0 FP.
+- `tests/test_evaluation/test_mitgezogen.py`: Derselbe Lauf ergibt mit
+  `mitgezogen_als_fehler = True` einen niedrigeren Recall als mit `False`, und die
+  Differenz entspricht genau der Zahl der mitgezogenen Zellen im Nenner.
 
 ## Abnahmekriterien
 
@@ -190,8 +219,9 @@ Protokoll und keine Verfahrensdetails.
 2. Rohwerte TP/FP/FN/TN werden persistiert.
 3. Alle drei Baselines laufen über die gemeinsame Schnittstelle.
 4. Kreuztabelle `regel_id` × `fehlerklasse` wird erzeugt.
-5. Recall je `injektor_variante_id` wird ausgewiesen.
-6. Tests grün.
+5. Recall je `injektor_variante_id` wird ausgewiesen, mit `n` und Konfidenzintervall.
+6. Beide Varianten von `mitgezogen_als_fehler` werden je Lauf berechnet und persistiert.
+7. Tests grün.
 
 ## Nicht in dieser Phase
 
