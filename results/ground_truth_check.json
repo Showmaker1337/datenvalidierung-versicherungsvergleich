@@ -25,14 +25,15 @@
         "wirkungslose_eintraege": []
       },
       "fehlerrate": 0.02,
-      "injiziert_je_klasse": {
-        "F1": 22744
-      },
       "klasse": "F1",
+      "modus": "klasse",
       "saetze_im_log": 0,
       "sauber": true,
+      "variante": null,
       "zeilen_nur_clean": 0,
       "zeilen_nur_dirty": 0,
+      "zellen_fehlerhaft": 22744,
+      "zellen_geaendert_gesamt": 22744,
       "zellen_im_diff": 22744,
       "zellen_im_log": 22744,
       "zelluniversum": {
@@ -63,14 +64,15 @@
         "wirkungslose_eintraege": []
       },
       "fehlerrate": 0.02,
-      "injiziert_je_klasse": {
-        "F2": 2235
-      },
       "klasse": "F2",
+      "modus": "klasse",
       "saetze_im_log": 0,
       "sauber": true,
+      "variante": null,
       "zeilen_nur_clean": 0,
       "zeilen_nur_dirty": 0,
+      "zellen_fehlerhaft": 2235,
+      "zellen_geaendert_gesamt": 2235,
       "zellen_im_diff": 2235,
       "zellen_im_log": 2235,
       "zelluniversum": {
@@ -101,14 +103,15 @@
         "wirkungslose_eintraege": []
       },
       "fehlerrate": 0.02,
-      "injiziert_je_klasse": {
-        "F3": 1148
-      },
       "klasse": "F3",
+      "modus": "klasse",
       "saetze_im_log": 0,
       "sauber": true,
+      "variante": null,
       "zeilen_nur_clean": 0,
       "zeilen_nur_dirty": 0,
+      "zellen_fehlerhaft": 1148,
+      "zellen_geaendert_gesamt": 1148,
       "zellen_im_diff": 1148,
       "zellen_im_log": 1148,
       "zelluniversum": {
@@ -139,14 +142,15 @@
         "wirkungslose_eintraege": []
       },
       "fehlerrate": 0.02,
-      "injiziert_je_klasse": {
-        "F4": 1681
-      },
       "klasse": "F4",
+      "modus": "klasse",
       "saetze_im_log": 0,
       "sauber": true,
+      "variante": null,
       "zeilen_nur_clean": 0,
       "zeilen_nur_dirty": 0,
+      "zellen_fehlerhaft": 1681,
+      "zellen_geaendert_gesamt": 1681,
       "zellen_im_diff": 1681,
       "zellen_im_log": 1681,
       "zelluniversum": {
@@ -177,16 +181,17 @@
         "wirkungslose_eintraege": []
       },
       "fehlerrate": 0.02,
-      "injiziert_je_klasse": {
-        "F5": 4653
-      },
       "klasse": "F5",
+      "modus": "klasse",
       "saetze_im_log": 0,
       "sauber": true,
+      "variante": null,
       "zeilen_nur_clean": 0,
       "zeilen_nur_dirty": 0,
-      "zellen_im_diff": 4653,
-      "zellen_im_log": 4653,
+      "zellen_fehlerhaft": 4652,
+      "zellen_geaendert_gesamt": 4652,
+      "zellen_im_diff": 4652,
+      "zellen_im_log": 4652,
       "zelluniversum": {
         "F5": 232660
       }
@@ -215,14 +220,15 @@
         "wirkungslose_eintraege": []
       },
       "fehlerrate": 0.02,
-      "injiziert_je_klasse": {
-        "F6": 1468
-      },
       "klasse": "F6",
+      "modus": "klasse",
       "saetze_im_log": 1468,
       "sauber": true,
+      "variante": null,
       "zeilen_nur_clean": 0,
       "zeilen_nur_dirty": 1468,
+      "zellen_fehlerhaft": 0,
+      "zellen_geaendert_gesamt": 0,
       "zellen_im_diff": 0,
       "zellen_im_log": 0,
       "zelluniversum": {
@@ -253,14 +259,15 @@
         "wirkungslose_eintraege": []
       },
       "fehlerrate": 0.02,
-      "injiziert_je_klasse": {
-        "F7": 2418
-      },
       "klasse": "F7",
-      "saetze_im_log": 231,
+      "modus": "klasse",
+      "saetze_im_log": 5,
       "sauber": true,
+      "variante": null,
       "zeilen_nur_clean": 0,
       "zeilen_nur_dirty": 0,
+      "zellen_fehlerhaft": 2418,
+      "zellen_geaendert_gesamt": 2418,
       "zellen_im_diff": 2418,
       "zellen_im_log": 2418,
       "zelluniversum": {
@@ -291,16 +298,17 @@
         "wirkungslose_eintraege": []
       },
       "fehlerrate": 0.02,
-      "injiziert_je_klasse": {
-        "F8": 5362
-      },
       "klasse": "F8",
+      "modus": "klasse",
       "saetze_im_log": 0,
       "sauber": true,
+      "variante": null,
       "zeilen_nur_clean": 0,
       "zeilen_nur_dirty": 0,
-      "zellen_im_diff": 8319,
-      "zellen_im_log": 8319,
+      "zellen_fehlerhaft": 5336,
+      "zellen_geaendert_gesamt": 8987,
+      "zellen_im_diff": 8987,
+      "zellen_im_log": 8987,
       "zelluniversum": {
         "F8": 268034
       }
@@ -329,14 +337,15 @@
         "wirkungslose_eintraege": []
       },
       "fehlerrate": 0.02,
-      "injiziert_je_klasse": {
-        "HO1": 248
-      },
       "klasse": "HO1",
+      "modus": "klasse",
       "saetze_im_log": 248,
       "sauber": true,
+      "variante": null,
       "zeilen_nur_clean": 0,
       "zeilen_nur_dirty": 248,
+      "zellen_fehlerhaft": 0,
+      "zellen_geaendert_gesamt": 0,
       "zellen_im_diff": 0,
       "zellen_im_log": 0,
       "zelluniversum": {
@@ -367,16 +376,17 @@
         "wirkungslose_eintraege": []
       },
       "fehlerrate": 0.02,
-      "injiziert_je_klasse": {
-        "HO2": 5374
-      },
       "klasse": "HO2",
+      "modus": "klasse",
       "saetze_im_log": 0,
       "sauber": true,
+      "variante": null,
       "zeilen_nur_clean": 0,
       "zeilen_nur_dirty": 0,
-      "zellen_im_diff": 6607,
-      "zellen_im_log": 6607,
+      "zellen_fehlerhaft": 5368,
+      "zellen_geaendert_gesamt": 7596,
+      "zellen_im_diff": 7596,
+      "zellen_im_log": 7596,
       "zelluniversum": {
         "HO2": 268564
       }
@@ -405,23 +415,17 @@
         "wirkungslose_eintraege": []
       },
       "fehlerrate": 0.02,
-      "injiziert_je_klasse": {
-        "F1": 6823,
-        "F2": 112,
-        "F3": 115,
-        "F4": 34,
-        "F5": 698,
-        "F6": 440,
-        "F7": 73,
-        "F8": 288
-      },
       "klasse": "mix",
-      "saetze_im_log": 458,
+      "modus": "klasse",
+      "saetze_im_log": 440,
       "sauber": true,
+      "variante": null,
       "zeilen_nur_clean": 0,
       "zeilen_nur_dirty": 440,
-      "zellen_im_diff": 8270,
-      "zellen_im_log": 8270,
+      "zellen_fehlerhaft": 8117,
+      "zellen_geaendert_gesamt": 8263,
+      "zellen_im_diff": 8263,
+      "zellen_im_log": 8263,
       "zelluniversum": {
         "F1": 1137175,
         "F2": 111731,
@@ -432,7 +436,124 @@
         "F7": 120895,
         "F8": 268034
       }
+    },
+    "v01_A_F4-f_r10000_w00": {
+      "abweichungen": {
+        "diff_ohne_log": 0,
+        "doppelte_logzeilen": 0,
+        "doppelte_row_ids": 0,
+        "entfallene_zeilen_ohne_log": 0,
+        "log_ohne_diff": 0,
+        "neue_zeilen_ohne_log": 0,
+        "row_id_als_ziel": 0,
+        "wertabweichungen": 0,
+        "wirkungslose_eintraege": 0
+      },
+      "beispiele": {
+        "diff_ohne_log": [],
+        "doppelte_logzeilen": [],
+        "doppelte_row_ids": [],
+        "entfallene_zeilen_ohne_log": [],
+        "log_ohne_diff": [],
+        "neue_zeilen_ohne_log": [],
+        "row_id_als_ziel": [],
+        "wertabweichungen": [],
+        "wirkungslose_eintraege": []
+      },
+      "fehlerrate": 1.0,
+      "klasse": "F4",
+      "modus": "variante",
+      "saetze_im_log": 0,
+      "sauber": true,
+      "variante": "F4-f",
+      "zeilen_nur_clean": 0,
+      "zeilen_nur_dirty": 0,
+      "zellen_fehlerhaft": 57,
+      "zellen_geaendert_gesamt": 57,
+      "zellen_im_diff": 57,
+      "zellen_im_log": 57,
+      "zelluniversum": {
+        "F4": 57
+      }
+    },
+    "v01_A_F7-c_r10000_w00": {
+      "abweichungen": {
+        "diff_ohne_log": 0,
+        "doppelte_logzeilen": 0,
+        "doppelte_row_ids": 0,
+        "entfallene_zeilen_ohne_log": 0,
+        "log_ohne_diff": 0,
+        "neue_zeilen_ohne_log": 0,
+        "row_id_als_ziel": 0,
+        "wertabweichungen": 0,
+        "wirkungslose_eintraege": 0
+      },
+      "beispiele": {
+        "diff_ohne_log": [],
+        "doppelte_logzeilen": [],
+        "doppelte_row_ids": [],
+        "entfallene_zeilen_ohne_log": [],
+        "log_ohne_diff": [],
+        "neue_zeilen_ohne_log": [],
+        "row_id_als_ziel": [],
+        "wertabweichungen": [],
+        "wirkungslose_eintraege": []
+      },
+      "fehlerrate": 1.0,
+      "klasse": "F7",
+      "modus": "variante",
+      "saetze_im_log": 231,
+      "sauber": true,
+      "variante": "F7-c",
+      "zeilen_nur_clean": 0,
+      "zeilen_nur_dirty": 0,
+      "zellen_fehlerhaft": 231,
+      "zellen_geaendert_gesamt": 231,
+      "zellen_im_diff": 231,
+      "zellen_im_log": 231,
+      "zelluniversum": {
+        "F7": 231
+      }
+    },
+    "v01_A_F7-d_r10000_w00": {
+      "abweichungen": {
+        "diff_ohne_log": 0,
+        "doppelte_logzeilen": 0,
+        "doppelte_row_ids": 0,
+        "entfallene_zeilen_ohne_log": 0,
+        "log_ohne_diff": 0,
+        "neue_zeilen_ohne_log": 0,
+        "row_id_als_ziel": 0,
+        "wertabweichungen": 0,
+        "wirkungslose_eintraege": 0
+      },
+      "beispiele": {
+        "diff_ohne_log": [],
+        "doppelte_logzeilen": [],
+        "doppelte_row_ids": [],
+        "entfallene_zeilen_ohne_log": [],
+        "log_ohne_diff": [],
+        "neue_zeilen_ohne_log": [],
+        "row_id_als_ziel": [],
+        "wertabweichungen": [],
+        "wirkungslose_eintraege": []
+      },
+      "fehlerrate": 1.0,
+      "klasse": "F7",
+      "modus": "variante",
+      "saetze_im_log": 0,
+      "sauber": true,
+      "variante": "F7-d",
+      "zeilen_nur_clean": 0,
+      "zeilen_nur_dirty": 0,
+      "zellen_fehlerhaft": 231,
+      "zellen_geaendert_gesamt": 231,
+      "zellen_im_diff": 231,
+      "zellen_im_log": 231,
+      "zelluniversum": {
+        "F7": 231
+      }
     }
   },
-  "laeufe_gesamt": 11
+  "laeufe_gesamt": 14
 }

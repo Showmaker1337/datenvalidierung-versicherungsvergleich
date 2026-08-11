@@ -396,10 +396,35 @@ Arbeit nicht der falsche landet.
 **Eingefroren sind die Regeln selbst.** Dazu gehören:
 
 - die Prädikate — was eine Regel prüft,
-- Wertebereiche und Schwellenwerte, einschließlich der Werte in `config/default.yaml`,
+- Wertebereiche und Schwellenwerte, einschließlich der **Regelschwellen** in
+  `config/default.yaml`,
 - die Geltungsbereiche, also welche Entitäten und Felder eine Regel betrifft,
 - die Schweregrade `HART` und `WARNUNG`,
 - die Zuordnung zu den Achsen A (Granularität), B (Fehlerklasse) und C (Erkennbarkeitsgrad).
+
+### Die Grenze verläuft **innerhalb** von `config/default.yaml`
+
+Die Datei enthält zweierlei, und nur das eine ist eingefroren:
+
+| Eingefroren — **Regelschwellen** | Nicht eingefroren — **Versuchsparameter** |
+|---|---|
+| `schwellen.r031_toleranz_eur`, `schwellen.r036_toleranz_je_rate_eur` | `master_seed` |
+| `schwellen.r053_korridor_kfz_eur`, `schwellen.r053_korridor_hausrat_eur` | `stichtag` |
+| `schwellen.r022_wohnflaeche` | `n_anfragen`, `angebote_je_anfrage` |
+| `schwellen.r047_spreizung_max`, `schwellen.r048_zuers_toleranz_relativ` | `sparten_verteilung` |
+| `schwellen.r054_faktor`, `schwellen.r054_toleranz_relativ` | `pfade`, `referenzdaten` |
+| — kurz: alles, was in ein Prädikat eingeht | Fehlerraten, Wiederholungszahl und alle übrigen Faktorstufen der Phase 6 |
+
+**Die eigene Entscheidungsprobe trägt die Trennung.** Ändert sich durch die Änderung die
+Menge der gemeldeten Zellen auf einem *gegebenen* Datensatz? Bei einer Regelschwelle: ja —
+Iteration 2. Bei einer Faktorstufe: nein. Eine andere Fehlerrate oder ein anderer Seed
+erzeugt einen *anderen Datensatz*; die Regeln prüfen auf jedem Datensatz unverändert
+dasselbe.
+
+Ohne diese Präzisierung liest jemand später „Schwellenwerte, einschließlich der Werte in
+`config/default.yaml`, sind eingefroren" und hält Phase 6 — die Fehlerraten und
+Wiederholungen variiert — für eine Serie von Regeländerungen. Der Satz stünde dann gegen den
+Versuchsplan.
 
 Jede Änderung daran ist ab jetzt eine **Iteration 2**: Regel-ID, alte Fassung, neue Fassung,
 Begründung, Datum — und eine eigene Ergebnistabelle in der Auswertung. Niemals
@@ -483,18 +508,40 @@ gemeldeten Zellen auf irgendeinem Datensatz?* Für jeden Punkt unten lautet die 
 - **Entscheidung:** Kein Eingriff. Die Nebentreffer werden in Phase 5 über `verstoss_id` und
   `injektor_variante_id` getrennt ausgewiesen.
 
-### Befund 4 — drei Varianten schöpfen ihr Kontingent nicht aus
+### Befund 4 — die gleichmäßige Zuteilung war ein Confounder für Faktor UV2
 
-- **Datum:** 2026-08-10
-- **Sachlage:** F4-f, F7-c und F7-d wirken auf der Entität `tarif`, und die hat bei der
-  ausgelieferten Konfiguration nur **231 Zeilen**. Bei zwei Prozent Fehlerrate erreicht F4-f
-  57 statt 240 Injektionen, F7-c und F7-d je 231 statt 605.
-- **Entscheidung:** Der nicht ausgeschöpfte Rest geht an die übrigen Varianten derselben
-  Klasse; das Klassenkontingent wird also exakt erreicht. Die tatsächliche Zahl je Variante
-  steht im `manifest.json`.
-- **Auswirkung auf die Messung:** Der Recall dieser drei Varianten beruht auf einer kleineren
-  Stichprobe. Die Zahl ist in der Ergebnistabelle als Stichprobenumfang mitzuführen, sonst
-  wirkt ein Konfidenzintervall breiter, als es sollte.
+- **Datum:** 2026-08-11 (Nachtrag zu Phase 4)
+- **Sachlage:** Ursprünglich wurde das Klassenkontingent gleichmäßig auf die Varianten
+  verteilt, und der nicht ausgeschöpfte Rest knapper Varianten ging an die übrigen. F4-f,
+  F7-c und F7-d wirken auf der Entität `tarif` mit nur **231 Zeilen** und stoßen früh an ihre
+  Decke.
+- **Das Problem:** Je höher die Fehlerrate, desto früher stoßen die knappen Varianten an ihre
+  Decke und desto größer wird der Anteil der reichlich vorhandenen. **Die Zusammensetzung
+  einer Klasse verschöbe sich damit mit der Fehlerrate** — und die Fehlerrate ist Faktor UV2.
+  Ein gemessener Zusammenhang „höhere Rate → anderer Recall" wäre teils Ratenwirkung, teils
+  Verschiebung der Variantenmischung, und der Page-Trendtest über die Ratenstufen könnte
+  beides nicht trennen. Das ist ein Confounder im Kern des Versuchsplans.
+- **Entscheidung:** Zuteilung **proportional zum adressierbaren Universum jeder Variante**,
+  gerundet nach Hare-Niemeyer. Der Anteil jeder Variante ist damit über alle sechs
+  Ratenstufen konstant. Es wird **nicht mehr umverteilt**; erreicht eine Variante ihr
+  Kontingent nicht, bricht der Injektor ab.
+- **Warum nichts überläuft:** Die Summe der Variantenuniversen ist wegen Überschneidungen
+  (F4-c und F4-d treffen beide `wohnflaeche_qm`) nie kleiner als das Klassenuniversum. Damit
+  gilt für jede Rate bis 1: `n_i ≤ universum_i`.
+- **Auswirkung auf die Messung:** Die Variantenanteile verschieben sich gegenüber der ersten
+  Fassung erheblich. Bei F4 fällt F4-f von 16,1 auf 0,1 Prozent, F4-g steigt von 16,1 auf
+  73,5 Prozent; bei F7 fallen F7-c und F7-d von je 9,6 auf 0,2 Prozent. Das
+  Klassenkontingent bleibt unverändert.
+- **Der Preis, und was ihn ausgleicht:** F7-c bekommt bei zwei Prozent noch fünf Injektionen
+  statt 231. Für die klassenweise Auswertung ist das richtig — es ist genau ihr Anteil an der
+  Klasse. Für den Recall **je Variante** ist es zu wenig. Dafür gibt es den Teilversuch
+  „Variantencharakterisierung": `--modus variante --variante F7-c` injiziert nur diese eine
+  Variante und schöpft ihr Universum aus (231 von 231, gemessen). Diese Läufe gehören nicht
+  in den faktoriellen Plan.
+- **Zwei dokumentierte Nebenwirkungen:** Seltene Varianten können bei kleiner Rate das
+  Kontingent null bekommen (bei der obersten Ratenstufe nicht mehr), und die
+  Gruppengranularität der kohärenten Skalierung lässt die erreichte Zahl um weniger als eine
+  Gruppengröße von der zugeteilten abweichen. Beides steht im `manifest.json`.
 
 ### Befund 5 — mitgezogene Rangzellen sind keine Fehler
 
@@ -507,16 +554,24 @@ gemeldeten Zellen auf irgendeinem Datensatz?* Für jeden Punkt unten lautet die 
   sie gar nicht im Log, fände der Diff-Gegencheck eine Abweichung ohne Protokolleintrag.
 - **Entscheidung:** Zusätzliche Spalte `mitgezogen` im zellbasierten Log. Sie steht im Log,
   geht aber weder in das Zelluniversum noch in die Fehlerrate ein.
-- **Größenordnung:** Bei zwei Prozent Fehlerrate und 10.000 Anfragen entstehen zu 5.362
-  Trägerzellen der Klasse F8 zusätzlich 2.957 mitgezogene Rangzellen, bei HO2 zu 5.374
-  Trägerzellen 1.233. Ohne die Unterscheidung fiele der gemessene Recall von F8 rechnerisch um
-  gut ein Drittel — allein durch die Buchführung.
+- **Größenordnung:** Bei zwei Prozent Fehlerrate und 10.000 Anfragen entstehen zu 5.336
+  Trägerzellen der Klasse F8 zusätzlich 3.651 mitgezogene Rangzellen, bei HO2 zu 5.368
+  Trägerzellen 2.228. Ohne die Unterscheidung fiele der gemessene Recall von F8 rechnerisch um
+  gut 40 Prozent — allein durch die Buchführung.
+- **Nachtrag vom 2026-08-11:** Beide Zahlen stehen jetzt getrennt und mit sprechenden Namen
+  im `manifest.json` — `zellen_fehlerhaft` und `zellen_geaendert_gesamt`. Der Grund ist eine
+  Nebenwirkung, die ausgewiesen gehört: Bei F8 und HO2 ist der Datensatz an rund zwei Dritteln
+  mehr Stellen verändert, als die Fehlerrate nominell angibt. „Zwei Prozent" bedeutet für F8
+  also nicht nur wegen des klassenspezifischen Universums etwas anderes als für F3. Für die
+  Metrik zählt `zellen_fehlerhaft`, für die Beschreibung des verfälschten Datensatzes
+  `zellen_geaendert_gesamt`.
 
 ### Ergebnis des Gegenchecks
 
-Über alle zehn Fehlerklassen und den Mischmodus, bei 10.000 Anfragen und zwei Prozent
-Fehlerrate: **keine Abweichung**. Diff und Ground Truth stimmen zellweise überein, jede
-hinzugefügte Zeile steht im satzbasierten Log, keine Zelle ist doppelt injiziert, und für
-jede Log-Zeile gilt `wert_clean != wert_dirty`.
+Über alle zehn Fehlerklassen, den Mischmodus und drei Variantenläufe, bei 10.000 Anfragen und
+zwei Prozent Fehlerrate: **keine Abweichung** in 14 Läufen. Diff und Ground Truth stimmen
+zellweise überein, jede hinzugefügte Zeile steht im satzbasierten Log, keine Zelle ist
+doppelt injiziert, und für jede Log-Zeile gilt `wert_clean != wert_dirty`.
 
-Der Bericht steht in `results/ground_truth_check.json`.
+Der Bericht steht in `results/ground_truth_check.json` und sammelt die Läufe unter ihrer
+`run_id`, statt sie zu überschreiben.

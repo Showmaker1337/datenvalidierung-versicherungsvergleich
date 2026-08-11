@@ -625,7 +625,23 @@ class Injektionsergebnis:
         ziel_je_klasse: Rechnerisch angeforderte Zahl der Verfaelschungen.
         fehler_je_klasse: Erreichte Zahl der Traegerzellen beziehungsweise Saetze.
         fehler_je_variante: Dieselbe Zahl je Injektionsvariante.
-        mitgezogene_zellen: Zahl der nur nachgefuehrten Zellen.
+        universum_je_variante: Adressierbares Universum je Injektionsvariante.
+        anteil_je_variante: Anteil jeder Variante am Klassenkontingent. Er ist
+            **von der Fehlerrate unabhaengig** — das ist der Zweck der
+            proportionalen Zuteilung (:mod:`src.injector.auswahl`).
+        quote_je_variante: Zugeteilte Zahl je Variante vor der Ausfuehrung.
+        granularitaetsabweichung: Summe der Betraege, um die die erreichte Zahl
+            von der zugeteilten abweicht. Sie entsteht ausschliesslich daraus,
+            dass eine kohaerente Skalierung vier Beitragsfelder auf einmal
+            veraendert und sich nicht in Teile zerlegen laesst. Bei Klassen mit
+            ausschliesslich einzelligen Varianten ist sie null. Umverteilt wird
+            **nichts** — das wuerde die Variantenmischung mit der Fehlerrate
+            verschieben (:mod:`src.injector.auswahl`).
+        zellen_fehlerhaft: Zahl der **fehlerhaften** Zellen — die Traegerzellen.
+        zellen_geaendert_gesamt: Zahl **aller** veraenderten Zellen, also
+            einschliesslich der nur nachgefuehrten. Der Datensatz ist an so vielen
+            Stellen veraendert; die Fehlerrate bezieht sich auf die erste Zahl.
+        mitgezogene_zellen: Differenz beider Zahlen.
         seeds: Seeds des Laufs als Zeichenketten.
     """
 
@@ -638,5 +654,11 @@ class Injektionsergebnis:
     ziel_je_klasse: Mapping[str, int]
     fehler_je_klasse: Mapping[str, int]
     fehler_je_variante: Mapping[str, int]
+    universum_je_variante: Mapping[str, int]
+    anteil_je_variante: Mapping[str, float]
+    quote_je_variante: Mapping[str, int]
+    granularitaetsabweichung: int
+    zellen_fehlerhaft: int
+    zellen_geaendert_gesamt: int
     mitgezogene_zellen: int
     seeds: Mapping[str, str]

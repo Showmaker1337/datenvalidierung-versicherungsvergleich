@@ -58,7 +58,7 @@ import pandas as pd
 from src.common.pfade import pruefe_run_id
 from src.common.seeding import generator, seed_als_int, teilstrom, wurzel_seeds
 from src.common.serialisierung import ENTITAETEN, SPALTEN_JE_ENTITAET
-from src.injector.auswahl import gemischt, plane, quoten
+from src.injector.auswahl import gemischt, plane
 from src.injector.modell import (
     KLASSEN_NUMMER,
     Aenderung,
@@ -72,7 +72,7 @@ from src.injector.protokoll import Laufkennung, Protokoll
 from src.injector.varianten import VARIANTEN_JE_KLASSE
 
 if TYPE_CHECKING:  # pragma: no cover - nur fuer die Typpruefung
-    from collections.abc import Mapping
+    from collections.abc import Mapping, Sequence
 
     from numpy.random import Generator, SeedSequence
 
@@ -106,6 +106,8 @@ def injiziere(  # noqa: PLR0913 - die Signatur ist in der Phasenvorgabe festgele
     run_id: str,
     *,
     config: Config,
+    nur_varianten: Sequence[str] | None = None,
+    hoechstzahl: int | None = None,
 ) -> Injektionsergebnis:
     """Verfaelscht die Rohschicht kontrolliert und protokolliert jede Verfaelschung.
 
@@ -121,6 +123,14 @@ def injiziere(  # noqa: PLR0913 - die Signatur ist in der Phasenvorgabe festgele
             Basisdatensatzes.
         run_id: Kennung des Laufs; steht in jeder Protokollzeile.
         config: Geladene Konfiguration.
+        nur_varianten: Einschraenkung auf bestimmte Injektionsvarianten. Die
+            Bezugsgroesse der Fehlerrate ist dann das Universum **dieser**
+            Varianten. Grundlage des Teilversuchs Variantencharakterisierung:
+            Ein Lauf mit genau einer Variante schoepft ihr Universum aus und
+            liefert das n, das die proportionale Zuteilung im faktoriellen
+            Plan bewusst nicht liefert.
+        hoechstzahl: Absolute Obergrenze der Verfaelschungen je Klasse.
+            Begrenzt die Laufzeit erschoepfender Variantenlaeufe.
 
     Returns:
         Das :class:`~src.injector.modell.Injektionsergebnis` mit den
@@ -134,7 +144,13 @@ def injiziere(  # noqa: PLR0913 - die Signatur ist in der Phasenvorgabe festgele
     """
     pruefe_run_id(run_id)
     kontext = baue_kontext(config, daten_raw)
-    plaene = plane(kontext, fehlerrate, klassen_gewichte)
+    plaene = plane(
+        kontext,
+        fehlerrate,
+        klassen_gewichte,
+        nur_varianten=nur_varianten,
+        hoechstzahl=hoechstzahl,
+    )
 
     werte: dict[str, dict[str, list[str | None]]] = {
         entitaet: {spalte: list(reihe) for spalte, reihe in spalten.items()}
@@ -180,6 +196,28 @@ def injiziere(  # noqa: PLR0913 - die Signatur ist in der Phasenvorgabe festgele
         ziel_je_klasse={plan.klasse.value: plan.ziel for plan in plaene},
         fehler_je_klasse=fehler_je_klasse,
         fehler_je_variante=fehler_je_variante,
+        universum_je_variante={
+            kennung: groesse
+            for plan in plaene
+            for kennung, groesse in plan.universum_je_variante.items()
+        },
+        anteil_je_variante={
+            kennung: anteil
+            for plan in plaene
+            for kennung, anteil in plan.anteil_je_variante.items()
+        },
+        quote_je_variante={
+            kennung: quote
+            for plan in plaene
+            for kennung, quote in plan.quote_je_variante.items()
+        },
+        granularitaetsabweichung=sum(
+            abs(fehler_je_variante[kennung] - quote)
+            for plan in plaene
+            for kennung, quote in plan.quote_je_variante.items()
+        ),
+        zellen_fehlerhaft=protokoll.anzahl_traeger,
+        zellen_geaendert_gesamt=protokoll.anzahl_zellen,
         mitgezogene_zellen=protokoll.anzahl_zellen - protokoll.anzahl_traeger,
         seeds={
             "master_seed": str(config.master_seed),
@@ -190,11 +228,23 @@ def injiziere(  # noqa: PLR0913 - die Signatur ist in der Phasenvorgabe festgele
 
 
 def _stroeme(plan: Klassenplan, seed_inject: SeedSequence) -> dict[str, Generator]:
-    """Leitet je Variante einen eigenen Zufallsstrom ab."""
+    """Leitet je Variante einen eigenen Zufallsstrom ab.
+
+    Die Stromnummer ist die Position der Variante in der **vollstaendigen**
+    Klassenliste, nicht in der gerade injizierten Auswahl. Damit zieht eine
+    Variante im Variantenmodus denselben Strom wie im faktoriellen Lauf, und
+    die beiden Teilversuche bleiben vergleichbar.
+    """
     klassenstrom = teilstrom(seed_inject, KLASSEN_NUMMER[plan.klasse])
-    return {
-        eintrag.variante_id: generator(teilstrom(klassenstrom, position))
+    nummer = {
+        eintrag.variante_id: position
         for position, eintrag in enumerate(VARIANTEN_JE_KLASSE[plan.klasse])
+    }
+    return {
+        eintrag.variante_id: generator(
+            teilstrom(klassenstrom, nummer[eintrag.variante_id])
+        )
+        for eintrag in plan.varianten
     }
 
 
@@ -211,75 +261,100 @@ def _fuelle_klasse(  # noqa: PLR0913 - der Zustand des Laufs wird ausdruecklich 
 ) -> dict[str, int]:
     """Arbeitet das Kontingent einer Fehlerklasse ab.
 
+    **Jede Variante fuellt ausschliesslich ihr eigenes Kontingent.** Es gibt weder
+    einen gemeinsamen Resttopf noch eine Umverteilung. Beides waere ein Confounder
+    im Kern des Versuchsplans: Ein Resttopf laesst die zuletzt bearbeitete Variante
+    leer ausgehen, sobald frueher bearbeitete ihr Kontingent ueberschreiten, und
+    eine Umverteilung verschoebe die Variantenmischung mit der Fehlerrate. Beides
+    haengt an der Rate — und die Rate ist Faktor UV2 des Experiments.
+
+    Die einzige verbleibende Abweichung ist die **Gruppengranularitaet**: Eine
+    kohaerente Skalierung veraendert vier Beitragsfelder auf einmal und laesst sich
+    nicht in Teile zerlegen. Eine Variante beendet ihr Kontingent deshalb, sobald
+    die naechste Aenderung es ueberschreiten wuerde — ausser sie hat noch gar
+    nichts injiziert, denn eine Variante ohne einen einzigen Treffer haette einen
+    undefinierten Recall. Die Abweichung ist dadurch nach oben durch die
+    Gruppengroesse beschraenkt, haengt nicht von der Bearbeitungsreihenfolge ab und
+    wird im Manifest je Variante ausgewiesen.
+
     Returns:
         Die erreichte Zahl der Verfaelschungen je Variante.
 
     Raises:
-        InjektionsFehler: Wenn das Kontingent der Klasse nicht erreicht wird,
-            weil die Kandidaten erschoepft sind.
+        InjektionsFehler: Wenn eine Variante ihr Kontingent nicht erreicht, weil
+            ihre Kandidaten erschoepft sind. Der Injektor fuellt dann **nicht**
+            stillschweigend weniger auf (spec/03, Abschnitt 3).
     """
-    varianten = VARIANTEN_JE_KLASSE[plan.klasse]
     stroeme = _stroeme(plan, seed_inject)
-    reihenfolge = {
-        eintrag.variante_id: gemischt(
-            plan.kandidaten_je_variante[eintrag.variante_id], stroeme[eintrag.variante_id]
-        )
-        for eintrag in varianten
-    }
-    position = {eintrag.variante_id: 0 for eintrag in varianten}
-    erreicht = {eintrag.variante_id: 0 for eintrag in varianten}
-    quote = dict(plan.quote_je_variante)
-    rest = plan.ziel
+    erreicht: dict[str, int] = {}
+    erschoepft: list[str] = []
 
-    for _runde in range(_MAX_RUNDEN):
-        for eintrag in varianten:
-            kennung = eintrag.variante_id
-            while (
-                rest > 0
-                and erreicht[kennung] < quote[kennung]
-                and position[kennung] < len(reihenfolge[kennung])
-            ):
-                kandidat = reihenfolge[kennung][position[kennung]]
-                position[kennung] += 1
-                aenderung = _pruefe(
-                    kontext, eintrag, kandidat, stroeme[kennung], belegte_zellen, belegte_saetze
-                )
-                if aenderung is None:
-                    continue
-                gewicht = _wende_an(
-                    aenderung,
-                    variante=eintrag,
-                    kontext=kontext,
-                    werte=werte,
-                    naechste_row_id=naechste_row_id,
-                    protokoll=protokoll,
-                    belegte_zellen=belegte_zellen,
-                    belegte_saetze=belegte_saetze,
-                )
-                erreicht[kennung] += gewicht
-                rest -= gewicht
-        if rest <= 0:
-            return erreicht
+    for eintrag in plan.varianten:
+        kennung = eintrag.variante_id
+        kandidaten = gemischt(plan.kandidaten_je_variante[kennung], stroeme[kennung])
+        quote = plan.quote_je_variante[kennung]
+        gezaehlt = 0
+        position = 0
 
-        offen = tuple(
-            eintrag
-            for eintrag in varianten
-            if position[eintrag.variante_id] < len(reihenfolge[eintrag.variante_id])
-        )
-        if not offen:
-            raise InjektionsFehler(
-                f"Klasse {plan.klasse.value}: Von {plan.ziel} angeforderten "
-                f"Verfaelschungen wurden nur {plan.ziel - rest} erreicht; die Kandidaten "
-                f"sind erschoepft. Adressierbares Universum: {plan.universum}. "
-                "Der Injektor fuellt nicht stillschweigend weniger auf."
+        while gezaehlt < quote:
+            if position >= len(kandidaten):
+                erschoepft.append(kennung)
+                break
+            kandidat = kandidaten[position]
+            position += 1
+            aenderung = _pruefe(
+                kontext, eintrag, kandidat, stroeme[kennung], belegte_zellen, belegte_saetze
             )
-        for kennung, zusatz in quoten(rest, offen).items():
-            quote[kennung] = erreicht[kennung] + zusatz
+            if aenderung is None:
+                continue
+            gewicht = _gewicht(aenderung, eintrag)
+            if gezaehlt > 0 and gezaehlt + gewicht > quote:
+                break
+            _wende_an(
+                aenderung,
+                variante=eintrag,
+                kontext=kontext,
+                werte=werte,
+                naechste_row_id=naechste_row_id,
+                protokoll=protokoll,
+                belegte_zellen=belegte_zellen,
+                belegte_saetze=belegte_saetze,
+            )
+            gezaehlt += gewicht
+        erreicht[kennung] = gezaehlt
 
-    raise InjektionsFehler(
-        f"Klasse {plan.klasse.value}: Die Umverteilung kam nach {_MAX_RUNDEN} Runden "
-        "nicht zum Ziel. Das ist ein Programmierfehler, kein Datenbefund."
-    )
+    if erschoepft:
+        fehlend = {
+            kennung: (erreicht[kennung], plan.quote_je_variante[kennung])
+            for kennung in erschoepft
+        }
+        raise InjektionsFehler(
+            f"Klasse {plan.klasse.value}: Diese Varianten erreichen ihr Kontingent nicht, "
+            f"weil ihre Kandidaten erschoepft sind (erreicht, angefordert): {fehlend}. "
+            f"Adressierbares Klassenuniversum: {plan.universum}. Der Injektor fuellt nicht "
+            "stillschweigend weniger auf und verteilt auch nicht um — eine Umverteilung "
+            "wuerde die Variantenmischung mit der Fehlerrate verschieben."
+        )
+    return erreicht
+
+
+def _gewicht(aenderung: Aenderung, variante: Variante) -> int:
+    """Gibt zurueck, was eine Aenderung auf das Kontingent anrechnet.
+
+    Bei zellbasierten Varianten sind das die Traegerzellen, bei satzbasierten die
+    hinzugefuegten Zeilen. Nachgefuehrte Zellen zaehlen nicht — sie sind keine
+    Fehler (siehe :mod:`src.injector.modell`).
+
+    Args:
+        aenderung: Die geprueft Aenderung.
+        variante: Die anwendende Variante.
+
+    Returns:
+        Die anzurechnende Zahl.
+    """
+    if variante.zielart is Zielart.SATZ:
+        return len(aenderung.saetze)
+    return sum(1 for zelle in aenderung.zellen if not zelle.mitgezogen)
 
 
 def _pruefe(  # noqa: PLR0911, PLR0913, PLR0917 - Zustand und Abbruchgruende sind explizit
@@ -350,12 +425,11 @@ def _wende_an(  # noqa: PLR0913 - der Zustand des Laufs wird ausdruecklich durch
     protokoll: Protokoll,
     belegte_zellen: set[tuple[str, int, str]],
     belegte_saetze: set[tuple[str, int]],
-) -> int:
+) -> None:
     """Schreibt eine gepruefte Aenderung in die Arbeitsdaten und ins Protokoll.
 
-    Returns:
-        Die Zahl der Traegerzellen beziehungsweise der hinzugefuegten Zeilen —
-        also das, was auf das Kontingent der Klasse angerechnet wird.
+    Was die Aenderung auf das Kontingent anrechnet, bestimmt :func:`_gewicht` —
+    getrennt, weil die Fuellschleife das Gewicht **vor** dem Anwenden braucht.
     """
     for zelle in aenderung.zellen:
         index = kontext.zeile[zelle.entitaet][zelle.row_id]
@@ -394,11 +468,6 @@ def _wende_an(  # noqa: PLR0913 - der Zustand des Laufs wird ausdruecklich durch
             betroffene_row_ids=befund.betroffene_row_ids,
             referenz_row_id=befund.referenz_row_id,
         )
-
-    if variante.zielart is Zielart.SATZ:
-        return len(aenderung.saetze)
-    return sum(1 for zelle in aenderung.zellen if not zelle.mitgezogen)
-
 
 def _haenge_zeile_an(
     spalten: dict[str, list[str | None]],

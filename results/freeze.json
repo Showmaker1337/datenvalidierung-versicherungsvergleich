@@ -2,17 +2,21 @@
   "abgrenzung": {
     "eingefroren": [
       "Praedikate der Regeln",
-      "Wertebereiche und Schwellenwerte",
+      "Wertebereiche und Regelschwellen, einschliesslich des Abschnitts schwellen in config/default.yaml",
       "Geltungsbereiche",
       "Schweregrade",
       "Zuordnung zu den Achsen A, B und C"
     ],
+    "entscheidungsprobe": "Aendert sich durch die Aenderung die Menge der gemeldeten Zellen auf einem gegebenen Datensatz? Ja: Iteration 2. Nein: Korrektur am Beleg oder Versuchsparameter.",
     "hinweis": "Jede Aenderung am eingefrorenen Teil ist Iteration 2 und wird in docs/iteration_log.md mit eigener Ergebnistabelle berichtet.",
     "nicht_eingefroren": [
       "Spalte Literatur im Katalog",
       "Spalte Fachliche Grundlage im Katalog",
-      "Formulierungen in spec/"
-    ]
+      "Formulierungen in spec/",
+      "Versuchsparameter in config/default.yaml: master_seed, stichtag, n_anfragen, angebote_je_anfrage, sparten_verteilung, pfade, referenzdaten",
+      "Faktorstufen der Phase 6: Fehlerraten, Wiederholungszahl, Varianzdesign"
+    ],
+    "warum_die_grenze_innerhalb_der_konfiguration_verlaeuft": "config/default.yaml enthaelt Regelschwellen und Versuchsparameter nebeneinander. Eine geaenderte Faktorstufe aendert nicht, was die Regeln auf einem gegebenen Datensatz melden, sondern erzeugt einen anderen Datensatz. Phase 6 ist deshalb keine Regelaenderung."
   },
   "clean_baseline": {
     "false_positive_rate_zellen": 0.0,

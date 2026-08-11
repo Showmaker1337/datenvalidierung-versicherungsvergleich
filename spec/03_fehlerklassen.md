@@ -405,8 +405,11 @@ Beides löst die Spalte `mitgezogen` (`bool`): Sie steht im Log, geht aber weder
 adressierbare Zelluniversum noch in die Fehlerrate ein. Die Auswertung in Phase 5 wertet
 ausschließlich die Trägerzellen (`mitgezogen = False`) als injizierte Fehler.
 
-Gemessen bei zwei Prozent Fehlerrate: F8 erzeugt zu 5.362 Trägerzellen 2.957 mitgezogene
-Rangzellen, HO2 zu 5.374 Trägerzellen 1.233. Alle übrigen Klassen erzeugen keine.
+Gemessen bei zwei Prozent Fehlerrate und 10.000 Anfragen: F8 erzeugt zu 5.336 Trägerzellen
+3.651 mitgezogene Rangzellen, HO2 zu 5.368 Trägerzellen 2.228. Alle übrigen Klassen erzeugen
+keine. Das `manifest.json` weist beide Zahlen getrennt aus (`zellen_fehlerhaft` und
+`zellen_geaendert_gesamt`): Der Datensatz ist bei diesen Klassen an deutlich mehr Stellen
+verändert, als die Fehlerrate nominell angibt.
 
 ### 5a.3 F7-c steht in beiden Logs
 
@@ -451,17 +454,62 @@ Schwäche der Variante, sondern eine Eigenschaft eines Vorzeichenfehlers: Er kan
 arithmetisch verknüpften Satz gar nicht isoliert auftreten. Die `verstoss_id` der Regel-Engine
 und die Spalte `injektor_variante_id` erlauben die getrennte Auswertung.
 
-### 5a.7 Einzelne Varianten schöpfen ihr Kontingent nicht aus
+### 5a.7 Zuteilung auf die Varianten — proportional zum eigenen Universum
 
-Das Kontingent einer Klasse wird gleichmäßig auf ihre Varianten verteilt, damit der Recall
-**je Variante** aussagekräftig bleibt. Reicht die Kandidatenmenge einer Variante nicht, geht
-der Rest an die übrigen Varianten derselben Klasse; reicht auch das nicht, bricht der Injektor
-ab.
+Das Kontingent einer Klasse wird **proportional zum adressierbaren Universum jeder
+Variante** zugeteilt:
 
-Betroffen sind die drei Varianten auf Tarifebene: Es gibt nur 231 Tarifzeilen. Bei zwei
-Prozent Fehlerrate erreicht F4-f 57 statt 240 Injektionen, F7-c und F7-d je 231 statt 605.
-Die tatsächliche Zahl je Variante steht im `manifest.json` und ist in der Ergebnistabelle als
-Stichprobenumfang mitzuführen.
+> n_i = Rate · |Klassenuniversum| · universum_i / Σ_j universum_j
+
+**Warum nicht gleichmäßig.** Eine gleichmäßige Zuteilung sieht fairer aus, erzeugt aber
+einen Confounder im Kern des Versuchsplans. Varianten mit kleinem Universum — F4-f, F7-c und
+F7-d wirken auf der Entität `tarif` mit nur 231 Zeilen — stoßen mit steigender Fehlerrate an
+ihre Decke. Ihr nicht ausgeschöpfter Rest ginge an die reichlich vorhandenen Varianten, und
+**die Zusammensetzung der Klasse verschöbe sich mit der Fehlerrate**. Die Fehlerrate ist aber
+Faktor UV2: Ein gemessener Zusammenhang „höhere Rate → anderer Recall" wäre dann teils
+Ratenwirkung, teils Verschiebung der Variantenmischung, und der Trendtest über die
+Ratenstufen könnte beides nicht trennen.
+
+Bei proportionaler Zuteilung ist der Anteil jeder Variante **über alle Ratenstufen
+konstant**. Gerundet wird nach Hare-Niemeyer, damit die Quoten exakt auf das
+Klassenkontingent summieren.
+
+**Es läuft nichts über.** Die Summe der Variantenuniversen ist wegen Überschneidungen — F4-c
+und F4-d treffen beide `wohnflaeche_qm` — nie kleiner als das Klassenuniversum. Damit gilt
+für jede Rate bis 1: n_i ≤ universum_i. Es wird deshalb **nicht umverteilt**; erreicht eine
+Variante ihr Kontingent nicht, bricht der Injektor ab.
+
+Drei Nebenwirkungen, alle im `manifest.json` sichtbar:
+
+1. **Seltene Varianten fallen bei kleiner Rate aus.** Liegt der Anteil unter einer halben
+   Einheit, ist das Kontingent null. Bei der obersten Ratenstufe passiert das nicht mehr.
+2. **Gruppengranularität.** Eine kohärente Skalierung verändert vier Beitragsfelder auf
+   einmal. Die erreichte Zahl weicht deshalb um weniger als eine Gruppengröße von der
+   zugeteilten ab — reihenfolgeunabhängig und im Manifest je Variante ausgewiesen.
+3. **Knappe Varianten bekommen im faktoriellen Plan kleine Fallzahlen.** F7-c erreicht bei
+   zwei Prozent eine einstellige Zahl statt der 231, die ihr Universum hergäbe.
+
+### 5a.8 Teilversuch „Variantencharakterisierung"
+
+Für die klassenweise Auswertung ist eine kleine Fallzahl bei knappen Varianten richtig — sie
+ist genau ihr Anteil an der Klasse. Für den Recall **je `injektor_variante_id`** ist sie zu
+wenig: Bei n = 5 sagt er nichts, und gerade dieser Recall ist der empirische Beleg gegen den
+Zirkularitätsvorwurf.
+
+Dafür gibt es einen zweiten Laufmodus:
+
+```
+python scripts/inject.py --serie v01 --design A --modus variante --variante F7-c --wdh 0
+```
+
+Er injiziert **nur diese eine Variante**, und zwar bis an ihr Universum heran; `--max-fehler`
+begrenzt die Zahl nach oben. Bezugsgröße der Fehlerrate ist dann das Universum dieser
+Variante.
+
+Diese Läufe gehören **nicht** in den faktoriellen Versuchsplan, sondern in einen eigenen
+Teilversuch. Damit hat jede der beiden Fragen ihren eigenen sauberen Lauf: die Klassenwirkung
+über Ratenstufen den faktoriellen Plan mit konstanter Mischung, die Variantenwirkung den
+erschöpfenden Einzellauf mit belastbarem n und brauchbarem Konfidenzintervall.
 
 ---
 

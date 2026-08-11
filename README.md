@@ -115,6 +115,19 @@ Master-Seed erzeugt), `--seed ZAHL`, `--n-anfragen ZAHL`, `--behalten`, `--still
 Mischmodus-Teilversuch `--klasse mix`.
 
 ```bash
+python scripts/inject.py --serie v01 --design A --modus variante --variante F7-c --wdh 0
+```
+
+Der Teilversuch **Variantencharakterisierung**: Injiziert wird genau eine Variante, und zwar
+bis an ihr Universum heran. Die Fehlerrate bezieht sich dann auf das Universum dieser
+Variante und ist standardmäßig 1,0; `--max-fehler ZAHL` begrenzt die Zahl nach oben. Der Lauf
+landet unter der Variantenkennung statt unter der Klasse, also
+`data/runs/v01/A/F7-c/r10000/w00/`.
+
+Diese Läufe gehören **nicht** in den faktoriellen Versuchsplan — siehe „Zuteilung auf die
+Varianten" weiter unten.
+
+```bash
 python scripts/export_katalog.py
 ```
 
@@ -314,12 +327,12 @@ Klassen unerreichbar. Gemessen bei 10.000 Anfragen:
 | F2 Format und Syntax | 111.731 | Zellen | 2.235 |
 | F3 Wertebereich und Katalog | 57.376 | Zellen | 1.148 |
 | F4 Fachlich unmöglich | 84.055 | Zellen | 1.681 |
-| F5 Intra-Record-Inkonsistenz | 232.660 | Zellen | 4.653 |
+| F5 Intra-Record-Inkonsistenz | 232.660 | Zellen | 4.652 |
 | F6 Duplikate | 73.398 | **Sätze** | 1.468 |
 | F7 Aktualität | 120.895 | Zellen | 2.418 |
-| F8 Einheiten | 268.034 | Zellen | 5.362 |
+| F8 Einheiten | 268.034 | Zellen | 5.336 |
 | HO1 Semantische Duplikate | 12.400 | **Sätze** | 248 |
-| HO2 Semantisch falsch | 268.564 | Zellen | 5.374 |
+| HO2 Semantisch falsch | 268.564 | Zellen | 5.368 |
 
 **„2 Prozent Fehlerrate" bedeutet je Klasse eine andere absolute Fehlerzahl** — hier zwischen
 248 und 22.744, also um den Faktor 90 auseinander. Verlangt die angeforderte Rate mehr
@@ -329,6 +342,51 @@ Einheiten, als das Universum hergibt, bricht der Injektor mit klarer Meldung ab;
 Bei F6 und HO1 ist die Bezugseinheit die **duplizierbare Zeile**, nicht die Zelle: Beide
 Klassen fügen Zeilen hinzu und haben keine Zielzelle. Das `manifest.json` weist die Einheit je
 Klasse aus.
+
+### Geänderte Zellen sind nicht gleich fehlerhafte Zellen
+
+Bei den Skalierungsklassen wird die Preisrangfolge mitgezogen (siehe unten). Diese Rangzellen
+sind gegenüber den verfälschten Daten **korrekt** — sie tragen den richtigen Rang zum
+verfälschten Beitrag — und zählen deshalb nicht als Fehler. Verändert ist der Datensatz an
+ihnen trotzdem. Das `manifest.json` führt beide Zahlen getrennt:
+
+| Feld | Bedeutung | F3 bei 2 % | F8 bei 2 % | HO2 bei 2 % |
+|---|---|---|---|---|
+| `zellen_fehlerhaft` | Trägerzellen — **darauf** bezieht sich die Fehlerrate | 1.148 | 5.336 | 5.368 |
+| `mitgezogene_zellen` | nachgeführte Rangzellen, keine Fehler | 0 | 3.651 | 2.228 |
+| `zellen_geaendert_gesamt` | alle veränderten Zellen | 1.148 | 8.987 | 7.596 |
+
+**„Zwei Prozent" bedeutet für F8 also nicht nur wegen des klassenspezifischen Universums
+etwas anderes als für F3, sondern zusätzlich, weil der Datensatz dort an zwei Dritteln mehr
+Stellen verändert ist, als die Fehlerrate nominell angibt.** Für die Metrik zählt die erste
+Zahl, für die Beschreibung des verfälschten Datensatzes die dritte.
+
+### Zuteilung auf die Varianten — proportional, nicht gleichmäßig
+
+Das Kontingent einer Klasse wird proportional zum adressierbaren Universum **jeder Variante**
+zugeteilt. Eine gleichmäßige Zuteilung sähe fairer aus, erzeugte aber einen Confounder:
+Varianten mit kleinem Universum — F4-f, F7-c und F7-d wirken auf der Entität `tarif` mit nur
+231 Zeilen — stoßen mit steigender Fehlerrate an ihre Decke, ihr Rest ginge an die reichlich
+vorhandenen Varianten, und **die Zusammensetzung der Klasse verschöbe sich mit der
+Fehlerrate**. Die Fehlerrate ist aber Faktor UV2; ein Trendtest über die Ratenstufen könnte
+Ratenwirkung und Mischungsverschiebung dann nicht trennen.
+
+Bei proportionaler Zuteilung ist der Variantenanteil über alle sechs Ratenstufen konstant.
+Umverteilt wird **nichts**; erreicht eine Variante ihr Kontingent nicht, bricht der Injektor
+ab. Das `manifest.json` weist je Variante Universum, Anteil, angefordert und injiziert aus.
+
+Der Preis: Knappe Varianten bekommen im faktoriellen Plan kleine Fallzahlen, bei kleiner Rate
+auch einmal null. Dafür gibt es den zweiten Laufmodus:
+
+```bash
+python scripts/inject.py --serie v01 --design A --modus variante --variante F7-c --wdh 0
+```
+
+Er injiziert nur diese eine Variante und schöpft ihr Universum aus — 231 Injektionen statt
+der fünf, die der faktorielle Plan ihr bei zwei Prozent gibt. Diese Läufe bilden den
+Teilversuch **Variantencharakterisierung** und gehören nicht in den faktoriellen Plan. Damit
+hat jede Frage ihren eigenen sauberen Lauf: die Klassenwirkung über Ratenstufen den
+faktoriellen Plan mit konstanter Mischung, die Variantenwirkung den erschöpfenden Einzellauf.
 
 ### Zwei Ebenen des Ground Truth
 
@@ -415,6 +473,16 @@ Grundlage" im Katalog sowie Formulierungen in `spec/`. Sie dokumentieren die Her
 dürfen jederzeit korrigiert werden, solange sich das geprüfte Prädikat nicht ändert. Der
 Freeze belegt, dass die Regeln vor dem Injektor feststanden — nicht, dass jede Fußnote von
 Anfang an richtig war.
+
+**Die Grenze verläuft innerhalb von `config/default.yaml`.** Eingefroren sind dort die
+**Regelschwellen** — der gesamte Abschnitt `schwellen`, also alles, was in ein Prädikat
+eingeht. Nicht eingefroren sind die **Versuchsparameter**: `master_seed`, `stichtag`,
+`n_anfragen`, `sparten_verteilung`, `pfade`, `referenzdaten` sowie die Faktorstufen der
+Phase 6 (Fehlerraten, Wiederholungszahl, Varianzdesign).
+
+Die Entscheidungsprobe trägt die Trennung: Eine geänderte Faktorstufe ändert nicht, was die
+Regeln auf einem *gegebenen* Datensatz melden — sie erzeugt einen *anderen* Datensatz.
+Phase 6 ist deshalb keine Serie von Regeländerungen.
 
 - **Tag:** `freeze-regelkatalog`
 - **Commit-Hash:** _(nach Phase 3 eintragen)_
