@@ -15,11 +15,18 @@ braeche die Beitragsarithmetik des Satzes und die Varianten waeren garantiert
 erkannt — von den falschen Regeln. F8-e, laut Konzept der wertvollste Einzelfall
 des Injektors, waere wertlos.
 
-Aus demselben Grund wird die **Rangfolge mitgezogen**: Ein skaliertes Angebot
-wandert innerhalb seiner Anfrage an eine andere Preisposition. Bliebe ``rang``
-stehen, loeste zusaetzlich die Rangregel aus. Die nachgefuehrten Rangzellen sind
-``mitgezogen`` und keine Traegerzellen — die Begruendung steht im Docstring von
-:mod:`src.injector.modell`.
+Aus demselben Grund muss die **Rangfolge mitgezogen** werden: Ein skaliertes
+Angebot wandert innerhalb seiner Anfrage an eine andere Preisposition. Bliebe
+``rang`` stehen, loeste zusaetzlich die Rangregel aus. Die nachgefuehrten
+Rangzellen sind ``mitgezogen`` und keine Traegerzellen — die Begruendung steht im
+Docstring von :mod:`src.injector.modell`.
+
+**Das Nachfuehren steht aber nicht mehr hier.** Es ist Kohaerenzpflege und keine
+Verfaelschung, und es geschieht einmalig am Ende des Laufs in
+:mod:`src.injector.pipeline`. Eine Nachfuehrung je Anwendung rechnete gegen den
+sauberen Kontext und waere blind fuer eine zweite Skalierung in derselben
+Anfrage; genau daran ist die erste Fassung gescheitert
+(``docs/iteration_log.md``, Phase 5, Befund 11).
 """
 
 from __future__ import annotations
@@ -37,13 +44,11 @@ from src.injector.modell import (
 from src.injector.rohwerte import (
     betrag_lesen,
     betrag_schreiben,
-    ganzzahl_lesen,
-    ganzzahl_schreiben,
     ist_leer,
 )
 
 if TYPE_CHECKING:  # pragma: no cover - nur fuer die Typpruefung
-    from collections.abc import Callable, Mapping, Sequence
+    from collections.abc import Callable, Sequence
     from decimal import Decimal
 
     from numpy.random import Generator
@@ -56,7 +61,6 @@ __all__ = [
     "felder_ohne_schluessel",
     "kandidaten_aus_feldern",
     "kopiere_zeile",
-    "neue_raenge",
     "neue_uuid",
     "satz_kandidaten",
     "skaliere_beitraege",
@@ -195,65 +199,23 @@ def einzelne_zelle(kandidat: Kandidat, wert_dirty: str | None) -> Aenderung:
     )
 
 
-def neue_raenge(
-    kontext: Injektionskontext,
-    anfrage_id: str,
-    neue_raten: Mapping[int, Decimal],
-) -> tuple[Zellaenderung, ...] | None:
-    """Fuehrt die Preisrangfolge einer Anfrage nach.
-
-    Gerankt werden die **bepreisten** Angebote, also die mit gesetztem ``rang``.
-    Bei gleichem Zahlbeitrag entscheidet der bisherige Rang; ohne diese
-    Nebenordnung koennte eine unveraenderte Anfrage eine andere Rangfolge
-    bekommen als der Generator sie vergeben hat, und der Injektor erzeugte
-    Abweichungen, die keine Verfaelschung sind.
-
-    Args:
-        kontext: Lesende Sicht auf den sauberen Datensatz.
-        anfrage_id: Anfrage, deren Rangfolge nachgefuehrt wird.
-        neue_raten: Neuer Zahlbeitrag je veraenderter Angebotszeile.
-
-    Returns:
-        Die nachzufuehrenden Rangzellen, oder ``None``, wenn ein Zahlbeitrag
-        nicht lesbar ist und die Rangfolge deshalb nicht bestimmbar waere.
-    """
-    eintraege: list[tuple[Decimal, int, int]] = []
-    for row_id in kontext.angebote_je_anfrage.get(anfrage_id, ()):
-        rang = ganzzahl_lesen(kontext.wert("angebot", row_id, "rang"))
-        if rang is None:
-            continue
-        rate = neue_raten.get(row_id)
-        if rate is None:
-            rate = betrag_lesen(kontext.wert("angebot", row_id, "zahlbeitrag_rate_eur"))
-        if rate is None:
-            return None
-        eintraege.append((rate, rang, row_id))
-
-    eintraege.sort()
-    return tuple(
-        Zellaenderung(
-            entitaet="angebot",
-            row_id=row_id,
-            spalte="rang",
-            wert_dirty=ganzzahl_schreiben(neuer_rang),
-            mitgezogen=True,
-        )
-        for neuer_rang, (_, alter_rang, row_id) in enumerate(eintraege, start=1)
-        if neuer_rang != alter_rang
-    )
-
-
 def skaliere_beitraege(
     kontext: Injektionskontext,
-    anfrage_id: str,
     angebote: Sequence[int],
     faktor: Decimal,
 ) -> Aenderung | None:
-    """Skaliert das Beitragstupel mehrerer Angebote kohaerent und fuehrt die Raenge nach.
+    """Skaliert das Beitragstupel mehrerer Angebote kohaerent.
+
+    **Die Preisrangfolge wird hier nicht nachgefuehrt.** Sie entsteht einmalig am
+    Ende des Laufs in :mod:`src.injector.pipeline`, gegen den dann vorliegenden
+    Endstand. Der Grund steht dort ausfuehrlich; kurz: Eine Nachfuehrung je
+    Anwendung rechnet gegen den **sauberen** Kontext und ist blind fuer eine
+    zweite Skalierung in derselben Anfrage. Das Nachziehen des Rangs ist ausserdem
+    keine Verfaelschung, sondern Kohaerenzpflege — deshalb sind seine Zellen
+    ``mitgezogen`` und nicht Teil des Ground Truth.
 
     Args:
         kontext: Lesende Sicht auf den sauberen Datensatz.
-        anfrage_id: Anfrage, zu der die Angebote gehoeren.
         angebote: Zeilenkennungen der zu skalierenden Angebote.
         faktor: Skalierungsfaktor; die vier Beitragsfelder werden gemeinsam
             damit multipliziert und kaufmaennisch auf zwei Nachkommastellen
@@ -264,19 +226,14 @@ def skaliere_beitraege(
         lesbar ist oder die Skalierung an einer Stelle nichts veraendern wuerde.
     """
     zellen: list[Zellaenderung] = []
-    neue_raten: dict[int, Decimal] = {}
     for row_id in angebote:
         skaliert = _skaliere_zeile(kontext, row_id, faktor)
         if skaliert is None:
             return None
-        zeilenzellen, neue_rate = skaliert
+        zeilenzellen, _neue_rate = skaliert
         zellen.extend(zeilenzellen)
-        neue_raten[row_id] = neue_rate
 
-    raenge = neue_raenge(kontext, anfrage_id, neue_raten)
-    if raenge is None:
-        return None
-    return Aenderung(zellen=(*zellen, *raenge))
+    return Aenderung(zellen=tuple(zellen))
 
 
 def _skaliere_zeile(

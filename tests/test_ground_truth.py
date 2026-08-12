@@ -22,6 +22,8 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from decimal import Decimal
+from itertools import pairwise
 from typing import TYPE_CHECKING
 
 import pandas as pd
@@ -84,8 +86,7 @@ def ergebnisse(
 ) -> dict[str, Injektionsergebnis]:
     """Je Fehlerklasse ein Injektionslauf mit zwei Prozent Fehlerrate."""
     return {
-        klasse: _injiziere(daten_clean, config_injektor, klasse, 0.02)
-        for klasse in ALLE_KLASSEN
+        klasse: _injiziere(daten_clean, config_injektor, klasse, 0.02) for klasse in ALLE_KLASSEN
     }
 
 
@@ -159,9 +160,7 @@ def test_referenzzeile_bleibt_unveraendert(
 
 
 @pytest.mark.parametrize("klasse", ALLE_KLASSEN)
-def test_keine_doppelinjektion(
-    ergebnisse: dict[str, Injektionsergebnis], klasse: str
-) -> None:
+def test_keine_doppelinjektion(ergebnisse: dict[str, Injektionsergebnis], klasse: str) -> None:
     """Kein Tripel aus Entitaet, Zeile und Spalte kommt zweimal vor."""
     log = ergebnisse[klasse].error_log
     tripel = list(zip(log["entitaet"], log["row_id"], log["spalte"], strict=True))
@@ -186,9 +185,7 @@ def test_keine_doppelinjektion_im_mischmodus(
         "F7": 0.03,
         "F4": 0.02,
     }
-    ergebnis = injiziere(
-        daten_clean, 0.02, gewichte, _seed(11), "test_mix", config=config_injektor
-    )
+    ergebnis = injiziere(daten_clean, 0.02, gewichte, _seed(11), "test_mix", config=config_injektor)
     log = ergebnis.error_log
     tripel = list(zip(log["entitaet"], log["row_id"], log["spalte"], strict=True))
     assert len(tripel) == len(set(tripel))
@@ -373,9 +370,7 @@ def test_unbekannte_klasse_bricht_ab(
 ) -> None:
     """Ein Tippfehler in der Klassenangabe faellt sofort auf."""
     with pytest.raises(InjektionsFehler, match="Unbekannte Fehlerklassen"):
-        injiziere(
-            daten_clean, 0.02, {"F9": 1.0}, _seed(0), "test01", config=config_injektor
-        )
+        injiziere(daten_clean, 0.02, {"F9": 1.0}, _seed(0), "test01", config=config_injektor)
 
 
 def test_typisierte_daten_werden_zurueckgewiesen(
@@ -505,3 +500,103 @@ def test_behalten_legt_die_verfaelschten_daten_ab(
     dirty = tmp_path / "runs" / "t02" / "B" / "F6" / "r0100" / "w00" / "dirty"
     for entitaet in ENTITAETEN:
         assert (dirty / f"{entitaet}.parquet").is_file(), entitaet
+
+
+# ---------------------------------------------------------------------------
+# Kohaerenzschritt — nachgelagert, und nur wo er hingehoert
+# ---------------------------------------------------------------------------
+
+
+def _raenge_je_anfrage(ergebnis: Injektionsergebnis) -> dict[str, list[tuple[int, str]]]:
+    """Liest Rang und Zahlbeitrag je Anfrage aus dem **verfaelschten** Rahmen.
+
+    Gelesen wird die Spalte ``anfrage_id`` des Rahmens selbst und nicht eine
+    Zuordnung aus dem sauberen Datensatz: Die Duplikatklassen fuegen Zeilen hinzu,
+    und genau die neue Zeile traegt bei F6-b den luckenerzeugenden Rang. Eine
+    Zuordnung aus dem sauberen Stand kennt sie nicht und liesse den zu pruefenden
+    Fall verschwinden.
+    """
+    angebot = ergebnis.df_raw_dirty["angebot"]
+    je_anfrage: dict[str, list[tuple[int, str]]] = {}
+    for anfrage_id, rang, rate in zip(
+        angebot["anfrage_id"], angebot["rang"], angebot["zahlbeitrag_rate_eur"], strict=True
+    ):
+        if pd.isna(rang) or str(rang) in ("", "<NA>"):
+            continue
+        je_anfrage.setdefault(str(anfrage_id), []).append((int(rang), str(rate)))
+    return je_anfrage
+
+
+def _rangfolge_verletzt(ergebnis: Injektionsergebnis) -> int:
+    """Zaehlt die Anfragen, in denen der Rang nicht aufsteigend nach der Rate ist.
+
+    Das ist die Bedingung von R-044, hier bewusst **nachgebaut** statt aus
+    ``src.rules`` importiert: Ein Test des Injektors darf nicht davon abhaengen,
+    was der Regelkatalog gerade tut (Architekturregel A1).
+    """
+    verletzt = 0
+    for eintraege in _raenge_je_anfrage(ergebnis).values():
+        geordnet = sorted(eintraege)
+        raten = [Decimal(rate) for _, rate in geordnet if rate not in ("", "<NA>")]
+        if any(spaeter < frueher for frueher, spaeter in pairwise(raten)):
+            verletzt += 1
+    return verletzt
+
+
+@pytest.mark.parametrize("klasse", ["F8", "HO2"])
+def test_rangfolge_bleibt_nach_skalierung_stimmig(
+    daten_clean: dict[str, pd.DataFrame],
+    config_injektor: Config,
+    klasse: str,
+) -> None:
+    """Nach dem Kohaerenzschritt ist keine Rangfolge mehr verletzt.
+
+    Die Regressionspruefung zu Befund 11. Die erste Fassung fuehrte die Rangfolge
+    je Anwendung nach und rechnete dabei gegen den **sauberen** Kontext; sobald
+    zwei Angebote derselben Anfrage skaliert wurden, war sie blind fuer die erste
+    Skalierung und hinterliess eine verletzte Ordnung. Gemessen wurde das an elf
+    Anfragen eines HO2-Laufs — mit steigender Fehlerrate an immer mehr.
+
+    Geprueft wird bei einer **hohen** Rate, weil der Fehler mit der Rate waechst:
+    Bei 0,005 trat er auch in der alten Fassung nicht auf.
+    """
+    ergebnis = _injiziere(daten_clean, config_injektor, klasse, 0.05)
+
+    assert _rangfolge_verletzt(ergebnis) == 0
+
+
+def test_f6b_luecke_bleibt_bestehen(
+    daten_clean: dict[str, pd.DataFrame],
+    config_injektor: Config,
+) -> None:
+    """Der Kohaerenzschritt repariert die Verfaelschung von F6-b **nicht**.
+
+    F6-b dupliziert eine Angebotszeile und vergibt den Rang absichtlich so, dass
+    die Rangfolge eine Luecke bekommt — das **ist** die Verfaelschung. Liefe der
+    Kohaerenzschritt pauschal ueber alle Anfragen, schloesse er die Luecke
+    stillschweigend, und F6-b waere ueber R-043 nicht mehr auffindbar. Das waere
+    ein deutlich schwererer Fehler als der, den der Schritt behebt.
+
+    Deshalb fasst er nur Anfragen an, in denen eine **skalierende** Variante
+    gewirkt hat, und laesst Anfragen mit hinzugefuegter Angebotszeile aus.
+    """
+    ergebnis = injiziere(
+        daten_clean,
+        0.05,
+        {"F6": 1.0},
+        _seed(0),
+        "test01",
+        config=config_injektor,
+        nur_varianten=("F6-b",),
+    )
+
+    # Mindestens eine Anfrage traegt eine Luecke oder einen doppelten Rang.
+    unstimmig = [
+        anfrage_id
+        for anfrage_id, eintraege in _raenge_je_anfrage(ergebnis).items()
+        if sorted(rang for rang, _ in eintraege) != list(range(1, len(eintraege) + 1))
+    ]
+    assert unstimmig, (
+        "F6-b hinterlaesst keine unstimmige Rangfolge mehr — der Kohaerenzschritt "
+        "hat die Verfaelschung repariert, statt sie stehen zu lassen"
+    )

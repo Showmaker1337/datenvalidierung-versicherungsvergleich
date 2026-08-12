@@ -986,3 +986,144 @@ Größe antastet, um die es in UV2 geht.
   R-044 auftaucht, ist selbst die Diagnose: Bei einer Klasse, deren Recall von einer auf sie
   zielenden Regel getragen wird, stünde dort eine andere Regel. Wer einen Klassen-Recall
   ohne die Kreuztabelle interpretiert, kann die beiden Fälle nicht unterscheiden.
+
+---
+
+## Phase 5, dritter Nachtrag — Kohärenz wird ein eigener Schritt
+
+**Der Regelkatalog bleibt unberührt.** Geändert wurde ausschließlich der Injektor, und zwar
+an einer Stelle: Das Nachführen der Preisrangfolge wandert aus den Varianten in einen
+nachgelagerten Schritt der Pipeline.
+
+### Befund 14 — Kohärenz gegen den Ausgangszustand hält nicht unter Überlagerung
+
+**Das ist der eigentliche Ertrag von Befund 11, und er gehört als Ergebnis in die Arbeit,
+nicht als Fußnote in die Fehlerliste.**
+
+> Wird Kohärenz **je Verfälschung** gegen den **unverfälschten Ausgangszustand** hergestellt,
+> ist sie bei mehrfacher Anwendung innerhalb derselben Bezugsgruppe nicht mehr gewährleistet.
+> Die Verletzung entsteht nicht in der einzelnen Verfälschung, sondern in ihrer
+> **Überlagerung** — und sie wächst überproportional mit der Fehlerrate, weil die Zahl der
+> mehrfach getroffenen Bezugsgruppen einem Geburtstagsproblem folgt.
+
+Der gemessene Beleg steht in den Befunden 11 und 12: elf verletzte Rangfolgen bei zwei
+Prozent, alle in Anfragen mit mehr als einer Skalierung, keine einzige in den 1.102 mit genau
+einer; und ein mit der Fehlerrate wachsender Anteil von 0,00 / 0,49 / 0,90 / 2,14 Prozent.
+
+**Warum das über diesen Prototyp hinausweist.** Der Befund betrifft **jeden** Fehlerinjektor,
+der relationale Nebenbedingungen bedienen muss — und das ist jeder, der auf normalisierten
+Daten arbeitet. Die Arbeit kann ihn gegen BART und Jenga stellen: Beide erzeugen
+Verfälschungen unter Nebenbedingungen, und beide stehen vor derselben Frage, sobald zwei
+Verfälschungen dieselbe Bezugsgruppe treffen. Er gehört damit zu den Punkten, an denen der
+Prototyp etwas über das **Verfahren** zeigt und nicht nur über den Katalog.
+
+Für die Limitationen ist er außerdem der bessere Beleg als eine allgemeine Bemerkung: **Der
+Fehler wurde durch die eigene Messung gefunden, nicht durch Nachdenken.** Er war in keiner
+der drei Hypothesen enthalten, mit denen die Suche begann, und er wäre ohne den Probelauf
+über mehrere Ratenstufen erst in 1.680 Läufen aufgefallen — als scheinbar inhaltlicher
+Trend der Held-out-Klasse HO2 über Faktor UV2.
+
+### Die gewählte Lösung — Kohärenz zeitlich von der Verfälschung trennen
+
+Die Varianten bleiben unverändert: Sie skalieren das Beitragstupel gegen den **sauberen**
+Kontext, jede Anwendung unabhängig. Der dokumentierte Invariant „der Kontext zeigt immer den
+sauberen Stand" bleibt bestehen, und keine Variante bekommt eine zweite Datenquelle.
+
+Die Rangfolge wird **einmalig am Ende des Laufs** nachgeführt, über alle Anfragen mit
+mindestens einer Skalierung und gegen den dann vorliegenden Endstand
+(`src.injector.pipeline._ziehe_raenge_nach`). Das ist zugleich die sachlich richtige
+Einordnung: Das Nachziehen des Rangs ist **keine Verfälschung, sondern Kohärenzpflege** —
+genau deshalb sind diese Zellen als `mitgezogen` markiert und nicht Teil von `E`. Ein
+Nachbearbeitungsschritt ist der Ort, an den sie gehören.
+
+Umgesetzt über ein neues Merkmal `Variante.zieht_rang_nach`; es tragen genau die fünf
+skalierenden Varianten F8-b, F8-c, F8-d, F8-e und HO2-b. Die Variante meldet damit nur an,
+dass ihre Anfrage betroffen ist — nachgeführt wird zentral.
+
+**Drei Eigenschaften, die eine Nachführung innerhalb der Variante nicht hätte:**
+
+1. **Jede Rangzelle wird genau einmal geschrieben.** Keine Mehrfachschreibung, keine
+   Sonderbehandlung im Kollisionsset.
+2. **Die Endrangfolge ist eine reine Funktion des Endzustands** und hängt nicht mehr von der
+   Reihenfolge der Injektionen ab. Für Architekturregel A2 ist das die stärkere Eigenschaft,
+   und sie lässt sich in einem Satz erklären.
+3. **Universum und Kandidatenmenge bleiben unberührt** — und damit die Bezugsgröße der
+   Fehlerrate. Faktor UV2 bleibt sauber.
+
+### Die verworfenen Alternativen und ihre Kosten
+
+| Alternative | Warum verworfen |
+|---|---|
+| **(a) Rangfolge je Anwendung gegen den Arbeitsstand** | Behebt den Fehler, aber die Variante liest dann den Arbeitsstand statt des sauberen Kontexts. Der dokumentierte Invariant fällt, jede Variante bekommt eine zweite Datenquelle, und die Endrangfolge hängt weiterhin von der Reihenfolge der Injektionen ab. |
+| **(b) Höchstens eine Skalierung je Anfrage** | Verkleinert das adressierbare Universum von HO2-b und F8 — und das Universum ist die **Bezugsgröße der Fehlerrate**, also genau die Größe, die UV2 variiert. Phase 4b hat diese Kopplung gerade entfernt; (b) führte sie durch die Hintertür wieder ein. Zusätzlich könnte die Variante bei der obersten Ratenstufe ihr Kontingent verfehlen und der Injektor abbrechen — bei 0,05 wären 294 von 3.044 Kandidaten betroffen. |
+
+### Die Falle, und wie sie abgesichert ist
+
+Der Kohärenzschritt darf **nur** Anfragen anfassen, in denen eine skalierende Variante
+gewirkt hat. Ein pauschaler Reparaturlauf über alle Anfragen wäre ein deutlich schwererer
+Fehler als der behobene: **F6-b vergibt den Rang der Duplikatzeile absichtlich so, dass die
+Rangfolge eine Lücke bekommt — das ist die Verfälschung selbst.** Ein Nachführen würde sie
+stillschweigend reparieren, und F6-b wäre danach über R-043 nicht mehr auffindbar. Dasselbe
+gilt für den doppelten Rang aus F6-a und F6-c.
+
+Abgesichert ist das zweifach: Der Schritt läuft nur über die gemerkten Anfragen, **und** er
+lässt Anfragen aus, in denen eine satzbasierte Variante eine Angebotszeile hinzugefügt hat
+(relevant nur im Mischmodus, weil sonst je Lauf genau eine Klasse läuft). Dazu kommt der
+Test `test_f6b_luecke_bleibt_bestehen`, der genau diese Nichteinmischung festhält.
+
+Ebenfalls ausgelassen werden Rangzellen, die eine **andere** Variante als Trägerzelle
+verfälscht hat — etwa F1 auf `angebot.rang` im Mischmodus. Sie werden nicht überschrieben.
+
+### Regressionsprüfung
+
+**HO2 über alle vier Ratenstufen, je 10.000 Anfragen:**
+
+| Fehlerrate | R-044 vorher | R-044 nachher | Recall vorher | Recall nachher |
+|---|---|---|---|---|
+| 0,005 | 0 | **0** | 0,00000 | **0,00000** |
+| 0,010 | 3 | **0** | 0,00223 | **0,00000** |
+| 0,020 | 11 | **0** | 0,00410 | **0,00000** |
+| 0,050 | 65 | **0** | 0,00968 | **0,00000** |
+
+Die Held-out-Klasse HO2 bleibt jetzt auf **allen** Ratenstufen unentdeckt — genau wie
+konstruiert. Der scheinbare Trend über UV2 ist verschwunden, weil er nie einer war.
+
+**F8 und F4 bei zwei Prozent:**
+
+| Klasse | Kennzahl | vorher | nachher |
+|---|---|---|---|
+| F8 | Recall (`mitgezogen=False`) | 0,3084 | 0,3061 |
+| F8 | Precision | 0,8349 | 0,8368 |
+| F8 | Trägerzellen `n` | 5.328 | 5.328 |
+| F8 | mitgezogene Zellen | 3.705 | 3.603 |
+| F4 | Recall / Precision | 1,0000 / 0,2969 | 1,0000 / 0,2969 |
+
+Die Größenordnung stimmt, und die kleinen Abweichungen sind erklärt, nicht wegerklärt:
+
+- Die **Trägerzellen sind unverändert** (5.328). Das muss so sein — der Kohärenzschritt fasst
+  keine Trägerzelle an. Die Bezugsgröße der Fehlerrate ist unberührt.
+- Die **mitgezogenen Zellen sinken um 102**, weil die Rangfolge jetzt einmal am Ende gegen
+  den Endstand berechnet wird statt mehrfach gegen den sauberen Stand. Mehrfachschreibungen
+  entfallen, und Ränge, die sich zwischenzeitlich hin- und zurückbewegten, bleiben stehen.
+- Der **Recall sinkt um 0,0023**, weil auch auf F8 die R-044-Treffer verschwinden: vorher
+  fing der Katalog dort 12 Zellen über die Sortierregel, jetzt null. Das ist eine
+  **Verbesserung der Messung**, kein Verlust: Diese Treffer waren „Nebenwirkung erkannt" und
+  nicht „Fehler erkannt" (Abschnitt 9 im Docstring von `metriken.py`).
+- Die Kreuztabelle von F8 trägt jetzt ausschließlich Regeln, die auf Einheiten- und
+  Skalierungsfehler zielen — R-032, R-052, R-053, R-054. R-044 kommt nicht mehr vor. Der
+  F8-Recall wird damit vollständig von Regeln getragen, die für diese Fehlerart hergeleitet
+  wurden.
+- F4 ist **unverändert**, wie es sein muss: Die Klasse erzeugt keine mitgezogenen Zellen.
+
+**Alle Prüfungen:**
+
+| Prüfung | Erwartung | Ergebnis |
+|---|---|---|
+| R-044-Treffer auf HO2, alle vier Ratenstufen | 0 | **0** |
+| HO2-Recall (Zellebene) | 0,000 | **0,00000** |
+| R-044-Treffer auf F8 | — | **0** (vorher 6 Verstöße, 12 Zellen) |
+| F8 in der Größenordnung unverändert | ja | 0,3061 gegen 0,3084 |
+| F4 unverändert | ja | ja |
+| Gegencheck über alle neu erzeugten Läufe | ohne Abweichung | ohne Abweichung |
+| `test_f6b_luecke_bleibt_bestehen` | F6-b bleibt verletzt | grün |
+| `test_rangfolge_bleibt_nach_skalierung_stimmig` (F8, HO2, Rate 0,05) | keine Verletzung | grün |

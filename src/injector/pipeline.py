@@ -32,6 +32,45 @@ Die vier Pruefungen vor jeder Aenderung
   unveraendert. Eine wiederverwendete Kennung liesse den Join des
   Diff-Gegenchecks aufblaehen.
 
+Kohaerenz ist ein eigener Schritt, kein Teil der Verfaelschung
+-------------------------------------------------------------
+
+Fuenf Varianten skalieren ein Beitragstupel (F8-b bis F8-e, HO2-b). Ein skaliertes
+Angebot wandert innerhalb seiner Anfrage an eine andere Preisposition, und
+``spec/03``, Abschnitt 2 verlangt, die Rangfolge mitzuziehen — sonst loeste
+zusaetzlich die Rangregel aus, und die Zuordnung Variante auf Regel waere falsch.
+
+**Dieses Nachfuehren geschieht einmalig am Ende des Laufs**, in
+:func:`_ziehe_raenge_nach`, ueber alle Anfragen mit mindestens einer Skalierung
+und gegen den dann vorliegenden **Endstand**.
+
+Die erste Fassung zog die Rangfolge je Anwendung nach, innerhalb der Variante und
+gegen den sauberen Kontext. Das hielt nicht, sobald **zwei** Angebote derselben
+Anfrage skaliert wurden: Die zweite Nachfuehrung rechnete gegen den sauberen
+Zahlbeitrag des ersten Angebots und war blind dafuer, dass dieser laengst gesenkt
+war. Gemessen bei HO2 und zwei Prozent Fehlerrate: elf verletzte Rangfolgen, alle
+in Anfragen mit mehr als einer Skalierung, keine einzige in den 1.102 Anfragen mit
+genau einer. Der Anteil wuchs ausserdem mit der Fehlerrate — 0,00 / 0,49 / 0,90 /
+2,14 Prozent bei 0,005 / 0,01 / 0,02 / 0,05 —, weil die Zahl der Anfragen mit
+mindestens zwei Skalierungen ueberproportional waechst. Die Held-out-Klasse HO2
+haette dadurch einen mit UV2 steigenden Recall bekommen, der nichts ueber den
+Katalog aussagt (``docs/iteration_log.md``, Phase 5, Befunde 11 und 12).
+
+Der nachgelagerte Schritt ist die richtige Einordnung und hat drei Eigenschaften,
+die eine Nachfuehrung innerhalb der Variante nicht haette:
+
+1. **Jede Rangzelle wird genau einmal geschrieben.** Keine Mehrfachschreibung,
+   keine Sonderbehandlung im Kollisionsset.
+2. **Die Endrangfolge ist eine reine Funktion des Endzustands** und haengt nicht
+   mehr von der Reihenfolge der Injektionen ab. Fuer Architekturregel A2 ist das
+   die staerkere Eigenschaft.
+3. **Universum und Kandidatenmenge bleiben unberuehrt**, und damit die
+   Bezugsgroesse der Fehlerrate — Faktor UV2 bleibt sauber.
+
+Der Kontext der Varianten bleibt dabei unveraendert der **saubere** Stand. Keine
+Variante bekommt eine zweite Datenquelle; nur die Pipeline, die den Arbeitsstand
+ohnehin haelt, liest ihn fuer diesen einen Schritt.
+
 Warum ``seed_inject`` eine ``SeedSequence`` ist
 -----------------------------------------------
 
@@ -62,6 +101,7 @@ from src.injector.auswahl import gemischt, plane
 from src.injector.modell import (
     KLASSEN_NUMMER,
     Aenderung,
+    Fehlerklasse,
     Injektionsergebnis,
     InjektionsFehler,
     Zellaenderung,
@@ -69,10 +109,12 @@ from src.injector.modell import (
     baue_kontext,
 )
 from src.injector.protokoll import Laufkennung, Protokoll
+from src.injector.rohwerte import betrag_lesen, ganzzahl_lesen, ganzzahl_schreiben
 from src.injector.varianten import VARIANTEN_JE_KLASSE
 
 if TYPE_CHECKING:  # pragma: no cover - nur fuer die Typpruefung
     from collections.abc import Mapping, Sequence
+    from decimal import Decimal
 
     from numpy.random import Generator, SeedSequence
 
@@ -172,6 +214,11 @@ def injiziere(  # noqa: PLR0913 - die Signatur ist in der Phasenvorgabe festgele
 
     fehler_je_variante: dict[str, int] = {}
     fehler_je_klasse: dict[str, int] = {}
+    # Zwei Merklisten fuer den nachgelagerten Kohaerenzschritt. Beides sind dicts
+    # und keine sets: Ueber sie wird iteriert, und die Reihenfolge geht in die
+    # Sortierung des Protokolls ein (Architekturregel A2).
+    skalierte_anfragen: dict[str, tuple[Fehlerklasse, str]] = {}
+    anfragen_mit_neuer_zeile: dict[str, None] = {}
     for plan in plaene:
         erreicht = _fuelle_klasse(
             plan,
@@ -182,9 +229,20 @@ def injiziere(  # noqa: PLR0913 - die Signatur ist in der Phasenvorgabe festgele
             protokoll=protokoll,
             belegte_zellen=belegte_zellen,
             belegte_saetze=belegte_saetze,
+            skalierte_anfragen=skalierte_anfragen,
+            anfragen_mit_neuer_zeile=anfragen_mit_neuer_zeile,
         )
         fehler_je_variante.update(erreicht)
         fehler_je_klasse[plan.klasse.value] = sum(erreicht.values())
+
+    _ziehe_raenge_nach(
+        kontext=kontext,
+        werte=werte,
+        protokoll=protokoll,
+        belegte_zellen=belegte_zellen,
+        skalierte_anfragen=skalierte_anfragen,
+        anfragen_mit_neuer_zeile=anfragen_mit_neuer_zeile,
+    )
 
     return Injektionsergebnis(
         run_id=run_id,
@@ -258,6 +316,8 @@ def _fuelle_klasse(  # noqa: PLR0913 - der Zustand des Laufs wird ausdruecklich 
     protokoll: Protokoll,
     belegte_zellen: set[tuple[str, int, str]],
     belegte_saetze: set[tuple[str, int]],
+    skalierte_anfragen: dict[str, tuple[Fehlerklasse, str]],
+    anfragen_mit_neuer_zeile: dict[str, None],
 ) -> dict[str, int]:
     """Arbeitet das Kontingent einer Fehlerklasse ab.
 
@@ -319,6 +379,8 @@ def _fuelle_klasse(  # noqa: PLR0913 - der Zustand des Laufs wird ausdruecklich 
                 protokoll=protokoll,
                 belegte_zellen=belegte_zellen,
                 belegte_saetze=belegte_saetze,
+                skalierte_anfragen=skalierte_anfragen,
+                anfragen_mit_neuer_zeile=anfragen_mit_neuer_zeile,
             )
             gezaehlt += gewicht
         erreicht[kennung] = gezaehlt
@@ -425,6 +487,8 @@ def _wende_an(  # noqa: PLR0913 - der Zustand des Laufs wird ausdruecklich durch
     protokoll: Protokoll,
     belegte_zellen: set[tuple[str, int, str]],
     belegte_saetze: set[tuple[str, int]],
+    skalierte_anfragen: dict[str, tuple[Fehlerklasse, str]],
+    anfragen_mit_neuer_zeile: dict[str, None],
 ) -> None:
     """Schreibt eine gepruefte Aenderung in die Arbeitsdaten und ins Protokoll.
 
@@ -447,7 +511,19 @@ def _wende_an(  # noqa: PLR0913 - der Zustand des Laufs wird ausdruecklich durch
             mitgezogen=zelle.mitgezogen,
         )
 
+    if variante.zieht_rang_nach:
+        for zelle in aenderung.zellen:
+            if zelle.entitaet == "angebot":
+                skalierte_anfragen.setdefault(
+                    kontext.wert("angebot", zelle.row_id, "anfrage_id"),
+                    (variante.fehlerklasse, variante.variante_id),
+                )
+
     for satz in aenderung.saetze:
+        if satz.entitaet == "angebot":
+            anfragen_mit_neuer_zeile.setdefault(
+                kontext.wert("angebot", satz.referenz_row_id, "anfrage_id"), None
+            )
         neue_kennung = naechste_row_id[satz.entitaet]
         naechste_row_id[satz.entitaet] = neue_kennung + 1
         _haenge_zeile_an(werte[satz.entitaet], satz.entitaet, satz.werte, neue_kennung)
@@ -491,6 +567,126 @@ def _haenge_zeile_an(
     spalten["row_id"].append(str(row_id))
     for name in erwartet:
         spalten[name].append(zeilenwerte[name])
+
+
+def _ziehe_raenge_nach(  # noqa: PLR0913 - der Zustand des Laufs wird durchgereicht
+    *,
+    kontext: Injektionskontext,
+    werte: dict[str, dict[str, list[str | None]]],
+    protokoll: Protokoll,
+    belegte_zellen: set[tuple[str, int, str]],
+    skalierte_anfragen: Mapping[str, tuple[Fehlerklasse, str]],
+    anfragen_mit_neuer_zeile: Mapping[str, None],
+) -> int:
+    """Fuehrt die Preisrangfolge der skalierten Anfragen einmalig nach.
+
+    Nur die Anfragen, in denen eine skalierende Variante gewirkt hat
+    (``Variante.zieht_rang_nach``), und nur gegen den **Endstand**. Die
+    Begruendung steht im Modul-Docstring, Abschnitt "Kohaerenz ist ein eigener
+    Schritt".
+
+    Ausgenommen sind Anfragen, in denen eine satzbasierte Variante eine
+    Angebotszeile **hinzugefuegt** hat. Dort ist die Rangfolge selbst die
+    Verfaelschung: F6-b vergibt den Rang der Duplikatzeile absichtlich so, dass
+    eine Luecke entsteht, F6-a und F6-c erzeugen einen doppelten Rang. Ein
+    Nachfuehren wuerde diese Luecke schliessen und die Verfaelschung stillschweigend
+    reparieren — F6-b waere danach ueber R-043 nicht mehr auffindbar. Das waere ein
+    deutlich schwererer Fehler als der, den dieser Schritt behebt. Der Fall tritt
+    nur im Mischmodus auf, weil sonst je Lauf genau eine Klasse laeuft.
+
+    Args:
+        kontext: Lesende Sicht auf den sauberen Datensatz; liefert die
+            Ausgangswerte fuer das Protokoll und die Zuordnung Anfrage auf
+            Angebotszeilen.
+        werte: Arbeitsdaten des Laufs; werden veraendert.
+        protokoll: Ground Truth des Laufs; bekommt die mitgezogenen Zellen.
+        belegte_zellen: Bereits getroffene Zellen; werden ergaenzt.
+        skalierte_anfragen: Anfragen mit mindestens einer Skalierung.
+        anfragen_mit_neuer_zeile: Anfragen mit hinzugefuegter Angebotszeile.
+
+    Returns:
+        Die Zahl der nachgefuehrten Rangzellen.
+    """
+    nachgefuehrt = 0
+    for anfrage_id, (klasse, variante_id) in skalierte_anfragen.items():
+        if anfrage_id in anfragen_mit_neuer_zeile:
+            continue
+        for zelle in _endraenge(kontext, werte, anfrage_id):
+            schluessel = (zelle.entitaet, zelle.row_id, zelle.spalte)
+            if schluessel in belegte_zellen:
+                # Eine andere Variante hat den Rang selbst verfaelscht — etwa F1 auf
+                # angebot.rang im Mischmodus. Diese Zelle ist Traegerzelle eines
+                # anderen Fehlers und wird nicht ueberschrieben.
+                continue
+            index = kontext.zeile[zelle.entitaet][zelle.row_id]
+            clean = kontext.wert(zelle.entitaet, zelle.row_id, zelle.spalte)
+            werte[zelle.entitaet][zelle.spalte][index] = zelle.wert_dirty
+            belegte_zellen.add(schluessel)
+            protokoll.vermerke_zelle(
+                fehlerklasse=klasse,
+                injektor_variante_id=variante_id,
+                entitaet=zelle.entitaet,
+                row_id=zelle.row_id,
+                spalte=zelle.spalte,
+                wert_clean=clean,
+                wert_dirty=_text(zelle.wert_dirty),
+                mitgezogen=True,
+            )
+            nachgefuehrt += 1
+    return nachgefuehrt
+
+
+def _endraenge(
+    kontext: Injektionskontext,
+    werte: Mapping[str, Mapping[str, list[str | None]]],
+    anfrage_id: str,
+) -> tuple[Zellaenderung, ...]:
+    """Bestimmt die Rangfolge einer Anfrage aus dem Endstand der Arbeitsdaten.
+
+    Gerankt werden die **bepreisten** Angebote, also die mit gesetztem ``rang``.
+    Bei gleichem Zahlbeitrag entscheidet der bisherige Rang; ohne diese
+    Nebenordnung bekaeme eine Anfrage mit zwei gleichen Raten eine andere
+    Rangfolge als der Generator sie vergeben hat, und der Injektor erzeugte eine
+    Abweichung, die keine Verfaelschung ist.
+
+    **Gelesen wird aus ``werte``, nicht aus dem Kontext.** Genau darin liegt der
+    Unterschied zur ersten Fassung: Der Kontext zeigt den sauberen Stand und ist
+    blind fuer eine zweite Skalierung in derselben Anfrage.
+
+    Args:
+        kontext: Lesende Sicht; liefert die Angebotszeilen der Anfrage.
+        werte: Arbeitsdaten des Laufs.
+        anfrage_id: Die nachzufuehrende Anfrage.
+
+    Returns:
+        Die zu aendernden Rangzellen. Leer, wenn die Rangfolge schon stimmt oder
+        ein Zahlbeitrag im Endstand nicht lesbar ist — Letzteres ist kein Fehler,
+        sondern der Fall, dass eine andere Variante den Beitrag unlesbar gemacht
+        hat; dann gibt es keine wohldefinierte Preisordnung mehr.
+    """
+    eintraege: list[tuple[Decimal, int, int]] = []
+    for row_id in kontext.angebote_je_anfrage.get(anfrage_id, ()):
+        index = kontext.zeile["angebot"][row_id]
+        rang = ganzzahl_lesen(_text(werte["angebot"]["rang"][index]))
+        if rang is None:
+            continue
+        rate = betrag_lesen(_text(werte["angebot"]["zahlbeitrag_rate_eur"][index]))
+        if rate is None:
+            return ()
+        eintraege.append((rate, rang, row_id))
+
+    eintraege.sort()
+    return tuple(
+        Zellaenderung(
+            entitaet="angebot",
+            row_id=row_id,
+            spalte="rang",
+            wert_dirty=ganzzahl_schreiben(neuer_rang),
+            mitgezogen=True,
+        )
+        for neuer_rang, (_, alter_rang, row_id) in enumerate(eintraege, start=1)
+        if neuer_rang != alter_rang
+    )
 
 
 def _baue_rahmen(werte: Mapping[str, Mapping[str, list[str | None]]]) -> dict[str, pd.DataFrame]:

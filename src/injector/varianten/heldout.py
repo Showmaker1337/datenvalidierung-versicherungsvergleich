@@ -263,6 +263,7 @@ VARIANTEN: Sequence[Variante] = (
         ursache="Rabattstufe eines anderen Vertrags uebernommen",
         kandidaten=kandidaten_beitragstupel,
         anwenden=skalierung(_FAKTOR_SENKUNG, ganze_anfrage=False),
+        zieht_rang_nach=True,
         zusatzspalten=BEITRAGSZUSATZ,
     ),
 )

@@ -703,14 +703,14 @@ def _pruefe_skalierung(faktor: Decimal, *, ganze_anfrage: bool) -> Callable[...,
         }
         if ganze_anfrage:
             assert zeilen == bepreist, "F8-e trifft alle Angebote der Anfrage"
-            assert not _mitgezogen(aenderung), (
-                "Skaliert die ganze Anfrage gleich, bleibt die Rangfolge unveraendert"
-            )
         else:
             assert len(zeilen) == 1
-        for zelle in _mitgezogen(aenderung):
-            assert zelle.spalte == "rang"
-            assert zelle.row_id in bepreist
+        assert not _mitgezogen(aenderung), (
+            "Die Variante fuehrt die Rangfolge nicht mehr selbst nach. Das erledigt "
+            "src.injector.pipeline einmalig am Ende gegen den Endstand; eine "
+            "Nachfuehrung je Anwendung rechnete gegen den sauberen Kontext und waere "
+            "blind fuer eine zweite Skalierung derselben Anfrage."
+        )
 
     return pruefe
 

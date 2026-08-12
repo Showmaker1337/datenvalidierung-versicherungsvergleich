@@ -111,9 +111,9 @@
       "zeilen_nur_clean": 0,
       "zeilen_nur_dirty": 0,
       "zellen_fehlerhaft": 5328,
-      "zellen_geaendert_gesamt": 9033,
-      "zellen_im_diff": 9033,
-      "zellen_im_log": 9033,
+      "zellen_geaendert_gesamt": 8931,
+      "zellen_im_diff": 8931,
+      "zellen_im_log": 8931,
       "zelluniversum": {
         "F8": 268034
       }
@@ -150,9 +150,9 @@
       "zeilen_nur_clean": 0,
       "zeilen_nur_dirty": 0,
       "zellen_fehlerhaft": 5368,
-      "zellen_geaendert_gesamt": 7630,
-      "zellen_im_diff": 7630,
-      "zellen_im_log": 7630,
+      "zellen_geaendert_gesamt": 7576,
+      "zellen_im_diff": 7576,
+      "zellen_im_log": 7576,
       "zelluniversum": {
         "HO2": 268564
       }
@@ -228,9 +228,9 @@
       "zeilen_nur_clean": 0,
       "zeilen_nur_dirty": 0,
       "zellen_fehlerhaft": 2686,
-      "zellen_geaendert_gesamt": 3803,
-      "zellen_im_diff": 3803,
-      "zellen_im_log": 3803,
+      "zellen_geaendert_gesamt": 3796,
+      "zellen_im_diff": 3796,
+      "zellen_im_log": 3796,
       "zelluniversum": {
         "HO2": 268564
       }
@@ -267,9 +267,9 @@
       "zeilen_nur_clean": 0,
       "zeilen_nur_dirty": 0,
       "zellen_fehlerhaft": 13426,
-      "zellen_geaendert_gesamt": 19215,
-      "zellen_im_diff": 19215,
-      "zellen_im_log": 19215,
+      "zellen_geaendert_gesamt": 19001,
+      "zellen_im_diff": 19001,
+      "zellen_im_log": 19001,
       "zelluniversum": {
         "HO2": 268564
       }

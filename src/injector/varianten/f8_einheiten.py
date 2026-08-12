@@ -120,9 +120,9 @@ def skalierung(faktor: Decimal, *, ganze_anfrage: bool) -> AnwendungsFunktion:
     def anwenden(
         kontext: Injektionskontext, kandidat: Kandidat, _rng: Generator
     ) -> Aenderung | None:
-        anfrage_id = kontext.wert(kandidat.entitaet, kandidat.row_id, "anfrage_id")
         if not ganze_anfrage:
-            return skaliere_beitraege(kontext, anfrage_id, (kandidat.row_id,), faktor)
+            return skaliere_beitraege(kontext, (kandidat.row_id,), faktor)
+        anfrage_id = kontext.wert(kandidat.entitaet, kandidat.row_id, "anfrage_id")
         angebote = tuple(
             row_id
             for row_id in kontext.angebote_je_anfrage.get(anfrage_id, ())
@@ -130,7 +130,7 @@ def skalierung(faktor: Decimal, *, ganze_anfrage: bool) -> AnwendungsFunktion:
         )
         if not angebote:
             return None
-        return skaliere_beitraege(kontext, anfrage_id, angebote, faktor)
+        return skaliere_beitraege(kontext, angebote, faktor)
 
     return anwenden
 
@@ -207,6 +207,7 @@ VARIANTEN: Sequence[Variante] = (
         ursache="Cent-Werte einer Quelle als Euro uebernommen",
         kandidaten=kandidaten_beitragstupel,
         anwenden=skalierung(_FAKTOR_CENT, ganze_anfrage=False),
+        zieht_rang_nach=True,
         zusatzspalten=BEITRAGSZUSATZ,
     ),
     Variante(
@@ -217,6 +218,7 @@ VARIANTEN: Sequence[Variante] = (
         ursache="Euro-Werte einer Quelle als Cent uebernommen",
         kandidaten=kandidaten_beitragstupel,
         anwenden=skalierung(_FAKTOR_EURO, ganze_anfrage=False),
+        zieht_rang_nach=True,
         zusatzspalten=BEITRAGSZUSATZ,
     ),
     Variante(
@@ -227,6 +229,7 @@ VARIANTEN: Sequence[Variante] = (
         ursache="Monatsbeitrag einer Quelle als Jahresbeitrag uebernommen",
         kandidaten=kandidaten_beitragstupel,
         anwenden=skalierung(_FAKTOR_MONAT, ganze_anfrage=False),
+        zieht_rang_nach=True,
         zusatzspalten=BEITRAGSZUSATZ,
     ),
     Variante(
@@ -237,6 +240,7 @@ VARIANTEN: Sequence[Variante] = (
         ursache="Der gesamte Vergleichslauf lief in Monatsbeitraegen",
         kandidaten=kandidaten_beitragstupel,
         anwenden=skalierung(_FAKTOR_MONAT, ganze_anfrage=True),
+        zieht_rang_nach=True,
         zusatzspalten=BEITRAGSZUSATZ,
     ),
 )

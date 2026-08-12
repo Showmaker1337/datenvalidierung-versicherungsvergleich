@@ -833,6 +833,16 @@ sind es eigene Prüffunktionen — dafür ist pandera nicht gedacht.
 | `protokoll.py` | Aufbau von `error_log` und `error_log_records` |
 | `pipeline.py` | Orchestrierung; öffentlicher Einstiegspunkt `injiziere` |
 
+Die **Preisrangfolge wird nicht in der Variante nachgezogen**, sondern einmalig am Ende des
+Laufs über alle Anfragen mit mindestens einer Skalierung, gegen den dann vorliegenden
+Endstand. Das Nachziehen des Rangs ist Kohärenzpflege und keine Verfälschung — deshalb sind
+seine Zellen `mitgezogen` und nicht Teil des Ground Truth. Eine Nachführung je Anwendung
+rechnete gegen den sauberen Kontext und wäre blind für eine zweite Skalierung derselben
+Anfrage; genau daran ist die erste Fassung gescheitert (`docs/iteration_log.md`, Befunde 11
+bis 14). Der Schritt lässt Anfragen mit hinzugefügter Angebotszeile aus: Bei F6-b **ist** die
+Ranglücke die Verfälschung, und ein pauschaler Reparaturlauf würde sie stillschweigend
+beheben.
+
 Das Kontingent einer Klasse wird **proportional zum adressierbaren Universum jeder Variante**
 verteilt, damit der Anteil jeder Variante über alle Ratenstufen konstant bleibt. Es wird
 **nicht** umverteilt: Erreicht eine Variante ihr Kontingent nicht, bricht der Injektor ab.

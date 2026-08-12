@@ -593,6 +593,17 @@ class Variante:
             Traegerzellen mitveraendert. Sie gehen in das adressierbare
             Zelluniversum ein; ``angebot.rang`` steht hier bewusst **nicht**,
             weil es mitgezogen und nicht Traeger ist.
+        zieht_rang_nach: ``True`` bei den Varianten, die ein Beitragstupel
+            skalieren und deren Anfrage deshalb am Ende des Laufs eine
+            nachgefuehrte Preisrangfolge braucht (F8-b bis F8-e, HO2-b).
+
+            Die Variante fuehrt die Rangfolge **nicht selbst** nach. Sie meldet
+            mit diesem Merkmal nur an, dass ihre Anfrage betroffen ist; das
+            Nachfuehren erledigt :mod:`src.injector.pipeline` einmalig am Ende
+            gegen den Endstand. Die Begruendung steht dort im Modul-Docstring —
+            kurz: Kohaerenz je Verfaelschung gegen den **sauberen** Ausgangsstand
+            herzustellen haelt nicht, sobald zwei Verfaelschungen dieselbe
+            Bezugsgruppe treffen.
     """
 
     variante_id: str
@@ -603,6 +614,7 @@ class Variante:
     kandidaten: KandidatenFunktion
     anwenden: AnwendungsFunktion
     zusatzspalten: tuple[str, ...] = ()
+    zieht_rang_nach: bool = False
 
 
 # ---------------------------------------------------------------------------
