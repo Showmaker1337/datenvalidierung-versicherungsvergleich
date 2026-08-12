@@ -119,9 +119,12 @@ __all__ = [
 #: wie "hat nichts gefunden", der Satz sagt "kann nicht gemessen werden, und das
 #: ist der Befund".
 NICHT_LOKALISIERT_GRUND: Final[str] = (
-    "Der Report des Frameworks nennt keine Zeile; eine Konfusionsmatrix auf Zell-, "
+    "Der Report dieses Verfahrens nennt keine Zeile; eine Konfusionsmatrix auf Zell-, "
     "Constraint- oder Satzebene ist damit nicht bildbar. Das ist das Messergebnis der "
-    "Kennzahl Diagnoseguete, kein fehlender Wert."
+    "Kennzahl Diagnoseguete, kein fehlender Wert. Der Satz gilt fuer das jeweilige "
+    "Werkzeug und nicht fuer seine Gattung: Great Expectations liefert mit "
+    "unexpected_index_list Zeilenkennung und Ausgangswert (Gegenschnitt in "
+    "src/baselines/b3b_great_expectations.py)."
 )
 
 #: Zeilen, auf die Laufzeit und Speicher normiert werden.

@@ -1,0 +1,332 @@
+{
+  "anteil_ausdrueckbar": {
+    "cuallee_auf_den_sieben": 0.571429,
+    "cuallee_auf_g1": 0.84,
+    "cuallee_auf_katalog": 0.362069,
+    "great_expectations_auf_den_sieben": 0.857143
+  },
+  "beispiel_lokalisierung_great_expectations": {
+    "abfrage": "df.filter(items=[89, 352, 362, 482], axis=0)",
+    "eintrag": {
+      "plz": "4946",
+      "row_id": "90"
+    },
+    "entitaet": "person",
+    "regel_id": "R-002",
+    "spalte": "plz"
+  },
+  "cuallee": {
+    "anteil_ausdrueckbarer_regeln": {
+      "g1": 0.84,
+      "katalog": 0.362069,
+      "regeln_g1": 25,
+      "regeln_katalog": 58
+    },
+    "ausdrueckbar": [
+      "R-002",
+      "R-003",
+      "R-005",
+      "R-006",
+      "R-007",
+      "R-008",
+      "R-010",
+      "R-011",
+      "R-012",
+      "R-013",
+      "R-014",
+      "R-015",
+      "R-016",
+      "R-017",
+      "R-018",
+      "R-019",
+      "R-020",
+      "R-021",
+      "R-022",
+      "R-023",
+      "R-024"
+    ],
+    "codezeilen_je_regel": {
+      "framework": {
+        "R-001": 3,
+        "R-002": 1,
+        "R-003": 1,
+        "R-005": 1,
+        "R-006": 1,
+        "R-007": 1,
+        "R-008": 1,
+        "R-010": 2,
+        "R-011": 2,
+        "R-012": 2,
+        "R-013": 3,
+        "R-014": 3,
+        "R-015": 3,
+        "R-016": 2,
+        "R-017": 1,
+        "R-018": 2,
+        "R-019": 2,
+        "R-020": 2,
+        "R-021": 4,
+        "R-022": 1,
+        "R-023": 2,
+        "R-024": 3,
+        "R-025": 3
+      },
+      "prototyp": {
+        "R-001": 27,
+        "R-002": 14,
+        "R-003": 8,
+        "R-004": 8,
+        "R-005": 10,
+        "R-006": 8,
+        "R-007": 8,
+        "R-008": 8,
+        "R-009": 21,
+        "R-010": 10,
+        "R-011": 14,
+        "R-012": 24,
+        "R-013": 17,
+        "R-014": 17,
+        "R-015": 17,
+        "R-016": 10,
+        "R-017": 17,
+        "R-018": 11,
+        "R-019": 9,
+        "R-020": 11,
+        "R-021": 15,
+        "R-022": 11,
+        "R-023": 9,
+        "R-024": 18,
+        "R-025": 33
+      },
+      "summe_framework": 46,
+      "summe_framework_nur_vollstaendig": 40,
+      "summe_prototyp": 326,
+      "summe_prototyp_nur_vollstaendig": 266,
+      "verglichene_regeln": [
+        "R-001",
+        "R-002",
+        "R-003",
+        "R-005",
+        "R-006",
+        "R-007",
+        "R-008",
+        "R-010",
+        "R-011",
+        "R-012",
+        "R-013",
+        "R-014",
+        "R-015",
+        "R-016",
+        "R-017",
+        "R-018",
+        "R-019",
+        "R-020",
+        "R-021",
+        "R-022",
+        "R-023",
+        "R-024",
+        "R-025"
+      ],
+      "verglichene_regeln_nur_vollstaendig": [
+        "R-002",
+        "R-003",
+        "R-005",
+        "R-006",
+        "R-007",
+        "R-008",
+        "R-010",
+        "R-011",
+        "R-012",
+        "R-013",
+        "R-014",
+        "R-015",
+        "R-016",
+        "R-017",
+        "R-018",
+        "R-019",
+        "R-020",
+        "R-021",
+        "R-022",
+        "R-023",
+        "R-024"
+      ]
+    },
+    "diagnoseguete": {
+      "anzahl_verstoesse": true,
+      "ausgangswert": false,
+      "regel": true,
+      "spalte": true,
+      "zeile": false
+    },
+    "laufzeit_s": 0.382028,
+    "nicht_ausdrueckbar": [
+      "R-004",
+      "R-009"
+    ],
+    "teilweise_ausdrueckbar": [
+      "R-001",
+      "R-025"
+    ]
+  },
+  "diagnoseguete": {
+    "cuallee": {
+      "anzahl_verstoesse": true,
+      "ausgangswert": false,
+      "regel": true,
+      "spalte": true,
+      "zeile": false
+    },
+    "great_expectations": {
+      "anzahl_verstoesse": true,
+      "ausgangswert": true,
+      "regel": true,
+      "spalte": true,
+      "zeile": true
+    }
+  },
+  "erzeugt_von": "scripts/framework_vergleich.py",
+  "great_expectations": {
+    "anteil_ausdrueckbar": 0.857143,
+    "ausdrueckbar": [
+      "R-001",
+      "R-002",
+      "R-009",
+      "R-010",
+      "R-014",
+      "R-021"
+    ],
+    "begruendungen": {
+      "R-001": "Vollstaendig formulierbar. row_condition mit condition_parser='pandas' macht die Erwartung vom Wert eines anderen Feldes derselben Zeile abhaengig; damit ist auch der bedingte Teil (anrede ungleich FIRMA erzwingt ein geburtsdatum) abgedeckt. Genau das kann cuallee nicht.",
+      "R-002": "Musterpruefung ueber ExpectColumnValuesToMatchRegex; in beiden glatt.",
+      "R-004": "Nicht formulierbar. Die Pruefziffer nach ISO 7064 Mod 97-10 ist ein Algorithmus ueber den Wert, kein Praedikat aus dem Vorrat der Erwartungen. Eine eigene Expectation-Klasse waere die Auffangtuer — dann misst man aber die selbst geschriebene Pruefung und nicht mehr das Framework. cuallee scheitert mit is_custom an derselben Stelle.",
+      "R-009": "Vollstaendig formulierbar. ExpectColumnValuesToMatchStrftimeFormat parst den Wert wirklich, statt ihn gegen ein Muster zu halten; der 31. Februar faellt damit auf. In cuallee erkennt has_pattern acht Ziffern, aber keinen Kalender.",
+      "R-010": "Katalogpruefung ueber ExpectColumnValuesToBeInSet; in beiden glatt.",
+      "R-014": "Bereichspruefung ueber ExpectColumnValuesToBeBetween. Wie cuallee verlangt auch Great Expectations dafuer Zahlenspalten; die Wandlung Decimal nach float ist in beiden Frameworks dieselbe Reibung.",
+      "R-021": "Untergrenze ueber ExpectColumnValuesToBeBetween; in beiden glatt."
+    },
+    "beispiel_lokalisierung": {
+      "abfrage": "df.filter(items=[89, 352, 362, 482], axis=0)",
+      "eintrag": {
+        "plz": "4946",
+        "row_id": "90"
+      },
+      "entitaet": "person",
+      "regel_id": "R-002",
+      "spalte": "plz"
+    },
+    "codezeilen_je_regel": {
+      "R-001": 13,
+      "R-002": 1,
+      "R-009": 8,
+      "R-010": 2,
+      "R-014": 11,
+      "R-021": 4
+    },
+    "codezeilen_summe": 39,
+    "cuallee_zum_vergleich": {
+      "anteil_vollstaendig": 0.571429,
+      "einordnung_je_regel": {
+        "R-001": "teilweise",
+        "R-002": "ja",
+        "R-004": "nein",
+        "R-009": "nein",
+        "R-010": "ja",
+        "R-014": "ja",
+        "R-021": "ja"
+      }
+    },
+    "diagnoseguete": {
+      "anzahl_verstoesse": true,
+      "ausgangswert": true,
+      "regel": true,
+      "spalte": true,
+      "zeile": true
+    },
+    "laufzeit_s": 0.444681,
+    "nicht_ausdrueckbar": [
+      "R-004"
+    ],
+    "verstoesse_je_regel": {
+      "R-001": 0,
+      "R-002": 4,
+      "R-009": 10,
+      "R-010": 0,
+      "R-014": 0,
+      "R-021": 0
+    },
+    "vorgelegte_regeln": [
+      "R-001",
+      "R-002",
+      "R-004",
+      "R-009",
+      "R-010",
+      "R-014",
+      "R-021"
+    ]
+  },
+  "je_regel": [
+    {
+      "codezeilen_cuallee": 3,
+      "codezeilen_great_expectations": 13,
+      "cuallee": "teilweise",
+      "great_expectations": "ja",
+      "regel_id": "R-001"
+    },
+    {
+      "codezeilen_cuallee": 1,
+      "codezeilen_great_expectations": 1,
+      "cuallee": "ja",
+      "great_expectations": "ja",
+      "regel_id": "R-002"
+    },
+    {
+      "codezeilen_cuallee": null,
+      "codezeilen_great_expectations": null,
+      "cuallee": "nein",
+      "great_expectations": "nein",
+      "regel_id": "R-004"
+    },
+    {
+      "codezeilen_cuallee": null,
+      "codezeilen_great_expectations": 8,
+      "cuallee": "nein",
+      "great_expectations": "ja",
+      "regel_id": "R-009"
+    },
+    {
+      "codezeilen_cuallee": 2,
+      "codezeilen_great_expectations": 2,
+      "cuallee": "ja",
+      "great_expectations": "ja",
+      "regel_id": "R-010"
+    },
+    {
+      "codezeilen_cuallee": 3,
+      "codezeilen_great_expectations": 11,
+      "cuallee": "ja",
+      "great_expectations": "ja",
+      "regel_id": "R-014"
+    },
+    {
+      "codezeilen_cuallee": 4,
+      "codezeilen_great_expectations": 4,
+      "cuallee": "ja",
+      "great_expectations": "ja",
+      "regel_id": "R-021"
+    }
+  ],
+  "laufzeit_s": {
+    "cuallee_alle_g1_regeln": 0.382028,
+    "great_expectations_sieben_regeln": 0.444681
+  },
+  "lesehinweis": "Die Kennzahl 'Anteil ausdrueckbarer Regeln' ist NICHT frameworkunabhaengig. Great Expectations formuliert auf denselben sieben Regeln mehr als cuallee: row_condition deckt bedingte Regeln ab (R-001), ExpectColumnValuesToMatchStrftimeFormat echtes Datumsparsen (R-009). Frameworkuebergreifend belastbar ist der Kern der Grenze — die relationalen Regeln R-043 bis R-048, R-052 und R-054, die quellenuebergreifenden R-049 bis R-051 und R-055 bis R-058 sowie die algorithmische R-004. An R-004 scheitern beide.",
+  "vorgelegte_regeln": [
+    "R-001",
+    "R-002",
+    "R-004",
+    "R-009",
+    "R-010",
+    "R-014",
+    "R-021"
+  ]
+}

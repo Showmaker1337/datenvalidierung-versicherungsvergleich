@@ -152,6 +152,18 @@ Optionen: `--config DATEI`, `--modus variante --variante F7-c`, `--verfahren pro
 und wird in Phase 6 nicht für jeden der tausenden Läufe gebraucht.
 
 ```bash
+python scripts/framework_vergleich.py
+```
+
+Stellt cuallee und Great Expectations auf denselben sieben G1-Regeln nebeneinander und
+schreibt `results/framework_vergleich.json`. **Keine dritte Baseline** — der Gegenschnitt
+tritt in keiner Konfusionsmatrix an und geht nicht in die Inferenzstatistik ein; er liefert
+die zweite Spalte der Frameworkvergleichstabelle. Vor dem Vergleich wird eine Fehlerklasse
+injiziert (Standard `F2`), weil sich die Kennzahl Diagnosegüte nur an einem echten Fund
+zeigen lässt. Optionen: `--config DATEI`, `--n-anfragen ZAHL`, `--klasse KLASSE` (`keine`
+lässt den Datensatz sauber), `--rate ANTEIL`, `--ziel VERZEICHNIS`, `--still`.
+
+```bash
 python scripts/export_katalog.py
 ```
 
@@ -480,6 +492,13 @@ sie gefunden. Die Konfusionsmatrix führt dafür ein eigenes Feld `tp_recall`; w
 aus der Verstoßzahl gebildet, wäre er in beide Richtungen falsch (`docs/iteration_log.md`,
 Phase 5, Befund 1).
 
+> **Constraint-Ebene und Zellebene haben denselben Recall, und das ist korrekt — per
+> Konstruktion.** Zähler wie Nenner sind in beiden Fällen injizierte Zellen; nur die
+> Precision unterscheidet sich, weil dort Verstöße statt Zellen im Nenner stehen. Ohne
+> diesen Satz liest sich die Gleichheit in der Ergebnistabelle wie ein Kopierfehler, und die
+> Constraint-Ebene wirkt überflüssig — dabei ist sie genau für die Precision eingeführt
+> worden.
+
 ### Was immer geloggt wird
 
 Die **Rohwerte** TP, FP, FN und TN — nicht nur die abgeleiteten Kennzahlen, damit sich jede
@@ -553,26 +572,84 @@ Zusatzangabe.
 
 | Kennzahl | Ergebnis |
 |---|---|
-| Anteil ausdrückbarer Regeln | **21 von 25** G1-Regeln (84 %), bezogen auf den ganzen Katalog **36,2 %** (21 von 58) |
+| **Anteil ausdrückbarer Regeln** | **21 von 25** G1-Regeln (84 %), bezogen auf den ganzen Katalog **36,2 %** (21 von 58) |
 | Nicht ausdrückbar | R-004 (IBAN-Prüfziffer ISO 7064) und R-009 (existierender Kalendertag) |
 | Nur teilweise | R-001 (der bedingte Teil ist eine CFD) und R-025 (die Feldausnahmen der Sentinel-Prüfung) |
 | Codezeilen je Regel | 46 gegen 326 über 23 Regeln (Faktor 7,1); über die 21 **vollständig** ausdrückbaren 40 gegen 266 (Faktor 6,7) |
 | Laufzeit | rund 10 s gegen 47 s des vollständigen Prototyps (58 Regeln statt 25) |
-| Diagnosegüte | Spalte **ja**, Regel **ja**, Zahl der Verstöße **ja** — **Zeile nein, Ausgangswert nein** |
+| Diagnosegüte (cuallee) | Spalte **ja**, Regel **ja**, Zahl der Verstöße **ja** — **Zeile nein, Ausgangswert nein** |
 
-**Die letzte Zeile ist der wichtigste Einzelbefund des Vergleichs.**
+#### Die tragende Zahl ist die Ausdrückbarkeit
+
+**36,2 Prozent des Katalogs sind in cuallee abbildbar, 63,8 Prozent nicht.** Das ist die
+Antwort auf „Warum ein eigener Prototyp?", und sie hängt an der **Form der Regeln** und nicht
+am Berichtsformat eines Werkzeugs. Vier Regelformen sprengen eine spaltenweise Check-API:
+
+- **bedingte Regeln** in CFD-Form — R-001 macht die Pflicht eines Feldes vom Wert eines
+  anderen Feldes derselben Zeile abhängig;
+- **relationale Regeln** über mehrere Zeilen einer Tabelle — R-044 (Sortierung), R-052
+  (Mehrheitsentscheid je Anfrage), R-054 (Median der übrigen Angebote);
+- **satz- und quellenübergreifende Regeln**, die zwei Tabellen zugleich brauchen;
+- **algorithmische Regeln** — R-004 (Prüfziffer nach ISO 7064) und R-009 (realer
+  Kalendertag). Ein Muster erkennt acht Ziffern, aber nicht den 31. Februar.
+
+#### Wie weit die Zahl trägt — der Gegenschnitt mit Great Expectations
+
+Die 36,2 Prozent sind **für cuallee gemessen**, und der Gegenschnitt zeigt, dass sie nicht
+frameworkunabhängig sind. Sieben G1-Regeln wurden zusätzlich in Great Expectations
+formuliert (`python scripts/framework_vergleich.py`):
+
+| Regel | cuallee | Great Expectations | Codezeilen cuallee / GE |
+|---|---|---|---|
+| R-001 (bedingt) | teilweise | **ja** | 3 / 13 |
+| R-002 (Muster) | ja | ja | 1 / 1 |
+| R-004 (Prüfziffer) | **nein** | **nein** | — / — |
+| R-009 (Kalendertag) | **nein** | **ja** | — / 8 |
+| R-010 (Katalog) | ja | ja | 2 / 2 |
+| R-014 (Bereich) | ja | ja | 3 / 11 |
+| R-021 (Untergrenze) | ja | ja | 4 / 4 |
+| **Summe** | **4 von 7 (57 %)** | **6 von 7 (86 %)** | |
+
+Zwei benennbare Fähigkeiten erklären den Unterschied: `row_condition` macht eine Erwartung
+vom Wert eines anderen Feldes derselben Zeile abhängig (deckt R-001 vollständig ab), und
+`ExpectColumnValuesToMatchStrftimeFormat` parst den Wert wirklich, statt ihn gegen ein Muster
+zu halten (deckt R-009 ab). **Beide scheitern an R-004** — eine Prüfziffer ist ein
+Algorithmus, kein Prädikat über einen Spaltenwert.
+
+Frameworkübergreifend belastbar ist deshalb nicht die eine Zahl, sondern der **Kern** der
+Grenze: die relationalen Regeln (R-043 bis R-048, R-052, R-054), die quellenübergreifenden
+(R-049 bis R-051, R-055 bis R-058) und die algorithmischen (R-004). Allein die Gruppen G3
+bis G5 umfassen 16 der 58 Regeln, und sie bleiben beiden Frameworks verschlossen.
+
+Nebenbefund: Great Expectations drückt mehr aus, kostet dafür aber mehr Quelltext —
+Ausdrucksmächtigkeit und Knappheit gehen auseinander.
+
+#### Nachgeordnet: die Diagnosegüte — und zwar als Eigenschaft von cuallee
+
 `cuallee.pandas_validation.summary` gibt je Regel einen Wahrheitswert oder eine Zahl zurück,
-niemals eine Zeilenkennung. B3 kann deshalb keine zellbasierte Konfusionsmatrix erzeugen: Seine
-Meldungen tragen `row_id = -1`, das Verfahren trägt `lokalisiert_zellen = False`, und der
-Evaluator schreibt für alle Ebenen `null` **mit Begründung** statt Nullen — eine Null läse sich
-wie „hat nichts gefunden".
+niemals eine Zeilenkennung. B3 kann deshalb keine zellbasierte Konfusionsmatrix erzeugen:
+Seine Meldungen tragen `row_id = -1`, das Verfahren trägt `lokalisiert_zellen = False`, und
+der Evaluator schreibt für alle Ebenen `null` **mit Begründung** statt Nullen — eine Null
+läse sich wie „hat nichts gefunden".
 
-Das ist kein Implementierungsmangel, sondern die Antwort auf die Frage „Warum ein eigener
-Prototyp?": Ein Validator, dessen Report die fehlerhafte Zeile nicht benennt, ist im Betrieb
-nicht nachbearbeitbar. **B3 gehört deshalb auch nicht in die Inferenzstatistik** — ein
-Wilcoxon-Test gegen ein Verfahren, das dieselben Regeln ausführt, testet eine Nullhypothese,
-von der man weiß, dass sie gilt. Das Verfahren trägt dafür das Merkmal
-`in_inferenzstatistik = False`.
+**Dieser Befund gilt für cuallee und nicht für die Kategorie.** cuallee berichtet auf
+Constraint-Ebene; ein Zeilen- und Wertbezug ist in seinem Ausgabeformat nicht vorgesehen.
+Andere Frameworks entscheiden das anders: **Great Expectations** liefert mit
+`result_format: COMPLETE` und konfigurierten `unexpected_index_column_names` genau diesen
+Bezug — `unexpected_index_list` gibt je fehlgeschlagener Zeile Zeilenkennung und fehlerhaften
+Wert, dazu `unexpected_index_query` als nachvollziehbare Abfrage.
+
+Der Satz „etablierte Frameworks können Fehler nicht auf die Zelle lokalisieren" wäre also
+**falsch**. Nachgemessen liefert Great Expectations auf einem F2-verfälschten Datensatz etwa
+`{'plz': '4946', 'row_id': '90'}` — Zeile und Ausgangswert. Die Diagnosegüte ist deshalb der
+zweite, nachgeordnete Punkt und ein Befund über den **Gestaltungsraum** der Werkzeuge: Ein
+Validator, dessen Report die fehlerhafte Zeile nicht benennt, ist im Betrieb nicht
+nachbearbeitbar — aber das ist eine Entwurfsentscheidung des jeweiligen Frameworks, keine
+Eigenschaft der Gattung.
+
+**B3 gehört nicht in die Inferenzstatistik** — ein Wilcoxon-Test gegen ein Verfahren, das
+dieselben Regeln ausführt, testet eine Nullhypothese, von der man weiß, dass sie gilt. Das
+Verfahren trägt dafür das Merkmal `in_inferenzstatistik = False`.
 
 ### Ein Beispiellauf
 
@@ -757,6 +834,7 @@ nicht aus dem Injektorquelltext stammen.
 | `b0_schema.py` | **B0** — pydantic v2, nur Typen, Nullable-Constraints und Feldlängen |
 | `b2_isolation_forest.py` | **B2** — scikit-learn `IsolationForest` je Entität, Schwellensweep über sieben Stufen |
 | `b3_framework.py` | **B3** — dieselben G1-Regelinhalte in cuallee |
+| `b3b_great_expectations.py` | **Gegenschnitt** — sieben derselben Regeln in Great Expectations. Keine Baseline, zweite Spalte der Frameworkvergleichstabelle |
 | `codezeilen.py` | Misst „Codezeilen je Regel" über den AST, statt sie zu schätzen |
 
 `b0_schema.py`, `b2_isolation_forest.py` und `b3_framework.py` importieren **nichts** aus

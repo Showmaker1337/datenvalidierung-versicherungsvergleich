@@ -24,6 +24,12 @@ Faker==40.36.0
 pydantic==2.13.4          # B0 — reine Typ- und Constraint-Validierung
 scikit-learn==1.9.0       # B2 — IsolationForest
 cuallee==0.15.4           # B3 — derselbe Regelinhalt, anderes Framework
+# Gegenschnitt B3b: dieselben Regeln in einem zweiten Framework. Keine dritte
+# Baseline und nicht Teil der Inferenzstatistik — er liefert die zweite Spalte
+# der Frameworkvergleichstabelle und belegt, dass die fehlende Lokalisierung auf
+# die Zelle eine Eigenschaft von cuallee ist und nicht der Gattung
+# (src/baselines/b3b_great_expectations.py).
+great_expectations==1.20.0
 
 # --- Statistik und Abbildungen -------------------------------------------
 scipy==1.18.0

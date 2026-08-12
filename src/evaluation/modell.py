@@ -122,6 +122,12 @@ __all__ = [
 #: aus der Zell- und der Satzebene herausgehalten, statt sie einer beliebigen
 #: Zeile zuzuschlagen. Das ist der gemessene Befund zur Diagnoseguete, kein
 #: fehlender Wert.
+#:
+#: Der Befund ist eine Eigenschaft **dieses Werkzeugs**, nicht der Gattung: Great
+#: Expectations liefert mit ``unexpected_index_list`` Zeilenkennung und
+#: Ausgangswert. Der Gegenschnitt dazu steht in
+#: :mod:`src.baselines.b3b_great_expectations`. Das Feld bleibt deshalb allgemein
+#: gehalten — es kennzeichnet eine Meldung ohne Zeilenbezug, nicht "ein Framework".
 ROW_ID_OHNE_BEZUG: Final[int] = -1
 
 #: Spalten der Zellscore-Tabelle (nur B2 fuellt sie).

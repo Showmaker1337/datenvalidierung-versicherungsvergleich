@@ -687,3 +687,142 @@ gemeldeten Zellen auf irgendeinem Datensatz?* — lautet für jeden Punkt unten 
   **beste erreichte F1** berichtet. Das ist eine bewusst optimistische Einstellung und in der
   Arbeit als solche zu deklarieren. `contamination` wird ausdrücklich **nicht** auf die wahre
   Fehlerrate gesetzt — das wäre unfair und angreifbar.
+
+---
+
+## Phase 5, Nachtrag — Frameworkvergleich, zwei Ergebnisse und eine Werkzeugentscheidung
+
+**Auch hier keine Iteration 2.** Der Regelkatalog ist unverändert.
+
+### Befund 7 — die Lokalisierungsaussage gilt für cuallee, nicht für die Gattung
+
+- **Datum:** 2026-08-12
+- **Sachlage:** Befund 2 hält fest, dass `cuallee.pandas_validation.summary` weder Zeile
+  noch Ausgangswert liefert. Das ist richtig und nachgemessen. Der Satz darf aber **nicht**
+  auf "etablierte Frameworks können Fehler nicht auf die Zelle lokalisieren" verallgemeinert
+  werden.
+- **Gegenbeispiel, nachgemessen:** Great Expectations 1.20.0 liefert bei
+  `result_format: COMPLETE` mit konfigurierten `unexpected_index_column_names` in
+  `unexpected_index_list` je fehlgeschlagener Zeile ein Dictionary aus Zeilenkennung **und**
+  fehlerhaftem Wert, dazu `unexpected_index_query` als nachvollziehbare Abfrage. Auf einem
+  F2-verfälschten Datensatz etwa `{'plz': '4946', 'row_id': '90'}`.
+- **Warum das zählt:** Stünde die Verallgemeinerung in der Arbeit, genügte einem Prüfer die
+  Kenntnis von Great Expectations, um sie zu kippen — und mit ihr die Begründung des
+  Artefakts, wenn sie darauf gebaut wäre.
+- **Entscheidung:** Die Kennzahl Diagnosegüte wird überall als Eigenschaft von cuallee
+  formuliert, mit Great Expectations namentlich als Gegenbeispiel. Die Begründung des
+  Artefakts steht auf der **Ausdrückbarkeit**; die Diagnosegüte ist der zweite,
+  nachgeordnete Punkt und ein Befund über den Gestaltungsraum der Werkzeuge.
+
+### Befund 8 — auch die Ausdrückbarkeit ist nicht ganz frameworkunabhängig
+
+- **Datum:** 2026-08-12
+- **Sachlage:** Der Gegenschnitt legt sieben G1-Regeln zusätzlich Great Expectations vor
+  (`src/baselines/b3b_great_expectations.py`, `scripts/framework_vergleich.py`). Ergebnis auf
+  denselben sieben Regeln: **cuallee 4 von 7 (57 %), Great Expectations 6 von 7 (86 %)**.
+- **Die beiden Unterschiede sind benennbar**, nicht zufällig:
+  - `row_condition` mit `condition_parser="pandas"` macht eine Erwartung vom Wert eines
+    anderen Feldes derselben Zeile abhängig. R-001 ist damit **vollständig** formulierbar,
+    also auch der bedingte Teil; in cuallee bleibt nur der unbedingte.
+  - `ExpectColumnValuesToMatchStrftimeFormat` parst den Wert wirklich. Der 31. Februar fällt
+    damit auf, R-009 ist formulierbar; in cuallee erkennt `has_pattern` acht Ziffern, aber
+    keinen Kalender.
+- **Beide scheitern an R-004.** Eine Prüfziffer nach ISO 7064 ist ein Algorithmus, kein
+  Prädikat über einen Spaltenwert. Die Auffangtür beider Frameworks — `is_custom`
+  beziehungsweise eine eigene Expectation-Klasse — misst nur noch die selbst geschriebene
+  Prüfung.
+- **Folge für die Arbeit, und sie ist unbequem:** Die Zahl **36,2 Prozent ist für cuallee
+  gemessen** und muss auch so ausgewiesen werden. Frameworkübergreifend belastbar ist der
+  Kern der Grenze, und der liegt nicht bei den bedingten Regeln, sondern bei den
+  **relationalen** (R-043 bis R-048, R-052, R-054), den **quellenübergreifenden** (R-049 bis
+  R-051, R-055 bis R-058) und den **algorithmischen** (R-004). Allein die Gruppen G3 bis G5
+  umfassen 16 der 58 Regeln, und sie bleiben beiden Frameworks verschlossen.
+- **Nebenbefund Aufwand:** Great Expectations drückt mehr aus, kostet dafür aber mehr
+  Quelltext — R-001 dreizehn Zeilen gegen drei, R-014 elf gegen drei. Ausdrucksmächtigkeit
+  und Knappheit gehen hier auseinander.
+
+### Befund 9 — Constraint-Ebene und Zellebene haben denselben Recall, und das ist richtig
+
+- **Datum:** 2026-08-12
+- **Sachlage:** Nach der Korrektur aus Befund 1 sind die Recallwerte beider Ebenen in jedem
+  Lauf identisch. Zähler wie Nenner sind dieselbe Menge — die injizierten Zellen.
+- **Warum das dokumentiert gehört:** Die Gleichheit sieht in der Ergebnistabelle wie ein
+  Kopierfehler aus, und die Constraint-Ebene wirkt überflüssig. Sie ist aber genau für die
+  **Precision** eingeführt worden: Im Beispiellauf F3 steht dort 1,000 gegen 0,534 auf der
+  Zellebene, weil mehrspaltige Regeln wie R-051 und R-058 alle abgeleiteten Felder melden.
+  Der Satz "nur die Precision unterscheidet sich" gehört in die Arbeit.
+
+### Befund 10 — B0 fängt R-009 mit, und die Achse C wackelt dadurch
+
+- **Datum:** 2026-08-12
+- **Sachlage:** Siehe Befund 3. Der Datumsparser von pydantic weist `31022026` zurück, weil
+  ein `datetime.date` mit diesem Wert nicht konstruierbar ist. B0 deckt den Inhalt von R-009
+  damit vollständig ab, ohne die Regel zu kennen.
+- **Material für die Diskussion, keine Korrektur:** Die Grenze zwischen Typprüfung und
+  fachlicher Regel ist nicht scharf. Für die **Achse C** der Taxonomie ist das relevant:
+  R-009 ist als C1 (deterministisch) eingeordnet und fachlich hergeleitet — sie fällt bei
+  passender Typwahl trotzdem kostenlos an. Die Einordnung einer Regel auf Achse C sagt also
+  etwas über ihre Prüfbarkeit aus, aber nicht darüber, ob ein Verfahren sie eigens
+  implementieren muss.
+- **Verschärft wird der Punkt durch Befund 8:** Dieselbe Regel führt cuallee als *nicht*
+  ausdrückbar, Great Expectations als ausdrückbar, und ein reines Typsystem erledigt sie
+  nebenbei. Die erwartete Rangfolge "Typsystem < Framework < eigener Katalog" gilt für
+  R-009 nicht.
+
+### Werkzeugentscheidung — `ruff format` wird für den Bestand nicht ausgeführt
+
+- **Datum:** 2026-08-12
+- **Sachlage:** `ruff format --check` würde 52 der 114 Dateien umformatieren. Das Projekt hat
+  von Anfang an nur `ruff check` (den Linter) durchgesetzt, nie den Formatierer.
+- **Entscheidung:** Der Bestand wird **nicht** umformatiert. Neue Dateien werden
+  format-konform geschrieben; alle Dateien der Phase 5 sind es.
+- **Begründung — sie ist stärker als "das wäre ein großer Diff":** Ein Reformat fasst auch
+  `src/rules/` an. Nach der Entscheidungsprobe des Freeze ist das **keine** Regeländerung —
+  die Menge der gemeldeten Zellen bleibt auf jedem Datensatz gleich. Aber wer den Tag
+  `freeze-regelkatalog` gegen `HEAD` diffed, um zu prüfen, dass die Regeln unverändert sind,
+  bekommt dann Formatierungsrauschen über alle Regelmodule statt einer leeren Ausgabe. **Der
+  Freeze soll nachprüfbar bleiben, nicht nur gültig.** Diese Notiz steht hier, damit die
+  Entscheidung nicht später versehentlich "repariert" wird.
+
+### Probelauf der beiden Gewichtungen (F4, HO2, F8)
+
+Vor dem Hauptversuch auf je einem Lauf mit 10.000 Anfragen und zwei Prozent Fehlerrate
+gerechnet, Verfahren Prototyp. Zweck: die Gewichtung an zwei Läufen prüfen und nicht an 1.680.
+
+| Klasse | Recall zellgewichtet | Recall variantengewichtet | größte Variante |
+|---|---|---|---|
+| F4 | 1,000 | 1,000 | F4-g mit 1.236 von 1.681 Zellen (73,5 %) |
+| HO2 | 0,0041 | 0,0023 | HO2-b mit 4.868 von 5.368 Zellen (90,7 %) |
+| F8 | 0,3084 | 0,3119 | F8-b mit 1.308 von 5.328 Zellen (24,6 %) |
+
+Die beiden Anteile 73,5 % und 90,7 % treffen die aus Phase 4b dokumentierten Werte exakt —
+die Zuteilung arbeitet wie beabsichtigt.
+
+**Zwei Abweichungen von der Erwartung, beide erklärbar:**
+
+1. **F4 ist auch variantengewichtet 1,000.** Erwartet war ein deutlicher Unterschied, weil
+   F4-g drei Viertel der Klasse stellt. Tatsächlich haben **alle sieben** F4-Varianten den
+   Recall 1,000 — der Klassenwert von 1,000 ist also nicht bloß ein Zuteilungseffekt, sondern
+   eine stärkere Aussage: F4 wird vollständig erkannt, unabhängig von der Gewichtung. Ein
+   Unterschied zwischen den beiden Gewichtungen kann nur dort auftreten, wo die Varianten
+   einer Klasse **verschieden gut** erkannt werden; bei F4 tun sie das nicht.
+2. **Bei HO2 hebt `mitgezogen_als_fehler = True` den Recall, statt ihn zu senken**
+   (0,0058 gegen 0,0041). Der Grund: Der Prototyp findet dort ausschließlich über R-044, und
+   dieser Verstoß meldet je Paar zwei `rang`-Zellen (mitgezogen) und zwei
+   `zahlbeitrag_rate_eur`-Zellen (Träger). Zählt man die mitgezogenen mit, verdoppelt sich
+   `tp` von 22 auf 44, während der Nenner nur um den Faktor 1,42 wächst. Bei **F8** wirkt der
+   Schalter wie erwartet und deutlich: 0,3084 gegen 0,1828, weil dort von 3.705 mitgezogenen
+   Zellen nur 8 gefunden werden.
+
+   **Die Richtung des Schalters ist damit klassenabhängig und darf in der Arbeit nicht
+   pauschal als "senkt den Recall" beschrieben werden.** Genau dafür werden beide Werte je
+   Lauf berechnet.
+
+**Ein Nebenbefund, der vor Phase 6 zu entscheiden ist:** R-044 meldet auf dem HO2-Lauf
+**11 Verstöße**. HO2-b ist als held-out gedacht und soll unentdeckt bleiben; `spec/03`,
+Abschnitt 2 verlangt deshalb, die Rangfolge bei der kohärenten Skalierung mitzuziehen, damit
+die Rangregel gerade **nicht** zusätzlich auslöst. In 11 von 1.217 skalierten Angeboten
+(0,9 %) bleibt die Ordnung trotzdem verletzt. Der gemessene HO2-Recall von 0,004 statt 0,000
+geht vollständig auf diese 11 Fälle zurück. Das ist keine Änderung am Regelkatalog und keine
+am Ground Truth — aber es ist eine offene Frage an den Injektor, und sie gehört beantwortet,
+bevor 1.680 Läufe darauf aufbauen.

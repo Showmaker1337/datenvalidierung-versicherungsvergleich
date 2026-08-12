@@ -211,6 +211,15 @@ In beiden Faellen stuenden in **einer** ``metrics.json`` zwei verschiedene Zahle
 unter dem Namen ``recall``: eine in der Konfusionsmatrix der Ebene, eine andere in
 ihren Gruppentabellen, die zellweise gebildet werden.
 
+**Der Recall der Constraint-Ebene ist deshalb immer gleich dem der Zellebene, und
+das ist kein Fehler, sondern Konstruktion.** Zaehler und Nenner sind auf beiden
+Ebenen dieselbe Menge: die injizierten Zellen. Nur die **Precision** unterscheidet
+sich, weil in ihrem Nenner Verstoesse stehen statt Zellen — und genau dafuer wurde
+die Ebene eingefuehrt. Wer die beiden gleichen Recallwerte in der Ergebnistabelle
+sieht und den Satz hier nicht kennt, haelt sie fuer einen Kopierfehler und die
+Constraint-Ebene fuer ueberfluessig. Der Satz gehoert deshalb auch in die Arbeit,
+nicht nur in diesen Docstring.
+
 Verfahren ohne echte ``verstoss_id``-Semantik werden gleich behandelt — B0 vergibt
 je Feldfehler eine eigene Kennung, seine Constraint-Ebene ist deshalb fast
 identisch zu seiner Zellebene. Das ist kein Mangel der Behandlung, sondern die

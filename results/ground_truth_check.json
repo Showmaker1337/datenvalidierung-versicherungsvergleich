@@ -40,6 +40,123 @@
         "F3": 57376
       }
     },
+    "p5_A_F4_r0200_w00": {
+      "abweichungen": {
+        "diff_ohne_log": 0,
+        "doppelte_logzeilen": 0,
+        "doppelte_row_ids": 0,
+        "entfallene_zeilen_ohne_log": 0,
+        "log_ohne_diff": 0,
+        "neue_zeilen_ohne_log": 0,
+        "row_id_als_ziel": 0,
+        "wertabweichungen": 0,
+        "wirkungslose_eintraege": 0
+      },
+      "beispiele": {
+        "diff_ohne_log": [],
+        "doppelte_logzeilen": [],
+        "doppelte_row_ids": [],
+        "entfallene_zeilen_ohne_log": [],
+        "log_ohne_diff": [],
+        "neue_zeilen_ohne_log": [],
+        "row_id_als_ziel": [],
+        "wertabweichungen": [],
+        "wirkungslose_eintraege": []
+      },
+      "fehlerrate": 0.02,
+      "klasse": "F4",
+      "modus": "klasse",
+      "saetze_im_log": 0,
+      "sauber": true,
+      "variante": null,
+      "zeilen_nur_clean": 0,
+      "zeilen_nur_dirty": 0,
+      "zellen_fehlerhaft": 1681,
+      "zellen_geaendert_gesamt": 1681,
+      "zellen_im_diff": 1681,
+      "zellen_im_log": 1681,
+      "zelluniversum": {
+        "F4": 84055
+      }
+    },
+    "p5_A_F8_r0200_w00": {
+      "abweichungen": {
+        "diff_ohne_log": 0,
+        "doppelte_logzeilen": 0,
+        "doppelte_row_ids": 0,
+        "entfallene_zeilen_ohne_log": 0,
+        "log_ohne_diff": 0,
+        "neue_zeilen_ohne_log": 0,
+        "row_id_als_ziel": 0,
+        "wertabweichungen": 0,
+        "wirkungslose_eintraege": 0
+      },
+      "beispiele": {
+        "diff_ohne_log": [],
+        "doppelte_logzeilen": [],
+        "doppelte_row_ids": [],
+        "entfallene_zeilen_ohne_log": [],
+        "log_ohne_diff": [],
+        "neue_zeilen_ohne_log": [],
+        "row_id_als_ziel": [],
+        "wertabweichungen": [],
+        "wirkungslose_eintraege": []
+      },
+      "fehlerrate": 0.02,
+      "klasse": "F8",
+      "modus": "klasse",
+      "saetze_im_log": 0,
+      "sauber": true,
+      "variante": null,
+      "zeilen_nur_clean": 0,
+      "zeilen_nur_dirty": 0,
+      "zellen_fehlerhaft": 5328,
+      "zellen_geaendert_gesamt": 9033,
+      "zellen_im_diff": 9033,
+      "zellen_im_log": 9033,
+      "zelluniversum": {
+        "F8": 268034
+      }
+    },
+    "p5_A_HO2_r0200_w00": {
+      "abweichungen": {
+        "diff_ohne_log": 0,
+        "doppelte_logzeilen": 0,
+        "doppelte_row_ids": 0,
+        "entfallene_zeilen_ohne_log": 0,
+        "log_ohne_diff": 0,
+        "neue_zeilen_ohne_log": 0,
+        "row_id_als_ziel": 0,
+        "wertabweichungen": 0,
+        "wirkungslose_eintraege": 0
+      },
+      "beispiele": {
+        "diff_ohne_log": [],
+        "doppelte_logzeilen": [],
+        "doppelte_row_ids": [],
+        "entfallene_zeilen_ohne_log": [],
+        "log_ohne_diff": [],
+        "neue_zeilen_ohne_log": [],
+        "row_id_als_ziel": [],
+        "wertabweichungen": [],
+        "wirkungslose_eintraege": []
+      },
+      "fehlerrate": 0.02,
+      "klasse": "HO2",
+      "modus": "klasse",
+      "saetze_im_log": 0,
+      "sauber": true,
+      "variante": null,
+      "zeilen_nur_clean": 0,
+      "zeilen_nur_dirty": 0,
+      "zellen_fehlerhaft": 5368,
+      "zellen_geaendert_gesamt": 7630,
+      "zellen_im_diff": 7630,
+      "zellen_im_log": 7630,
+      "zelluniversum": {
+        "HO2": 268564
+      }
+    },
     "s01_A_F1_r0200_w01": {
       "abweichungen": {
         "diff_ohne_log": 0,
@@ -594,5 +711,5 @@
       }
     }
   },
-  "laeufe_gesamt": 15
+  "laeufe_gesamt": 18
 }

@@ -55,7 +55,10 @@ Vokabular, das mit jeder Tabelle waechst, ist keins.
 Nicht bildbare Kennzahlen bekommen eine Zeile mit fehlendem Wert
 -----------------------------------------------------------------
 
-B3 nennt keine Zeile; auf keiner Ebene ist eine Konfusionsmatrix bildbar. Es waere
+B3 (``cuallee``) nennt keine Zeile; auf keiner Ebene ist eine Konfusionsmatrix
+bildbar. Das gilt fuer dieses Werkzeug und nicht fuer die Gattung — Great
+Expectations liefert den Zeilenbezug (siehe
+:mod:`src.baselines.b3b_great_expectations`). Es waere
 naheliegend, fuer B3 einfach keine Zeilen zu schreiben. Das Langformat tut das
 Gegenteil: Es schreibt die vollstaendige Zeilenmenge mit ``wert = NA``. Eine
 fehlende Zeile waere in der Auswertung von "das Verfahren lief nicht" nicht zu

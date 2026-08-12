@@ -14,8 +14,31 @@ importiert nichts aus ``src.rules``. Die fachlichen Konstanten (Kataloge,
 Grenzen, Feldlaengen) stammen aus ``src.common`` — sie sind die gemeinsame
 Definition des Datenmodells und gehoeren keinem der beiden Verfahren.
 
-Der zentrale Befund: cuallee nennt keine Zeile
-----------------------------------------------
+Der tragende Befund: die Ausdrueckbarkeit
+-----------------------------------------
+
+**Ausdrueckbar sind 21 der 25 G1-Regeln und damit 36,2 Prozent des Katalogs. 63,8
+Prozent sind es nicht.** Das ist die Kennzahl, auf der die Begruendung des eigenen
+Artefakts steht, und sie ist frameworkuebergreifend belastbar, weil sie an der
+**Form der Regeln** haengt und nicht am Berichtsformat eines Werkzeugs.
+
+Vier Regelformen sprengen eine spaltenweise Check-API, und zwar unabhaengig davon,
+welches Framework man waehlt:
+
+* **bedingte Regeln** in CFD-Form — R-001 macht die Pflicht eines Feldes vom Wert
+  eines anderen Feldes derselben Zeile abhaengig;
+* **relationale Regeln** ueber mehrere Zeilen einer Tabelle — R-044 (Sortierung),
+  R-052 (Mehrheitsentscheid je Anfrage), R-054 (Median der uebrigen Angebote);
+* **satz- und quellenuebergreifende Regeln**, die zwei Tabellen zugleich brauchen;
+* **algorithmische Regeln** — R-004 (Pruefziffer nach ISO 7064) und R-009 (realer
+  Kalendertag). Ein Muster erkennt acht Ziffern, aber nicht den 31. Februar.
+
+Diese Grenze verschiebt sich durch die Wahl des Frameworks nur wenig. Sie liegt in
+der Ausdrucksmaechtigkeit spaltenweiser Pruefausdruecke selbst — und genau deshalb
+traegt sie die Frage "Warum ein eigener Prototyp?".
+
+Nachgeordnet: die Diagnoseguete, und zwar als Eigenschaft von cuallee
+---------------------------------------------------------------------
 
 ``cuallee.pandas_validation.summary`` berechnet je Regel **eine einzige Zahl** —
 die Zahl der Zeilen, die das Praedikat erfuellen — und leitet daraus die Zahl der
@@ -23,22 +46,32 @@ Verstoesse und eine Bestehensquote ab. Der Report traegt Spalte, Regelname, Wert
 des Praedikats, Zeilenzahl, Verstosszahl und Status. Er traegt **keine Zeile und
 keinen Ausgangswert**.
 
-Damit ist eine Konfusionsmatrix auf Zell-, Constraint- oder Satzebene nicht
-bildbar: Es gibt keine Einheit, die man mit dem Ground Truth schneiden koennte.
-:meth:`B3Framework.erkenne` gibt seine Meldungen deshalb mit ``row_id`` gleich
-:data:`~src.evaluation.modell.ROW_ID_OHNE_BEZUG` zurueck, und das Verfahren traegt
-``lokalisiert_zellen = False``.
-
-**Das ist das Messergebnis der Kennzahl Diagnoseguete, kein Implementierungsmangel
-und kein fehlender Wert.** Ein Framework, das "in Spalte ``plz`` sind 412 Werte
-falsch" meldet, hat einen Datenqualitaetsbefund geliefert; ein Sachbearbeiter, der
-die 412 Faelle korrigieren soll, hat ihn nicht. Genau diese Luecke ist eines der
-Ergebnisse der Arbeit, und sie darf in der Auswertung nicht als Null erscheinen,
-sondern als "auf dieser Ebene nicht messbar". Wuerde man die Verstosszahlen
-irgendeiner Zeile zuschlagen, um doch eine Matrix zu bekommen, misst man die
+Damit ist fuer B3 eine Konfusionsmatrix auf Zell-, Constraint- oder Satzebene
+nicht bildbar: Es gibt keine Einheit, die man mit dem Ground Truth schneiden
+koennte. :meth:`B3Framework.erkenne` gibt seine Meldungen deshalb mit ``row_id``
+gleich :data:`~src.evaluation.modell.ROW_ID_OHNE_BEZUG` zurueck, und das Verfahren
+traegt ``lokalisiert_zellen = False``. Wuerde man die Verstosszahlen irgendeiner
+Zeile zuschlagen, um doch eine Matrix zu bekommen, misst man die
 Zuordnungsheuristik und nicht mehr das Framework.
 
-Aus demselben Grund steht ``in_inferenzstatistik = False``: Ein Wilcoxon-Test
+**Diese Aussage gilt fuer cuallee und darf nicht auf die Kategorie
+verallgemeinert werden.** cuallee berichtet auf Constraint-Ebene; ein Zeilen- und
+Wertbezug ist in seinem Ausgabeformat nicht vorgesehen. Andere Frameworks
+entscheiden das anders. **Great Expectations** — in ``CLAUDE.md``, Abschnitt 4
+ausdruecklich als Alternative fuer B3 genannt — liefert genau diesen Bezug: Mit
+``result_format: COMPLETE`` und konfigurierten ``unexpected_index_column_names``
+gibt ``unexpected_index_list`` je fehlgeschlagener Zeile ein Woerterbuch aus
+Zeilenkennung und fehlerhaftem Wert, dazu ``unexpected_index_query`` als
+nachvollziehbare Abfrage.
+
+Der Satz "etablierte Frameworks koennen Fehler nicht auf die Zelle lokalisieren"
+waere also **falsch**, und ein Prueferwissen um Great Expectations genuegte, um ihn
+zu kippen — mitsamt der Begruendung des Artefakts, wenn sie darauf gebaut waere.
+Sie ist es nicht: Sie steht auf der Ausdrueckbarkeit. Die Diagnoseguete ist der
+zweite, nachgeordnete Punkt und ein Befund ueber den **Gestaltungsraum** der
+Werkzeuge, nicht ueber ihre Gattung.
+
+Aus einem anderen Grund steht ``in_inferenzstatistik = False``: Ein Wilcoxon-Test
 zwischen dem Prototyp und einem Verfahren, das inhaltlich dieselben Regeln
 ausfuehrt, pruefte eine Nullhypothese, von der man vorher weiss, dass sie gilt.
 Der Vergleich mit B3 ist qualitativ (Ausdrueckbarkeit, Aufwand, Diagnoseguete),
@@ -231,10 +264,16 @@ REGELN_KATALOG: Final[int] = 58
 #: Zahl der Regeln der Gruppe G1 (R-001 bis R-025), die B3 vorgelegt bekommt.
 REGELN_G1: Final[int] = 25
 
-#: Was der Report von cuallee ueber einen Fund aussagt.
+#: Was der Report **von cuallee** ueber einen Fund aussagt.
 #:
 #: Die Kennzahl "Diagnoseguete" der Arbeit in ihrer knappsten Form. ``zeile`` und
 #: ``ausgangswert`` sind ``False`` — siehe Modul-Docstring.
+#:
+#: **Eine Eigenschaft dieses Werkzeugs, nicht seiner Gattung.** Great Expectations
+#: liefert mit ``unexpected_index_list`` genau den Zeilen- und Wertbezug, der hier
+#: fehlt; der Gegenschnitt steht in
+#: :mod:`src.baselines.b3b_great_expectations`. Die Werte hier duerfen deshalb
+#: nicht als "Frameworks koennen das nicht" gelesen werden.
 DIAGNOSEGUETE: Final[Mapping[str, bool]] = MappingProxyType(
     {
         "zeile": False,

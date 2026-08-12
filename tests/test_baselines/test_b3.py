@@ -1,10 +1,14 @@
 """Smoke-Test der Baseline B3 (cuallee) auf einem Minimaldatensatz.
 
 B3 ist der Vergleich gegen ein etabliertes Framework: **derselbe** Regelinhalt
-der Gruppe G1, formuliert in einer fremden, deklarativen Check-API. Der
-wichtigste Einzelbefund des Vergleichs ist deshalb kein Recall, sondern eine
-Eigenschaft des Reports — er nennt Spalte, Regel und die Zahl der Verstoesse,
-aber **keine Zeile und keinen Ausgangswert**.
+der Gruppe G1, formuliert in einer fremden, deklarativen Check-API. Die tragende
+Kennzahl des Vergleichs ist die **Ausdrueckbarkeit** — 21 der 25 G1-Regeln. Dazu
+kommt eine Eigenschaft des Reports von cuallee: Er nennt Spalte, Regel und die
+Zahl der Verstoesse, aber **keine Zeile und keinen Ausgangswert**.
+
+Das ist eine Eigenschaft **dieses Werkzeugs**, nicht seiner Gattung. Great
+Expectations liefert den Zeilenbezug; der Gegenschnitt dazu steht in
+``tests/test_baselines/test_b3b.py``.
 
 Was hier geprueft wird
 ----------------------
