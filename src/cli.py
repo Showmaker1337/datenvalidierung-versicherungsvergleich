@@ -6,6 +6,7 @@ Aufruf::
     python -m src.cli referenz [--ziel VERZEICHNIS] [--seed ZAHL]
     python -m src.cli generieren --run-id KENNUNG [--seed ZAHL] [--n-anfragen ZAHL]
     python -m src.cli pruefen --run-id KENNUNG
+    python -m src.cli bewerten --serie s01 --design A --klasse F3 --rate 0.02 --wdh 7
     python -m src.cli katalog [--ziel VERZEICHNIS]
 
 Der Befehlsvorrat waechst mit den Phasen mit. Er enthaelt ausschliesslich
@@ -91,6 +92,52 @@ def _pruefe_datensatz(run_id: str) -> None:
     pruefen(["--run-id", run_id, "--dataset", "clean"])
 
 
+def _bewerte_lauf(optionen: argparse.Namespace) -> int:
+    """Bewertet Prototyp und Baselines auf einem bereits verfaelschten Experimentlauf.
+
+    Die Auswertung steht in ``scripts/evaluate.py`` und wird von hier nur
+    aufgerufen — dieselbe Begruendung wie bei :func:`_baue_referenz`. Die
+    Optionen werden als Kommandozeile weitergereicht statt als Objekt: Damit gibt
+    es genau **einen** Argumentparser fuer die Auswertung, und die Pruefung von
+    Modus, Fehlerklasse und Variante findet auch dann statt, wenn der Aufruf ueber
+    ``python -m src.cli`` kommt.
+
+    Args:
+        optionen: Ausgewertete Kommandozeile des Unterbefehls.
+
+    Returns:
+        Den Rueckgabewert des Skripts.
+    """
+    from scripts.evaluate import main as bewerten  # noqa: PLC0415
+
+    argumente: list[str] = [
+        "--serie",
+        optionen.serie,
+        "--design",
+        optionen.design,
+        "--modus",
+        optionen.modus,
+        "--wdh",
+        str(optionen.wdh),
+    ]
+    for name, wert in (
+        ("--config", optionen.config),
+        ("--klasse", optionen.klasse),
+        ("--variante", optionen.variante),
+        ("--rate", optionen.rate),
+        ("--clean-run", optionen.clean_run),
+        ("--seed", optionen.seed),
+        ("--n-anfragen", optionen.n_anfragen),
+    ):
+        if wert is not None:
+            argumente.extend((name, str(wert)))
+    if optionen.verfahren is not None:
+        argumente.extend(("--verfahren", *optionen.verfahren))
+    if optionen.kein_speicher:
+        argumente.append("--kein-speicher")
+    return bewerten(argumente)
+
+
 def _exportiere_katalog(ziel: Path | None) -> None:
     """Exportiert den Regelkatalog als CSV fuer den Anhang der Arbeit."""
     from scripts.export_katalog import main as exportieren  # noqa: PLC0415
@@ -132,6 +179,35 @@ def main(argumente: Sequence[str] | None = None) -> int:
     )
     pruefen.add_argument("--run-id", required=True, help="Kennung des Laufs")
 
+    bewerten = unterbefehle.add_parser(
+        "bewerten", help="Prototyp und Baselines auf einem Experimentlauf bewerten"
+    )
+    bewerten.add_argument("--serie", required=True, help="Name der Versuchsserie, etwa s01")
+    bewerten.add_argument("--design", required=True, help="Kennbuchstabe des Varianzdesigns")
+    bewerten.add_argument(
+        "--modus", default="klasse", help="klasse (faktorieller Plan) oder variante"
+    )
+    bewerten.add_argument("--klasse", default=None, help="Fehlerklasse F1 bis F8, HO1, HO2, mix")
+    bewerten.add_argument("--variante", default=None, help="Variante; nur mit --modus variante")
+    bewerten.add_argument("--rate", type=float, default=None, help="Fehlerrate als Anteil")
+    bewerten.add_argument("--wdh", type=int, required=True, help="Nummer der Wiederholung")
+    bewerten.add_argument(
+        "--verfahren", nargs="+", default=None, help="Auszuwertende Verfahren"
+    )
+    bewerten.add_argument(
+        "--clean-run", default=None, dest="clean_run", help="Kennung eines erzeugten Laufs"
+    )
+    bewerten.add_argument("--seed", type=int, default=None, help="Master-Seed uebersteuern")
+    bewerten.add_argument(
+        "--n-anfragen", type=int, default=None, help="Anzahl der Anfragen uebersteuern"
+    )
+    bewerten.add_argument(
+        "--kein-speicher",
+        action="store_true",
+        dest="kein_speicher",
+        help="Schaltet die Speichermessung ab",
+    )
+
     katalog = unterbefehle.add_parser(
         "katalog", help="Regelkatalog als CSV fuer den Anhang exportieren"
     )
@@ -147,6 +223,9 @@ def main(argumente: Sequence[str] | None = None) -> int:
     if optionen.befehl == "pruefen":
         _pruefe_datensatz(optionen.run_id)
         return 0
+
+    if optionen.befehl == "bewerten":
+        return _bewerte_lauf(optionen)
 
     if optionen.befehl == "katalog":
         _exportiere_katalog(optionen.ziel)

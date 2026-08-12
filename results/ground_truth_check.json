@@ -1,6 +1,45 @@
 {
   "alle_sauber": true,
   "laeufe": {
+    "p5_A_F3_r0200_w00": {
+      "abweichungen": {
+        "diff_ohne_log": 0,
+        "doppelte_logzeilen": 0,
+        "doppelte_row_ids": 0,
+        "entfallene_zeilen_ohne_log": 0,
+        "log_ohne_diff": 0,
+        "neue_zeilen_ohne_log": 0,
+        "row_id_als_ziel": 0,
+        "wertabweichungen": 0,
+        "wirkungslose_eintraege": 0
+      },
+      "beispiele": {
+        "diff_ohne_log": [],
+        "doppelte_logzeilen": [],
+        "doppelte_row_ids": [],
+        "entfallene_zeilen_ohne_log": [],
+        "log_ohne_diff": [],
+        "neue_zeilen_ohne_log": [],
+        "row_id_als_ziel": [],
+        "wertabweichungen": [],
+        "wirkungslose_eintraege": []
+      },
+      "fehlerrate": 0.02,
+      "klasse": "F3",
+      "modus": "klasse",
+      "saetze_im_log": 0,
+      "sauber": true,
+      "variante": null,
+      "zeilen_nur_clean": 0,
+      "zeilen_nur_dirty": 0,
+      "zellen_fehlerhaft": 1148,
+      "zellen_geaendert_gesamt": 1148,
+      "zellen_im_diff": 1148,
+      "zellen_im_log": 1148,
+      "zelluniversum": {
+        "F3": 57376
+      }
+    },
     "s01_A_F1_r0200_w01": {
       "abweichungen": {
         "diff_ohne_log": 0,
@@ -555,5 +594,5 @@
       }
     }
   },
-  "laeufe_gesamt": 14
+  "laeufe_gesamt": 15
 }

@@ -76,9 +76,36 @@ eine sichere Kolloquiumsfrage vorweg.
    Punkt im PR-Raum, keine Kurve und keine Fläche. Nur `IsolationForest.decision_function`
    hat einen Score. Berechne PR-AUC deshalb ausschließlich für B2 und weise für die übrigen
    Verfahren den einzelnen Betriebspunkt aus. Erfinde keinen Pseudo-Score.
-5. **Micro und Macro.** Micro-Averaging über alle Zellen entspricht der Literatur;
-   Macro-Averaging über Fehlerklassen zusätzlich berichten, damit seltene Klassen sichtbar
-   bleiben.
+5. **Micro und Macro — und zwar auf zwei Ebenen.** Micro-Averaging über alle Zellen
+   entspricht der Literatur; Macro-Averaging über Fehlerklassen zusätzlich berichten, damit
+   seltene Klassen sichtbar bleiben.
+
+   **Zusätzlich Macro über Varianten innerhalb jeder Klasse.** Seit Phase 4b wird das
+   Klassenkontingent proportional zum Universum jeder Variante verteilt. Das hält die
+   Mischung über die Ratenstufen konstant — genau dafür wurde es gebaut —, macht die
+   Klassen aber intern sehr ungleich: F4-g stellt 73,5 Prozent der Klasse F4, HO2-b 90,7
+   Prozent von HO2, F4-f 0,1 Prozent. Der zellgewichtete Klassen-Recall ist damit
+   praktisch der Recall seiner größten Variante.
+
+   Das ist kein Fehler, sondern eine Definitionsfrage: Zellgewichtung beantwortet „wenn
+   Fehler dieser Klasse gleichverteilt über alle adressierbaren Zellen auftreten, wie viel
+   findet der Katalog?" Variantengewichtung beantwortet „wie viele der Fehlerbilder dieser
+   Klasse findet der Katalog, unabhängig davon, wie häufig sie sind?" Beide Fragen sind
+   legitim, sie haben nur verschiedene Antworten.
+
+   Berichte deshalb je Klasse **beide** Zahlen. Die variantengewichtete stammt aus den
+   Läufen mit `--modus variante` (dort hat jede Variante ihr volles n), die zellgewichtete
+   aus dem faktoriellen Plan. Die Differenz zwischen beiden ist selbst ein Ergebnis: Sie
+   zeigt, wie stark der Klassenwert von der Mischung abhängt.
+
+   **Zwei Stellen, an denen das in der Diskussion ausdrücklich anzusprechen ist:** F4
+   besteht zu 73,5 Prozent aus F4-g, und F4-g löst nach dem Befund aus Phase 4 zwangsläufig
+   R-021 zusammen mit R-031 bzw. R-024 aus — der Klassen-Recall von F4 liegt also nahe
+   eins, weitgehend durch die Zuteilung. Umgekehrt besteht HO2 zu 90,7 Prozent aus HO2-b,
+   der kohärenten Beitragssenkung, die per Konstruktion unentdeckt bleiben soll — der
+   Klassen-Recall von HO2 liegt nahe null, ebenfalls durch die Zuteilung. Ohne die
+   variantengewichtete Gegenzahl liest beides wie ein inhaltlicher Befund, obwohl es eine
+   Eigenschaft der Gewichtung ist.
 6. **Mitgezogene Zellen: als Schalter, nicht als stille Festlegung.** Der Injektor
    markiert im `error_log` mit `mitgezogen`, welche Zellen nur zur Wahrung der Kohärenz
    nachgeführt wurden — vor allem die Rangzellen bei der Skalierung des Beitragstupels.

@@ -575,3 +575,115 @@ doppelt injiziert, und für jede Log-Zeile gilt `wert_clean != wert_dirty`.
 
 Der Bericht steht in `results/ground_truth_check.json` und sammelt die Läufe unter ihrer
 `run_id`, statt sie zu überschreiben.
+
+---
+
+## Phase 5 — Befunde beim Bau des Evaluators und der Vergleichsverfahren
+
+**Keiner dieser Punkte ist eine Iteration 2.** Der Regelkatalog ist unverändert: kein
+Prädikat, kein Wertebereich, kein Schwellenwert, kein Geltungsbereich, kein Schweregrad und
+keine Achsenzuordnung wurde angefasst. Geändert wurden ausschließlich die neuen Pakete
+`src/evaluation/` und `src/baselines/` sowie die Dokumentation.
+
+Die Entscheidungsprobe aus dem Freeze — *Ändert sich durch die Korrektur die Menge der
+gemeldeten Zellen auf irgendeinem Datensatz?* — lautet für jeden Punkt unten **nein**.
+
+### Befund 1 — auf der Constraint-Ebene wechselt nur die Precision die Einheit
+
+- **Datum:** 2026-08-12
+- **Sachlage:** Die Constraint-Ebene zählt die `verstoss_id`, um die strukturelle Deckelung
+  der Precision aufzuheben: R-031 meldet Brutto, Netto und Steuer, der Injektor hat nur eine
+  der drei Zellen verfälscht — zellbasiert ergibt perfekte Erkennung 1 TP und 2 FP. Der erste
+  Entwurf bildete daraus **auch** den Recall, also `tp / (tp + fn)` mit Verstößen im Zähler
+  und Wahrheitszellen im Nenner.
+- **Warum das falsch ist:** Der Bruch mischt zwei Einheiten, und zwar in **beide** Richtungen.
+  Ein Verstoß, der zwei injizierte Zellen zugleich überdeckt — bei F8 der Regelfall, weil die
+  kohärente Skalierung mehrere Beitragsfelder trifft —, zählt einmal statt zweimal und drückt
+  den Recall. Zwei Regeln, die dieselbe injizierte Zelle melden — der Datums-Sentinel löst
+  R-009 und R-025 gleichzeitig aus —, zählen zweimal statt einmal und heben ihn. Letzteres
+  ist genau die Doppelzählung, die die Vereinigungsmenge ausschließen soll.
+- **Nachgerechnet:** Ein Verstoß über zwei von drei Wahrheitszellen ergibt zellbasiert 0,667
+  und constraint-basiert 0,500; zwei Regeln auf einer von zwei Wahrheitszellen ergeben
+  zellbasiert 0,500 und constraint-basiert 0,667. In **einer** `metrics.json` hätten damit
+  zwei verschiedene Zahlen unter dem Namen `recall` gestanden — die eine in der
+  Konfusionsmatrix der Ebene, die andere in ihren zellweise gebildeten Gruppentabellen.
+- **Entscheidung:** Die Konfusionsmatrix trägt ein eigenes Feld `tp_recall` — den Zähler des
+  Recalls, wenn er in einer anderen Einheit gezählt wird als `tp`. Nur die Constraint-Ebene
+  setzt es; der Recall bleibt dort zahlengleich mit dem der Zellebene. Beide Werte werden
+  persistiert, damit der Recall aus den Rohwerten nachrechenbar bleibt.
+- **Wie er gefunden wurde:** Nicht durch die Tests. Der erste Test der Constraint-Ebene prüfte
+  nur den entarteten Fall — ein Verstoß über *genau eine* Wahrheitszelle und `fn = 0` —, in
+  dem beide Einheiten zufällig übereinstimmen. Zwei ergänzte Tests decken jetzt die beiden
+  Richtungen ab.
+
+### Befund 2 — cuallee nennt keine Zeile, und das ist das Ergebnis
+
+- **Datum:** 2026-08-12
+- **Sachlage:** `cuallee.pandas_validation.summary` gibt je Regel Spalte, Regelname, Zahl der
+  Verstöße und eine Bestehensquote zurück — **keine Zeile und keinen Ausgangswert**. Die
+  Prüffunktionen liefern intern einen Wahrheitswert oder eine Zahl je Regel, nicht je Zeile.
+- **Folge:** B3 kann keine zellbasierte Konfusionsmatrix erzeugen. Seine Meldungen tragen
+  deshalb `row_id = -1`, das Verfahren trägt `lokalisiert_zellen = False`, und der Evaluator
+  schreibt für alle drei Ebenen `null` **mit Begründung** statt Nullen. Eine Null läse sich
+  wie „hat nichts gefunden"; die Aussage ist aber „kann nicht gemessen werden, und genau das
+  ist die Kennzahl Diagnosegüte".
+- **Deutung für die Arbeit:** Das ist kein Implementierungsmangel und keine Schwäche des
+  Frameworks im Detail, sondern die zentrale Antwort auf die Frage „Warum ein eigener
+  Prototyp?". Ein Validator, dessen Report die fehlerhafte Zeile nicht benennt, ist im Betrieb
+  nicht nachbearbeitbar.
+
+### Befund 3 — B0 deckt R-009 ab, ohne sie zu kennen
+
+- **Datum:** 2026-08-12
+- **Sachlage:** B0 soll die untere Schranke sein: nur Typen, Nullable-Constraints und
+  Feldlängen. Die Rohform eines Datums ist `TTMMJJJJ`; wer sie in ein `datetime.date`
+  überführt, weist `31022026` zwangsläufig zurück.
+- **Folge:** B0 deckt den Inhalt von R-009 („jedes Datumsfeld der Rohschicht ist ein
+  existierender Kalendertag") vollständig ab. Das ist keine eingeschmuggelte Fachregel,
+  sondern die Eigenschaft eines Typs — die Menge der gültigen Kalendertage **ist** der
+  Wertebereich von `date`.
+- **Deutung für die Arbeit:** Der Abstand zwischen Baseline und Prototyp ist je Fehlerklasse
+  verschieden groß. Bemerkenswert ist die Umkehrung der erwarteten Rangfolge: Dieselbe Regel
+  löst das Typsystem nebenbei, während das etablierte Framework B3 sie gar nicht ausdrücken
+  kann — eine DataFrame-Check-API kennt Muster, aber keinen Kalender.
+
+### Befund 4 — `person.nachname` ist für B0 kein Pflichtfeld
+
+- **Datum:** 2026-08-12
+- **Sachlage:** `spec/01`, Abschnitt 3.2 führt `nachname` mit „nicht leer, **außer**
+  `anrede` = FIRMA". Das ist keine Nullable-Angabe, sondern eine bedingte funktionale
+  Abhängigkeit — im Prototyp ist das R-001.
+- **Entscheidung:** B0 führt als Pflicht nur die Felder, die `spec/01` **ohne Bedingung** als
+  Schlüssel oder als Pflicht ausweist. Ein unbedingtes `nachname: str` wäre zudem sachlich
+  falsch: Es löste auf dem **sauberen** Datensatz bei jeder Firmenzeile aus.
+- **Folge:** F1 trifft überwiegend Felder, deren Pflichtcharakter bedingt ist. B0 erreicht
+  dort deshalb einen kleinen Recall. Der Abstand zum Prototyp **ist** der Beitrag der
+  Fehlertaxonomie.
+
+### Befund 5 — B2 markiert Zellen, die nie fehlerhaft sein können
+
+- **Datum:** 2026-08-12
+- **Sachlage:** B2 arbeitet auf Zeilenebene; für die Zellmetrik markiert eine anomale Zeile
+  alle ihre befüllten Zellen. Dazu gehört `row_id`, die nach Architekturregel A3 **niemals**
+  Ziel einer Injektion ist.
+- **Entscheidung:** Die Umrechnung bleibt wie spezifiziert — sie wird nicht heimlich zugunsten
+  von B2 beschnitten. Stattdessen weist der Evaluator `markierte_zellen_row_id` getrennt aus.
+  Diese Meldungen sind garantierte Fehlalarme und drücken B2s Zell-Precision, ohne über seine
+  Erkennungsleistung etwas auszusagen.
+- **Deutung für die Arbeit:** Deshalb ist für B2 die **Satzebene** der Primärvergleich und die
+  Zellebene die Zusatzangabe. Die Umrechnung benachteiligt B2 bei der Precision und begünstigt
+  es beim Recall; beides gehört benannt.
+
+### Befund 6 — die Fehlwertbehandlung von B2 ist eine Entscheidung zu seinen Gunsten
+
+- **Datum:** 2026-08-12
+- **Sachlage:** `IsolationForest` nimmt kein `NaN`. Numerische Spalten werden mit dem Median
+  aufgefüllt, kategoriale bekommen die eigene Stufe `-1`, und **jede** Spalte mit mindestens
+  einem Fehlwert bekommt eine binäre Indikatorspalte `<spalte>__fehlt`.
+- **Begründung:** Ohne den Indikator wäre ein fehlender Wert für ein Anomalieverfahren
+  unsichtbar — die Median-Auffüllung macht die Zeile ja gerade unauffällig. B2 hätte auf der
+  Fehlerklasse F1 dann per Konstruktion keinen Recall, und der Vergleich wäre wertlos.
+- **Ebenfalls zugunsten von B2:** `contamination` wird über sieben Stufen gesweept und die
+  **beste erreichte F1** berichtet. Das ist eine bewusst optimistische Einstellung und in der
+  Arbeit als solche zu deklarieren. `contamination` wird ausdrücklich **nicht** auf die wahre
+  Fehlerrate gesetzt — das wäre unfair und angreifbar.

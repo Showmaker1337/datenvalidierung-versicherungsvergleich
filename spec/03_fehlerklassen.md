@@ -511,6 +511,40 @@ Teilversuch. Damit hat jede der beiden Fragen ihren eigenen sauberen Lauf: die K
 über Ratenstufen den faktoriellen Plan mit konstanter Mischung, die Variantenwirkung den
 erschöpfenden Einzellauf mit belastbarem n und brauchbarem Konfidenzintervall.
 
+### 5a.9 Wie die Auswertung die beiden Logs liest (Phase 5)
+
+Auch dieser Abschnitt ändert **nichts** am Injektor. Er hält fest, wie die Auswertung aus den
+beiden Logs ihre Wahrheitsmengen bildet — Festlegungen, die die Ergebnistabellen bestimmen
+und deshalb nicht im Quelltext versteckt bleiben dürfen.
+
+**Zellwahrheit.** Ausschließlich aus `error_log.parquet`. Ob die mit `mitgezogen` markierten
+Zellen dazugehören, entscheidet der Parameter `mitgezogen_als_fehler`; berechnet werden je
+Lauf **beide** Varianten (Abschnitt 5a.2).
+
+**Satzwahrheit.** Die Vereinigung aus zwei Quellen:
+
+1. jede Zeile, die mindestens eine Zelle im `error_log` hat, und
+2. **alle** `row_id` aus `betroffene_row_ids` des `error_log_records`.
+
+Punkt 2 heißt bei den Duplikatklassen F6 und HO1: **Beide Partner des Paares zählen als
+fehlerhaft**, die hinzugefügte Zeile ebenso wie die Originalzeile. Das ist keine Großzügigkeit,
+sondern die einzig definierbare Festlegung. Ein Duplikat ist eine Eigenschaft des *Paares*;
+keine Regel kann sagen, welche der beiden Zeilen die hinzugefügte ist, und die neue `row_id`
+vergibt der Injektor rein technisch aus dem noch nicht benutzten Zahlenraum. Würde nur die
+neue Zeile als fehlerhaft geführt, bekäme jede korrekt arbeitende Duplikatregel für die
+Originalzeile einen Fehlalarm angerechnet.
+
+**Zelluniversum.** `Zeilen × Spalten` über alle sieben Entitäten des **verfälschten**
+Datensatzes — dieselbe Definition wie im Clean-Baseline-Lauf (`scripts/validate.py`), damit
+die dort gemessene False-Positive-Rate und die hier gemessene nebeneinander stehen dürfen.
+`row_id` wird mitgezählt. Sie ist nach Architekturregel A3 niemals Ziel einer Injektion und
+gehört damit strukturell zu den echten Negativen; eine Markierung auf ihr ist ein garantierter
+Fehlalarm und wird getrennt ausgewiesen.
+
+**Satzuniversum.** Die Zeilenzahl des verfälschten Datensatzes über alle Entitäten. Bei F6
+und HO1 ist sie größer als die des sauberen — genau deshalb ist ein zellweises Diff dort
+undefiniert (Abschnitt 4.2).
+
 ---
 
 ## 6. Was der Injektor nicht darf

@@ -53,7 +53,7 @@ Skripte unter `scripts/` setzen ihn beim Start selbst.
 | 3 | Regelkatalog implementiert, Clean-Baseline-Lauf ohne Meldungen | `python scripts/validate.py --run-id <id> --dataset clean` (abgeschlossen) |
 | **→** | **Freeze des Regelkatalogs** (`git tag freeze-regelkatalog`) | — |
 | 4 | `df_raw_dirty` + Ground Truth + unabhängiger Gegencheck | `python scripts/inject.py --serie s01 --design A --klasse F3 --rate 0.02 --wdh 7` (abgeschlossen) |
-| 5 | Metriken sowie die Baselines B0, B2 und B3 | folgt in Phase 5 |
+| 5 | Metriken auf vier Ebenen sowie die Baselines B0, B2 und B3 | `python scripts/evaluate.py --serie s01 --design A --klasse F3 --rate 0.02 --wdh 7` (abgeschlossen) |
 | 6 | Hauptversuch, Teilversuche, Statistik, Abbildungen und Tabellen | folgt in Phase 6 |
 
 Die Einstiegspunkte je Phase entstehen unter `scripts/` beziehungsweise in `src/cli.py`. Die
@@ -126,6 +126,30 @@ landet unter der Variantenkennung statt unter der Klasse, also
 
 Diese Läufe gehören **nicht** in den faktoriellen Versuchsplan — siehe „Zuteilung auf die
 Varianten" weiter unten.
+
+```bash
+python scripts/evaluate.py --serie s01 --design A --klasse F3 --rate 0.02 --wdh 7
+```
+
+Bewertet Prototyp und die drei Vergleichsverfahren auf einem bereits verfälschten Lauf. Der
+Aufruf trägt **dieselben Faktorstufen** wie der zugehörige `inject.py`-Aufruf; daraus findet
+er das Laufverzeichnis und liest `manifest.json`, `error_log.parquet` und
+`error_log_records.parquet`.
+
+Der verfälschte Datensatz wird dabei **neu erzeugt** statt geladen — er wird bewusst nicht
+dauerhaft gespeichert und ist aus `seed_basis` und `seed_inject` exakt reproduzierbar. Als
+Nebenprodukt entsteht ein **Reproduzierbarkeitsnachweis**: Die SHA-256-Werte von `df_clean`
+und `df_dirty` werden gegen `manifest.json` geprüft, und eine Abweichung bricht den Lauf ab.
+Damit belegt jeder Auswertungslauf Architekturregel A2 für sich selbst.
+
+Geschrieben werden nach `data/runs/<serie>/<design>/<klasse>/<rate>/<wdh>/` die Datei
+`metrics.json` und je Verfahren `detections_<verfahren>.parquet`, dazu fortgeschrieben
+`results/metrics_long.parquet` und `results/b3_framework.json`.
+
+Optionen: `--config DATEI`, `--modus variante --variante F7-c`, `--verfahren prototyp B0 B2 B3`
+(Auswahl), `--clean-run ID`, `--seed ZAHL`, `--n-anfragen ZAHL`, `--kein-speicher`, `--still`.
+`--kein-speicher` schaltet `tracemalloc` ab; die Speichermessung verlangsamt den Lauf spürbar
+und wird in Phase 6 nicht für jeden der tausenden Läufe gebraucht.
 
 ```bash
 python scripts/export_katalog.py
@@ -433,6 +457,157 @@ Experiments:
 F8-e zeigt die strukturelle Grenze relationaler Plausibilitätsprüfungen und gehört
 ausdrücklich in die Diskussion der Arbeit.
 
+## Auswertung und Vergleichsverfahren (Phase 5)
+
+Der Evaluator misst die Erkennungsleistung gegen den bekannten Ground Truth und behandelt
+den Prototyp und die drei Baselines über **dasselbe Protokoll**: `erkenne(kontext)` gibt
+Meldungen im Format von `detections.parquet` zurück. Der Evaluator kennt nur dieses
+Protokoll und keine Verfahrensdetails.
+
+### Vier Auswertungsebenen
+
+| Ebene | Einheit | Rolle |
+|---|---|---|
+| **Zellebene** | `(entitaet, row_id, spalte)` | **Primärmetrik**, micro-averaged; dazu Recall je Fehlerklasse und je Injektionsvariante |
+| **Constraint-Ebene** | `verstoss_id` | Zweite Hauptsicht; ein mehrspaltiger Verstoß zählt als **ein** Treffer statt als 1 TP plus k FP |
+| Satzebene | `(entitaet, row_id)` | Sekundärmetrik; die **einzige** Ebene, auf der F6 und HO1 auswertbar sind |
+| Regelebene | `regel_id` | Diagnostisch: Trefferzahl, Precision je Regel, Anteil „einzige treffende Regel" |
+
+**Auf der Constraint-Ebene wechselt nur die Precision die Einheit.** Der Recall bleibt
+zellbasiert und ist zahlengleich mit dem der Zellebene — die Frage lautet, ob jeder
+injizierte Fehler gefunden wurde, und ein Verstoß, der eine injizierte Zelle überdeckt, hat
+sie gefunden. Die Konfusionsmatrix führt dafür ein eigenes Feld `tp_recall`; würde der Recall
+aus der Verstoßzahl gebildet, wäre er in beide Richtungen falsch (`docs/iteration_log.md`,
+Phase 5, Befund 1).
+
+### Was immer geloggt wird
+
+Die **Rohwerte** TP, FP, FN und TN — nicht nur die abgeleiteten Kennzahlen, damit sich jede
+Metrik später neu berechnen lässt, ohne die Läufe zu wiederholen. Dazu `fpr_clean` (die
+Fehlalarmrate auf den **nicht** verfälschten Zellen — praktisch die wichtigste Kennzahl, weil
+ein Validator mit hoher FP-Rate im Betrieb unbrauchbar ist), Laufzeit und Speicher normiert
+auf 1.000 Zeilen, die Kreuztabelle `regel_id` × `fehlerklasse` und der Recall je
+`injektor_variante_id` — **immer mit `n` und Clopper-Pearson-Intervall**.
+
+**Accuracy wird nirgends ausgewiesen.** Bei einem Prozent Fehlern erreicht „markiere nichts"
+99 Prozent. Stattdessen steht **MCC** neben F1. **PR-AUC nur für B2**: Eine
+Precision-Recall-Kurve braucht einen kontinuierlichen Score, und nur
+`IsolationForest.decision_function` hat einen. Prototyp, B0 und B3 liefern binäre
+Entscheidungen, also genau einen Betriebspunkt — ein Pseudo-Score wird nicht erfunden.
+
+**Eine Asymmetrie, die in die Arbeit gehört:** Ausgewiesen werden **Recall je Fehlerklasse
+und je Variante**, aber **Precision nur global und je Regel**. Ein False Positive hat keine
+Fehlerklasse — dort ist gar kein Fehler. Eine klassenweise Precision ist deshalb nicht
+definierbar, nicht bloß nicht berechnet.
+
+### Mitgezogene Zellen: ein Schalter, keine stille Festlegung
+
+Der Injektor markiert im `error_log` mit `mitgezogen`, welche Zellen nur zur Wahrung der
+Kohärenz nachgeführt wurden — die Rangzellen bei der Skalierung des Beitragstupels. Sie sind
+gegenüber den verfälschten Daten **korrekt**; ein Verfahren, das sie nicht meldet, macht
+keinen Fehler.
+
+Genau deshalb ist die Entscheidung ein Parameter `mitgezogen_als_fehler` und keine
+Festlegung im Code: Sie hebt den Recall von F8 und HO2 spürbar. Je Lauf werden **beide**
+Varianten berechnet und in `metrics.json` und `results/metrics_long.parquet` geführt. In die
+Arbeit gehört die Hauptauswertung mit `False` und die Gegenrechnung als Sensitivitätszeile im
+Anhang. Zwei Zahlen nebeneinander beenden die Diskussion, eine Zahl allein eröffnet sie.
+
+### Zell- und variantengewichteter Klassenrecall
+
+Je Klasse werden **beide** Zahlen berichtet. Die zellgewichtete beantwortet „wenn Fehler
+dieser Klasse gleichverteilt über alle adressierbaren Zellen auftreten, wie viel findet der
+Katalog?", die variantengewichtete „wie viele der Fehlerbilder dieser Klasse findet der
+Katalog, unabhängig davon, wie häufig sie sind?". Beide Fragen sind legitim, sie haben nur
+verschiedene Antworten — und die Differenz ist selbst ein Ergebnis.
+
+Nötig ist das, weil die proportionale Zuteilung die Klassen intern sehr ungleich macht: F4
+besteht zu 73,5 Prozent aus F4-g, HO2 zu 90,7 Prozent aus HO2-b. Ohne die
+variantengewichtete Gegenzahl liest sich der hohe Klassenrecall von F4 und der niedrige von
+HO2 wie ein inhaltlicher Befund, obwohl beides eine Eigenschaft der Gewichtung ist. Die
+belastbare variantengewichtete Zahl stammt aus den Läufen mit `--modus variante`, wo jede
+Variante ihr volles `n` hat.
+
+### Die drei Vergleichsverfahren
+
+| | Verfahren | Was es misst |
+|---|---|---|
+| **B0** | pydantic v2, reine Schemavalidierung | Die **untere Schranke**: Was fangen Datentypen, Nullable-Constraints und Feldlängen allein? |
+| **B2** | scikit-learn `IsolationForest` | Was fängt ein unüberwachtes Anomalieverfahren ohne jedes Domänenwissen? |
+| **B3** | dieselben G1-Regelinhalte in cuallee | **Nicht** die Erkennungsqualität — die ist für abgedeckte Regeln per Konstruktion identisch —, sondern Ausdrückbarkeit, Aufwand, Laufzeit und Diagnosegüte |
+
+**B2 wird bewusst optimistisch eingestellt:** `contamination` wird über
+`[0.001, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2]` gesweept und die **beste erreichte F1**
+berichtet. Der Wald wird dabei **einmal** gefittet und `score_samples` **einmal** gerufen;
+`contamination` beeinflusst bei `IsolationForest` nur den Entscheidungs-Offset, nicht das
+Modell. Ein Neufitten je Stufe kostete das Siebenfache ohne jeden Nutzen — bei mehreren
+tausend Läufen der Unterschied zwischen Stunden und Tagen. `contamination` wird ausdrücklich
+**nicht** auf die wahre Fehlerrate gesetzt; das wäre unfair und angreifbar.
+
+**B2 arbeitet auf Zeilenebene.** Für die Zellmetrik markiert eine als anomal erkannte Zeile
+alle ihre befüllten Zellen. Diese Umrechnung benachteiligt B2 bei der Precision und begünstigt
+es beim Recall; für B2 ist deshalb die **Satzebene** der Primärvergleich und die Zellebene die
+Zusatzangabe.
+
+### B3 — die vier Kennzahlen
+
+| Kennzahl | Ergebnis |
+|---|---|
+| Anteil ausdrückbarer Regeln | **21 von 25** G1-Regeln (84 %), bezogen auf den ganzen Katalog **36,2 %** (21 von 58) |
+| Nicht ausdrückbar | R-004 (IBAN-Prüfziffer ISO 7064) und R-009 (existierender Kalendertag) |
+| Nur teilweise | R-001 (der bedingte Teil ist eine CFD) und R-025 (die Feldausnahmen der Sentinel-Prüfung) |
+| Codezeilen je Regel | 46 gegen 326 über 23 Regeln (Faktor 7,1); über die 21 **vollständig** ausdrückbaren 40 gegen 266 (Faktor 6,7) |
+| Laufzeit | rund 10 s gegen 47 s des vollständigen Prototyps (58 Regeln statt 25) |
+| Diagnosegüte | Spalte **ja**, Regel **ja**, Zahl der Verstöße **ja** — **Zeile nein, Ausgangswert nein** |
+
+**Die letzte Zeile ist der wichtigste Einzelbefund des Vergleichs.**
+`cuallee.pandas_validation.summary` gibt je Regel einen Wahrheitswert oder eine Zahl zurück,
+niemals eine Zeilenkennung. B3 kann deshalb keine zellbasierte Konfusionsmatrix erzeugen: Seine
+Meldungen tragen `row_id = -1`, das Verfahren trägt `lokalisiert_zellen = False`, und der
+Evaluator schreibt für alle Ebenen `null` **mit Begründung** statt Nullen — eine Null läse sich
+wie „hat nichts gefunden".
+
+Das ist kein Implementierungsmangel, sondern die Antwort auf die Frage „Warum ein eigener
+Prototyp?": Ein Validator, dessen Report die fehlerhafte Zeile nicht benennt, ist im Betrieb
+nicht nachbearbeitbar. **B3 gehört deshalb auch nicht in die Inferenzstatistik** — ein
+Wilcoxon-Test gegen ein Verfahren, das dieselben Regeln ausführt, testet eine Nullhypothese,
+von der man weiß, dass sie gilt. Das Verfahren trägt dafür das Merkmal
+`in_inferenzstatistik = False`.
+
+### Ein Beispiellauf
+
+Fehlerklasse F3 (Wertebereichs- und Katalogverletzung), zwei Prozent Fehlerrate, 10.000
+Anfragen — 1.148 injizierte Zellen in einem Universum von 1.769.095 Zellen und 105.571 Zeilen,
+`mitgezogen_als_fehler = False`:
+
+| Verfahren | Ebene | Precision | Recall | F1 | MCC | `fpr_clean` |
+|---|---|---|---|---|---|---|
+| Prototyp | Zelle | 0,534 | 0,867 | 0,661 | 0,680 | 0,00049 |
+| Prototyp | Constraint | **1,000** | 0,867 | 0,929 | — | — |
+| Prototyp | Satz | 1,000 | 0,876 | 0,934 | 0,935 | 0,0 |
+| B0 | Zelle | 1,000 | 0,133 | 0,235 | 0,365 | 0,0 |
+| B2 | Satz | 0,032 | 0,061 | 0,042 | 0,030 | 0,0196 |
+| B3 | — | nicht auswertbar (kein Zeilenbezug) | | | | |
+
+Die Zeile, die den Absatz über die Constraint-Ebene trägt: Der Prototyp meldet 1.565
+Constraint-Verstöße, von denen **jeder** mindestens eine injizierte Zelle überdeckt — die
+Precision ist dort exakt 1,000. Zellbasiert sind es 995 Treffer und 869 Fehlalarme, weil
+mehrspaltige Regeln wie R-051 und R-058 alle abgeleiteten Felder melden, der Injektor aber
+nur eines verfälscht hat. In diesem Lauf geht damit **jeder einzelne** der 869 scheinbaren
+Fehlalarme auf die Berichtskonvention zurück und keiner auf einen Detektionsfehler. Beide
+Zahlen stehen nebeneinander, statt dass eine gewählt wird — und die Differenz zwischen 0,534
+und 1,000 ist genau der Betrag, den eine rein zellbasierte Berichterstattung dem Verfahren
+zu Unrecht anlastet.
+
+Ebenfalls sichtbar: B2 markiert 2.112 Zellen der Spalte `row_id`. Sie sind nach
+Architekturregel A3 **niemals** Injektionsziel und damit garantierte Fehlalarme — eine Folge
+der Zeile-auf-Zellen-Umrechnung, nicht der Erkennungsleistung. Der Evaluator weist die Zahl
+als `markierte_zellen_row_id` getrennt aus.
+
+Die Zahlen stammen aus einem einzelnen Lauf einer einzelnen Fehlerklasse und sind **keine**
+Ergebnisse der Arbeit — der Versuchsplan über alle Klassen, Ratenstufen und Wiederholungen
+ist Phase 6.
+
 ## Freeze des Regelkatalogs
 
 Der Regelkatalog wurde **vor** dem Fehlerinjektor entwickelt und anschließend eingefroren.
@@ -499,7 +674,7 @@ Iteration 2 in `docs/iteration_log.md` dokumentiert, niemals stillschweigend vor
 config/     Stichtag, Pfade, Faktorstufen, Master-Seed
 spec/       Fachliche Spezifikation — Quelle der Wahrheit
 scripts/    Ausführbare Einstiegspunkte je Phase
-src/        common, generator, rules, injector, verify, baselines, evaluation
+src/        common, generator, rules, injector, verify, evaluation, baselines
 data/       reference (versioniert), runs (nicht versioniert)
 tests/      Architektur-, Reproduzierbarkeits-, Regel- und Ground-Truth-Tests
 docs/       Iterationslog und Verteilungsquellen
@@ -553,11 +728,41 @@ sind es eigene Prüffunktionen — dafür ist pandera nicht gedacht.
 | `protokoll.py` | Aufbau von `error_log` und `error_log_records` |
 | `pipeline.py` | Orchestrierung; öffentlicher Einstiegspunkt `injiziere` |
 
-Das Kontingent einer Klasse wird **gleichmäßig auf ihre Varianten** verteilt, damit der
-Recall je Variante aussagekräftig bleibt: Zöge man die Zellen einfach aus dem
-Klassenuniversum, bekämen Varianten mit kleiner Kandidatenmenge — etwa F2-a, das eine
-führende Null voraussetzt — zu wenige Treffer. Kann eine Variante ihr Kontingent nicht
-füllen, geht der Rest an die übrigen Varianten derselben Klasse.
+Das Kontingent einer Klasse wird **proportional zum adressierbaren Universum jeder Variante**
+verteilt, damit der Anteil jeder Variante über alle Ratenstufen konstant bleibt. Es wird
+**nicht** umverteilt: Erreicht eine Variante ihr Kontingent nicht, bricht der Injektor ab.
+Beides ist nötig, damit Faktor UV2 (Fehlerrate) interpretierbar bleibt — die Begründung steht
+oben unter „Zuteilung auf die Varianten — proportional, nicht gleichmäßig".
+
+### `src/evaluation/` — der Evaluator
+
+| Modul | Inhalt |
+|---|---|
+| `modell.py` | Protokoll `Verfahren`, die beiden optionalen Zusatzprotokolle, `Konfusion`, `Kennzahlen` und die übrigen Ergebnistypen |
+| `ground_truth.py` | Liest beide Ground-Truth-Logs zu Zell- und Satzwahrheit zusammen; prüft dabei Protokollregel 2 und A3 |
+| `metriken.py` | Konfusionsmatrizen und Kennzahlen auf allen Ebenen, Clopper-Pearson, PR-AUC, Kreuztabelle, Regeldiagnose |
+| `pipeline.py` | Führt die Verfahren aus, misst Laufzeit und Speicher, baut beide Schalterstellungen |
+| `langformat.py` | `metrics.json` je Lauf und `results/metrics_long.parquet` über alle Läufe |
+
+Importiert **nichts** aus `src/injector/` und `src/generator/`. Alles, was die Auswertung über
+Fehlerklassen und Varianten wissen muss, steht in den beiden Logs und im `manifest.json` des
+Laufs — die Zuordnung Variante → Regel entsteht laut `spec/03`, Abschnitt 6 erst hier und darf
+nicht aus dem Injektorquelltext stammen.
+
+### `src/baselines/` — die Vergleichsverfahren
+
+| Modul | Inhalt |
+|---|---|
+| `prototyp.py` | Adapter des eigenen Regelkatalogs auf das Protokoll `Verfahren` |
+| `b0_schema.py` | **B0** — pydantic v2, nur Typen, Nullable-Constraints und Feldlängen |
+| `b2_isolation_forest.py` | **B2** — scikit-learn `IsolationForest` je Entität, Schwellensweep über sieben Stufen |
+| `b3_framework.py` | **B3** — dieselben G1-Regelinhalte in cuallee |
+| `codezeilen.py` | Misst „Codezeilen je Regel" über den AST, statt sie zu schätzen |
+
+`b0_schema.py`, `b2_isolation_forest.py` und `b3_framework.py` importieren **nichts** aus
+`src/rules/` — ein Blick in den Regelkatalog wäre genau der Zirkelschluss, den die Arbeit
+ausschließen will. Nur `prototyp.py` darf ihn kennen. Geprüft wird das am Quelltext in
+`tests/test_baselines/test_unabhaengigkeit.py`, mit Negativkontrolle.
 
 ### `src/verify/` — der unabhängige Gegencheck
 
