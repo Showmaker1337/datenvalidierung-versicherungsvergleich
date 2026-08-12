@@ -237,6 +237,37 @@ Regel waere nicht definiert, weil der Ground Truth Fehlerklassen kennt, aber kei
 Regel-IDs. Berichtet werden je ``regel_id`` die Zahl der gemeldeten Zellen, davon
 die im Ground Truth liegenden, die daraus folgende Precision und der Anteil der
 Treffer, bei denen **keine andere Regel** dieselbe Zelle gemeldet hat.
+
+9. "Fehler erkannt" ist nicht dasselbe wie "Nebenwirkung erkannt"
+-----------------------------------------------------------------
+
+Ein Treffer auf einer Zelle, die der Injektor verfaelscht hat, ist per Definition
+ein **True Positive** — auch dann, wenn die ausloesende Regel gar nicht auf diese
+Fehlerart zielt. Die Metrik kennt nur die Frage "liegt die markierte Zelle im
+Ground Truth?", und das ist richtig so: Jede feinere Zurechnung waere eine
+Auslegung des Prueferwillens und keine Messung.
+
+Fuer die **Deutung** genuegt das aber nicht, und die Ergebnistabelle allein sagt
+es nicht. Zwei Faelle sehen in ihr identisch aus:
+
+* Eine Regel erkennt den Fehler, auf den sie zielt. R-013 meldet eine
+  SF-Klasse ausserhalb des Katalogs, und F3-g hat genau die eingeschleust.
+* Eine Regel erkennt eine **Nebenwirkung** der Verfaelschung. Bei HO2 stammt jeder
+  einzelne Treffer aus R-044, der Sortierregel — die kohaerente Beitragssenkung
+  soll unentdeckt bleiben und tut das auch; entdeckt wird die Ordnungskollision,
+  die sie als Nebenwirkung hinterlaesst.
+
+Beide sind True Positives, und beide sollen es sein. Der Unterschied liegt nicht
+in der Zahl, sondern in dem, was sie ueber den Katalog aussagt: Im ersten Fall
+greift eine Regel, die fuer diese Fehlerart hergeleitet wurde; im zweiten greift
+eine Regel, die etwas ganz anderes prueft.
+
+**Der Beleg dafuer ist die Kreuztabelle ``regel_id`` mal ``fehlerklasse``**, und
+sie ist genau deshalb keine Beigabe. Dass bei HO2 **ausschliesslich** R-044
+auftaucht, ist selbst die Diagnose — bei einer Klasse, deren Recall von einer auf
+sie zielenden Regel getragen wuerde, staende dort eine andere Regel. Wer einen
+Klassen-Recall interpretiert, ohne die Kreuztabelle daneben zu legen, kann die
+beiden Faelle nicht unterscheiden.
 """
 
 from __future__ import annotations

@@ -164,8 +164,10 @@ def _bericht(cuallee: Mapping[str, Any], ge: Mapping[str, Any]) -> dict[str, Any
         "anteil_ausdrueckbar": {
             "cuallee_auf_g1": cuallee["anteil_ausdrueckbarer_regeln"]["g1"],
             "cuallee_auf_katalog": cuallee["anteil_ausdrueckbarer_regeln"]["katalog"],
-            "cuallee_auf_den_sieben": ge["cuallee_zum_vergleich"]["anteil_vollstaendig"],
-            "great_expectations_auf_den_sieben": ge["anteil_ausdrueckbar"],
+            "cuallee_auf_den_g1_regeln": ge["cuallee_zum_vergleich"]["anteil_vollstaendig_g1"],
+            "great_expectations_auf_den_g1_regeln": ge["anteil_ausdrueckbar_g1"],
+            "cuallee_auf_den_g3_regeln": ge["cuallee_zum_vergleich"]["anteil_vollstaendig_g3"],
+            "great_expectations_auf_den_g3_regeln": ge["anteil_ausdrueckbar_g3"],
         },
         "lesehinweis": (
             "Die Kennzahl 'Anteil ausdrueckbarer Regeln' ist NICHT "
@@ -249,9 +251,14 @@ def _zeige(inhalt: Mapping[str, Any]) -> None:
         )
     anteile = inhalt["anteil_ausdrueckbar"]
     print(
-        f"\n  Auf den sieben vorgelegten Regeln: cuallee "
-        f"{anteile['cuallee_auf_den_sieben']:.0%}, Great Expectations "
-        f"{anteile['great_expectations_auf_den_sieben']:.0%}"
+        f"\n  Auf den sieben G1-Regeln: cuallee "
+        f"{anteile['cuallee_auf_den_g1_regeln']:.0%}, Great Expectations "
+        f"{anteile['great_expectations_auf_den_g1_regeln']:.0%}"
+    )
+    print(
+        f"  Auf den zwei G3-Regeln (struktureller Kern): cuallee "
+        f"{anteile['cuallee_auf_den_g3_regeln']:.0%}, Great Expectations "
+        f"{anteile['great_expectations_auf_den_g3_regeln']:.0%}"
     )
     print("\n  Diagnoseguete:")
     for name, werte in inhalt["diagnoseguete"].items():

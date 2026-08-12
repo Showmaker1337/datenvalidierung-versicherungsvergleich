@@ -826,3 +826,163 @@ die Rangregel gerade **nicht** zusätzlich auslöst. In 11 von 1.217 skalierten 
 geht vollständig auf diese 11 Fälle zurück. Das ist keine Änderung am Regelkatalog und keine
 am Ground Truth — aber es ist eine offene Frage an den Injektor, und sie gehört beantwortet,
 bevor 1.680 Läufe darauf aufbauen.
+
+---
+
+## Phase 5, zweiter Nachtrag — Diagnose der elf R-044-Fälle und der strukturelle Kern
+
+**Auch hier keine Iteration 2, und keine Änderung am Injektor.** Der Regelkatalog ist
+unverändert.
+
+### Befund 11 — die Ursache der elf Fälle ist keine der drei erwarteten
+
+- **Datum:** 2026-08-12
+- **Frage:** Warum bleibt bei HO2 in 11 von 1.217 skalierten Angeboten die Rangfolge
+  verletzt, obwohl `spec/03`, Abschnitt 2 das Mitziehen der Rangfolge verlangt?
+
+**Die drei naheliegenden Ursachen scheiden aus, jede an einem Messwert:**
+
+1. **Falsches Sortierfeld — nein.** `bausteine.neue_raenge` sortiert nach
+   `zahlbeitrag_rate_eur`, also nach genau dem Feld, das R-044 prüft. Nachgelesen im
+   Quelltext und an den Daten bestätigt.
+2. **Gleichstand — nein.** Der erste gemeldete Fall lautet „rang=1 trägt die Rate 679,77,
+   der nachfolgende rang=2 die kleinere Rate 591,68". Eine Differenz von 88 Euro ist kein
+   Gleichstand.
+3. **Rundung — nein.** Aus demselben Grund: `ROUND_HALF_UP` auf zwei Nachkommastellen kann
+   eine Inversion um einen Cent erzeugen, nicht um 88 Euro.
+
+**Die tatsächliche Ursache ist eine vierte: Interferenz zwischen zwei Anwendungen derselben
+Variante innerhalb einer Anfrage.**
+
+Die Zahlen sind eindeutig. Von den 11 betroffenen Anfragen haben **alle 11** mehr als ein
+skaliertes Angebot; von den 1.102 Anfragen mit genau einem skalierten Angebot ist **keine
+einzige** betroffen.
+
+Der Mechanismus: HO2-b skaliert ein **einzelnes** Angebot je Anwendung
+(`skalierung(..., ganze_anfrage=False)`) und führt danach die Rangfolge der ganzen Anfrage
+nach. Der `Injektionskontext` zeigt dabei durchgehend den **sauberen** Stand — das ist so
+dokumentiert und mit „keine Zelle wird zweimal getroffen" begründet. Diese Begründung trägt
+für **Zellen**, aber nicht für eine **Ordnung über Zeilen**: Wird ein zweites Angebot
+derselben Anfrage skaliert, berechnet dessen Nachführung die Rangfolge gegen den sauberen
+Zahlbeitrag des ersten — und ist blind dafür, dass dieser inzwischen selbst gesenkt wurde.
+
+Der gemessene Beispielfall, Anfrage `ccfbc6f3`, sechs Angebote, drei davon skaliert:
+
+| row_id | Rate clean | Rate dirty | Rang clean | Rang dirty | skaliert |
+|---|---|---|---|---|---|
+| 3830 | 696,09 | 591,68 | 1 | 2 | ja |
+| 3833 | 799,73 | 679,77 | 2 | 1 | ja |
+| 3834 | 900,10 | — | 3 | 4 | |
+| 3831 | 968,77 | — | 4 | 5 | |
+| 3832 | 1041,80 | — | 5 | 6 | |
+| 3835 | 1053,98 | 895,88 | 6 | 3 | ja |
+
+Als 3833 skaliert wurde, sah die Nachführung für 3830 den sauberen Wert 696,09 gegen den
+neuen eigenen Wert 679,77 — 3833 wird korrekt Rang 1, 3830 Rang 2. Zu diesem Zeitpunkt ist
+das richtig. 3830 wurde aber selbst auf 591,68 gesenkt, und damit steht am Ende Rang 1 mit
+679,77 vor Rang 2 mit 591,68. Genau das meldet R-044.
+
+### Befund 12 — der Effekt wächst mit der Fehlerrate
+
+- **Datum:** 2026-08-12
+- **Messung:** HO2 bei vier Ratenstufen, je 10.000 Anfragen, Verfahren Prototyp.
+
+| Fehlerrate | skalierte Angebote | Anfragen mit ≥ 2 | R-044-Verstöße | Anteil an skaliert | HO2-Recall (Zellebene) |
+|---|---|---|---|---|---|
+| 0,005 | 304 | 2 | 0 | 0,00 % | 0,00000 |
+| 0,010 | 609 | 14 | 3 | 0,49 % | 0,00223 |
+| 0,020 | 1.217 | 57 | 11 | 0,90 % | 0,00410 |
+| 0,050 | 3.044 | 294 | 65 | 2,14 % | 0,00968 |
+
+**Der Anteil bleibt nicht konstant, er wächst.** Und mit ihm der gemessene Recall der
+Held-out-Klasse HO2 — von null bei der kleinsten Ratenstufe auf knapp ein Prozent bei der
+größten.
+
+Das ist genau die Sorte Artefakt wie die Mischungsverschiebung aus Phase 4b, nur kleiner:
+**HO2 bekäme über UV2 einen steigenden Recall, und zwar nicht, weil der Katalog besser
+würde, sondern weil mehr Skalierungen mehr Ordnungskollisionen erzeugen.** Die Zahl der
+Anfragen mit mindestens zwei Skalierungen wächst überproportional (2, 14, 57, 294) — ein
+Geburtstagsproblem —, und die Verstöße folgen ihr proportional (Verhältnis konstant um 0,2).
+
+Ein Trendtest über die Ratenstufen für HO2 misst damit denselben Confounder, den die
+proportionale Zuteilung aus Phase 4b gerade beseitigt hat.
+
+### Entscheidung — offen, und warum sie nicht einseitig getroffen wird
+
+Die vorab festgelegte Regel ordnet den Fall eindeutig zu: Es ist **keine** prinzipielle
+Unmöglichkeit (wie Gleichstand oder Rundung es wären), sondern eine **Abweichung der
+Implementierung von ihrer eigenen Spezifikation**. `spec/03` verlangt das Mitziehen der
+Rangfolge, damit die Rangregel gerade nicht zusätzlich auslöst; in der beschriebenen
+Konstellation leistet die Implementierung das nicht. Nach der Regel heißt das: korrigieren,
+Artefakte neu erzeugen, Gegencheck erneut fahren.
+
+**Der Injektor ist trotzdem unverändert geblieben**, weil das *Wie* die Semantik des
+Versuchsplans berührt und nicht aus der Regel folgt. Jede korrekte Behebung braucht Zugriff
+auf den **Arbeitsstand** statt auf den sauberen Kontext, und der Kontext ist absichtlich
+unveränderlich:
+
+- **(a) Rangfolge gegen den Arbeitsstand berechnen.** Fachlich die richtige Lösung; die
+  Kandidatenmenge bleibt unberührt. Kosten: Die dokumentierte Invariante „der Kontext zeigt
+  immer den sauberen Stand" fällt, und die Varianten bekommen eine zweite Datenquelle.
+- **(b) Höchstens eine Skalierung je Anfrage zulassen.** Kleiner Eingriff, Kontext bleibt
+  unverändert. Kosten: Das adressierbare Universum von HO2-b und F8 schrumpft, und bei der
+  obersten Ratenstufe könnte die Variante ihr Kontingent nicht mehr erreichen — dann bricht
+  der Injektor ab, wie vorgesehen. Bei 0,05 wären 294 von 3.044 Kandidaten betroffen.
+
+Empfehlung: **(a)**, weil (b) die Bezugsgröße der Fehlerrate verändert und damit genau die
+Größe antastet, um die es in UV2 geht.
+
+### Befund 13 — der strukturelle Kern der Framework-Grenze, gemessen
+
+- **Datum:** 2026-08-12
+- **Sachlage:** Befund 8 stellte die Aussage auf, der frameworkübergreifend belastbare Teil
+  der Grenze seien die relationalen, die quellenübergreifenden und die algorithmischen
+  Regeln. Diese Aussage trägt die Begründung des Artefakts und stand bis hierher auf einem
+  Formargument. Sie ist jetzt gemessen.
+- **Vorgelegt wurden zwei G3-Regeln** zusätzlich zu den sieben aus G1: R-046 (je Anfrage
+  genau ein VN — satzübergreifend mit Gruppenbezug) und R-054 (Abweichung vom Median der
+  **übrigen** Angebote derselben Anfrage — Aggregat mit Rückbezug auf die Gruppe).
+- **Ergebnis:** Beide sind in **keinem** der beiden Frameworks ausdrückbar. Keines der 57
+  Great-Expectations-Erwartungen und keines der cuallee-Prädikate trägt `Group` oder
+  `Partition` im Namen; Aggregate gibt es nur über die ganze Spalte (cuallee
+  `has_percentile`) beziehungsweise den ganzen Batch (`ExpectColumnMedianToBeBetween`).
+- **Zwei Feinheiten, die zur Ehrlichkeit gehören:**
+  - Great Expectations formuliert mit `row_condition='rolle == "VN"'` plus
+    `ExpectColumnValuesToBeUnique` die **Hälfte** von R-046, nämlich „höchstens ein VN je
+    Anfrage" — nachgemessen. „Mindestens einer" braucht die Tabelle `anfrage`, und eine
+    Erwartung sieht immer nur einen Batch. cuallee schafft auch diese Hälfte nicht, weil ihm
+    die Zeilenbedingung fehlt.
+  - R-044 ließe sich in Great Expectations je Anfrage über `row_condition` nachbilden. Das
+    wären 10.000 Erwartungen statt einer Regel — kein Ausdrücken, sondern ein Ausrollen.
+- **Damit steht die zentrale Aussage auf einer Messung:** Ein Prüfmodell aus zeilen- und
+  spaltenweisen Prädikaten über **eine** Tabelle kennt keine Gruppierung mit Rückbezug auf
+  die Gruppe. Genau das verlangen R-043 bis R-048, R-052 und R-054.
+
+### Aufräumpunkt — Great Expectations aus `requirements.txt` herausgezogen
+
+- **Datum:** 2026-08-12
+- **Entscheidung:** `great_expectations==1.20.0` steht jetzt in
+  `requirements-vergleich.txt` und wird separat installiert.
+- **Begründung:** Siebzehn transitive Abhängigkeiten für einen Vergleich, der nicht in die
+  Inferenzstatistik eingeht, verwässern das Reproduzierbarkeitspaket des eigentlichen
+  Experiments. A2 verlangt gepinnte Versionen für die **Läufe**; die bleiben unberührt und
+  werden schlanker. Ohne die Zusatzinstallation überspringt sich `test_b3b.py` selbst
+  (`pytest.importorskip`) und `scripts/framework_vergleich.py` bricht mit einem
+  Installationshinweis ab.
+
+### Aufräumpunkt — „Fehler erkannt" ist nicht „Nebenwirkung erkannt"
+
+- **Datum:** 2026-08-12
+- **Festgehalten im Modul-Docstring von `src/evaluation/metriken.py`, Abschnitt 9.**
+- **Sachlage:** Ein Treffer auf einer verfälschten Zelle ist per Definition ein True
+  Positive, auch wenn die auslösende Regel gar nicht auf diese Fehlerart zielt. Die Metrik
+  kennt nur „liegt die markierte Zelle im Ground Truth?", und das ist richtig so — jede
+  feinere Zurechnung wäre eine Auslegung und keine Messung.
+- **Für die Deutung reicht das nicht.** Zwei Fälle sehen in der Ergebnistabelle identisch
+  aus: eine Regel erkennt den Fehler, auf den sie zielt (R-013 auf F3-g), oder eine Regel
+  erkennt eine **Nebenwirkung** (R-044 auf HO2 — die kohärente Senkung bleibt unentdeckt,
+  entdeckt wird die Ordnungskollision, die sie hinterlässt).
+- **Beleg ist die Kreuztabelle `regel_id` × `fehlerklasse`.** Dass bei HO2 ausschließlich
+  R-044 auftaucht, ist selbst die Diagnose: Bei einer Klasse, deren Recall von einer auf sie
+  zielenden Regel getragen wird, stünde dort eine andere Regel. Wer einen Klassen-Recall
+  ohne die Kreuztabelle interpretiert, kann die beiden Fälle nicht unterscheiden.

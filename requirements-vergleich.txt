@@ -1,0 +1,21 @@
+# Zusatzabhaengigkeit des Frameworkvergleichs — NICHT Teil der Experimentlaeufe.
+#
+# Der Gegenschnitt B3b (src/baselines/b3b_great_expectations.py,
+# scripts/framework_vergleich.py) stellt cuallee und Great Expectations auf
+# denselben Regeln nebeneinander. Er ist keine dritte Baseline: Er tritt in keiner
+# Konfusionsmatrix an und geht nicht in die Inferenzstatistik ein.
+#
+# Deshalb steht Great Expectations hier und nicht in requirements.txt. Das Paket
+# zieht siebzehn weitere nach; im Reproduzierbarkeitspaket der Experimentlaeufe
+# waeren sie Ballast, der die Pruefbarkeit von Architekturregel A2 verwaessert,
+# ohne zu einem einzigen gemessenen Wert des Hauptversuchs beizutragen.
+#
+# Installation zusaetzlich zu requirements.txt:
+#   .venv/Scripts/python.exe -m pip install -r requirements-vergleich.txt   (Windows)
+#   .venv/bin/python -m pip install -r requirements-vergleich.txt           (Linux/macOS)
+#
+# Ohne diese Installation ueberspringt tests/test_baselines/test_b3b.py sich selbst
+# (pytest.importorskip) und scripts/framework_vergleich.py bricht mit einem
+# Installationshinweis ab. Die uebrige Testsuite und alle Laeufe sind unberuehrt.
+
+great_expectations==1.20.0

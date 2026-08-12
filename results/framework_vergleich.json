@@ -1,9 +1,11 @@
 {
   "anteil_ausdrueckbar": {
-    "cuallee_auf_den_sieben": 0.571429,
+    "cuallee_auf_den_g1_regeln": 0.571429,
+    "cuallee_auf_den_g3_regeln": 0.0,
     "cuallee_auf_g1": 0.84,
     "cuallee_auf_katalog": 0.362069,
-    "great_expectations_auf_den_sieben": 0.857143
+    "great_expectations_auf_den_g1_regeln": 0.857143,
+    "great_expectations_auf_den_g3_regeln": 0.0
   },
   "beispiel_lokalisierung_great_expectations": {
     "abfrage": "df.filter(items=[89, 352, 362, 482], axis=0)",
@@ -158,7 +160,7 @@
       "spalte": true,
       "zeile": false
     },
-    "laufzeit_s": 0.382028,
+    "laufzeit_s": 0.384967,
     "nicht_ausdrueckbar": [
       "R-004",
       "R-009"
@@ -186,7 +188,8 @@
   },
   "erzeugt_von": "scripts/framework_vergleich.py",
   "great_expectations": {
-    "anteil_ausdrueckbar": 0.857143,
+    "anteil_ausdrueckbar_g1": 0.857143,
+    "anteil_ausdrueckbar_g3": 0.0,
     "ausdrueckbar": [
       "R-001",
       "R-002",
@@ -202,7 +205,9 @@
       "R-009": "Vollstaendig formulierbar. ExpectColumnValuesToMatchStrftimeFormat parst den Wert wirklich, statt ihn gegen ein Muster zu halten; der 31. Februar faellt damit auf. In cuallee erkennt has_pattern acht Ziffern, aber keinen Kalender.",
       "R-010": "Katalogpruefung ueber ExpectColumnValuesToBeInSet; in beiden glatt.",
       "R-014": "Bereichspruefung ueber ExpectColumnValuesToBeBetween. Wie cuallee verlangt auch Great Expectations dafuer Zahlenspalten; die Wandlung Decimal nach float ist in beiden Frameworks dieselbe Reibung.",
-      "R-021": "Untergrenze ueber ExpectColumnValuesToBeBetween; in beiden glatt."
+      "R-021": "Untergrenze ueber ExpectColumnValuesToBeBetween; in beiden glatt.",
+      "R-046": "Nur zur Haelfte formulierbar, und deshalb hier als nicht ausdrueckbar gefuehrt. 'Hoechstens ein VN je Anfrage' geht in Great Expectations ueber row_condition='rolle == \"VN\"' plus ExpectColumnValuesToBeUnique auf anfrage_id — nachgemessen. 'Mindestens einer' braucht dagegen die Tabelle anfrage und damit einen zweiten Batch; eine Erwartung sieht immer nur einen. cuallee kennt keine row_condition und schafft auch die erste Haelfte nicht: is_unique('anfrage_id') prueft die Spalte als Ganzes, nicht die auf VN gefilterte Teilmenge.",
+      "R-054": "In keinem der beiden Frameworks formulierbar, und das ist der Kern der Grenze. Die Regel vergleicht einen Wert mit dem Median der **uebrigen** Angebote **derselben Anfrage**. Beide Werkzeuge kennen Aggregate nur ueber die ganze Spalte beziehungsweise den ganzen Batch — cuallee has_percentile, Great Expectations ExpectColumnMedianToBeBetween. Keines von 57 GE-Erwartungen und keines der cuallee-Praedikate traegt 'Group' oder 'Partition' im Namen. Ein Pruefmodell aus zeilen- und spaltenweisen Praedikaten ueber eine Tabelle kennt keine Gruppierung mit Rueckbezug auf die Gruppe."
     },
     "beispiel_lokalisierung": {
       "abfrage": "df.filter(items=[89, 352, 362, 482], axis=0)",
@@ -224,7 +229,8 @@
     },
     "codezeilen_summe": 39,
     "cuallee_zum_vergleich": {
-      "anteil_vollstaendig": 0.571429,
+      "anteil_vollstaendig_g1": 0.571429,
+      "anteil_vollstaendig_g3": 0.0,
       "einordnung_je_regel": {
         "R-001": "teilweise",
         "R-002": "ja",
@@ -232,7 +238,9 @@
         "R-009": "nein",
         "R-010": "ja",
         "R-014": "ja",
-        "R-021": "ja"
+        "R-021": "ja",
+        "R-046": "nein",
+        "R-054": "nein"
       }
     },
     "diagnoseguete": {
@@ -242,9 +250,11 @@
       "spalte": true,
       "zeile": true
     },
-    "laufzeit_s": 0.444681,
+    "laufzeit_s": 0.445169,
     "nicht_ausdrueckbar": [
-      "R-004"
+      "R-004",
+      "R-046",
+      "R-054"
     ],
     "verstoesse_je_regel": {
       "R-001": 0,
@@ -261,7 +271,9 @@
       "R-009",
       "R-010",
       "R-014",
-      "R-021"
+      "R-021",
+      "R-046",
+      "R-054"
     ]
   },
   "je_regel": [
@@ -313,11 +325,25 @@
       "cuallee": "ja",
       "great_expectations": "ja",
       "regel_id": "R-021"
+    },
+    {
+      "codezeilen_cuallee": null,
+      "codezeilen_great_expectations": null,
+      "cuallee": "nein",
+      "great_expectations": "nein",
+      "regel_id": "R-046"
+    },
+    {
+      "codezeilen_cuallee": null,
+      "codezeilen_great_expectations": null,
+      "cuallee": "nein",
+      "great_expectations": "nein",
+      "regel_id": "R-054"
     }
   ],
   "laufzeit_s": {
-    "cuallee_alle_g1_regeln": 0.382028,
-    "great_expectations_sieben_regeln": 0.444681
+    "cuallee_alle_g1_regeln": 0.384967,
+    "great_expectations_sieben_regeln": 0.445169
   },
   "lesehinweis": "Die Kennzahl 'Anteil ausdrueckbarer Regeln' ist NICHT frameworkunabhaengig. Great Expectations formuliert auf denselben sieben Regeln mehr als cuallee: row_condition deckt bedingte Regeln ab (R-001), ExpectColumnValuesToMatchStrftimeFormat echtes Datumsparsen (R-009). Frameworkuebergreifend belastbar ist der Kern der Grenze — die relationalen Regeln R-043 bis R-048, R-052 und R-054, die quellenuebergreifenden R-049 bis R-051 und R-055 bis R-058 sowie die algorithmische R-004. An R-004 scheitern beide.",
   "vorgelegte_regeln": [
@@ -327,6 +353,8 @@
     "R-009",
     "R-010",
     "R-014",
-    "R-021"
+    "R-021",
+    "R-046",
+    "R-054"
   ]
 }

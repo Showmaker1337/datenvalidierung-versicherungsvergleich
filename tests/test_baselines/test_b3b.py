@@ -137,12 +137,13 @@ def test_katalog_enthaelt_die_entscheidenden_regeln() -> None:
     """Die Auswahl deckt die Stellen ab, an denen sich die Frameworks trennen.
 
     Sie ist nach einem Kriterium getroffen und nicht nach Bequemlichkeit: die
-    beiden Regeln, an denen cuallee scheitert, die Regel mit bedingter Struktur
-    und vier, die cuallee glatt formuliert.
+    beiden Regeln, an denen cuallee scheitert, die Regel mit bedingter Struktur,
+    vier, die cuallee glatt formuliert, und zwei aus G3, die den strukturellen Kern
+    der Grenze messen.
     """
     kennungen = {eintrag.regel_id for eintrag in ge_katalog()}
     assert {"R-001", "R-004", "R-009"} <= kennungen
-    assert len(GE_REGELN) == 7
+    assert len(GE_REGELN) == 9
 
     einordnung = {e.regel_id: (e.ausdruckbar, e.cuallee_ausdruckbar) for e in GE_REGELN}
     # Die beiden Regeln, an denen sich die Frameworks unterscheiden.
@@ -150,6 +151,9 @@ def test_katalog_enthaelt_die_entscheidenden_regeln() -> None:
     assert einordnung["R-009"] == (True, "nein")
     # Die algorithmische Regel, an der beide scheitern.
     assert einordnung["R-004"] == (False, "nein")
+    # Der strukturelle Kern aus G3: Gruppenbezug kennt keines der beiden Werkzeuge.
+    assert einordnung["R-046"] == (False, "nein")
+    assert einordnung["R-054"] == (False, "nein")
 
 
 def test_vergleich_ist_kein_verfahren_des_evaluators() -> None:

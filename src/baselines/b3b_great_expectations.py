@@ -10,8 +10,8 @@ Eigenschaft **dieses Werkzeugs**, nicht seiner Gattung. Stuende in der Arbeit
 einem Pruefer die Kenntnis von Great Expectations, um die Aussage zu kippen — und
 mit ihr die Begruendung des Artefakts.
 
-Dieses Modul nimmt dem Einwand die Spitze, indem es ihn misst. Es legt **sieben**
-der fuenfundzwanzig G1-Regeln zusaetzlich in Great Expectations vor und erhebt
+Dieses Modul nimmt dem Einwand die Spitze, indem es ihn misst. Es legt **neun** Regeln
+zusaetzlich in Great Expectations vor — sieben aus G1 und zwei aus G3 — und erhebt
 dieselben vier Kennzahlen wie B3. Aus einer Verteidigung gegen einen moeglichen
 Einwand wird damit ein eigener Befund ueber den **Gestaltungsraum** der Werkzeuge.
 
@@ -20,17 +20,23 @@ Was dieses Modul **nicht** ist
 
 Keine dritte Baseline. Es tritt nicht im Evaluator an, taucht in keiner
 Konfusionsmatrix auf und traegt wie B3 ``in_inferenzstatistik = False``. Die
-Auswahl der sieben Regeln ist bewusst klein und nach einem Kriterium getroffen,
-nicht nach Bequemlichkeit: Sie enthaelt die beiden Regeln, an denen cuallee
-scheitert (R-004 Pruefziffer, R-009 realer Kalendertag), die Regel mit bedingter
-Struktur (R-001) und vier, die cuallee glatt formuliert (R-002, R-010, R-014,
-R-021). Damit deckt sie genau die Stellen ab, an denen sich die beiden Frameworks
+Auswahl ist bewusst klein und nach einem Kriterium getroffen, nicht nach
+Bequemlichkeit. Aus **G1** sind es die beiden Regeln, an denen cuallee scheitert
+(R-004 Pruefziffer, R-009 realer Kalendertag), die Regel mit bedingter Struktur
+(R-001) und vier, die cuallee glatt formuliert (R-002, R-010, R-014, R-021) —
+damit sind genau die Stellen abgedeckt, an denen sich die beiden Frameworks
 unterscheiden koennen.
+
+Aus **G3** kommen R-046 und R-054 hinzu. Sie messen den **strukturellen Kern** der
+Grenze, der die Begruendung des Artefakts traegt: eine satzuebergreifende Bedingung
+je Gruppe und eine Bedingung gegen ein Aggregat der uebrigen Zeilen derselben
+Gruppe. Ohne sie stuende die zentrale Aussage der Arbeit auf einem Formargument
+statt auf einer Messung.
 
 Das Ergebnis, und warum es die Hauptaussage praezisiert
 -------------------------------------------------------
 
-Great Expectations formuliert **sechs** der sieben Regeln, cuallee **vier**. Die
+Auf den sieben G1-Regeln formuliert Great Expectations **sechs**, cuallee **vier**. Die
 beiden Unterschiede sind keine Zufaelle, sondern zwei benennbare Faehigkeiten:
 
 * **``row_condition``** (mit ``condition_parser="pandas"``) macht eine Erwartung
@@ -57,8 +63,16 @@ der Grenze, und der liegt nicht bei den bedingten Regeln, sondern bei drei ander
 Gruppen:
 
 * **relationale Regeln** ueber mehrere Zeilen einer Tabelle — R-043 bis R-048,
-  R-052, R-054. Eine Erwartung ueber eine Spalte kann nicht ausdruecken, dass der
-  Rang innerhalb einer Anfrage lueckenlos und nach dem Preis sortiert ist.
+  R-052, R-054. **Nachgemessen an R-046 und R-054:** Keines der 57
+  GE-Erwartungen und keines der cuallee-Praedikate traegt "Group" oder "Partition"
+  im Namen; Aggregate gibt es nur ueber die ganze Spalte beziehungsweise den ganzen
+  Batch. Ein Pruefmodell aus zeilen- und spaltenweisen Praedikaten ueber **eine**
+  Tabelle kennt keine Gruppierung mit Rueckbezug auf die Gruppe. Die einzige
+  Teilausnahme: Great Expectations formuliert mit ``row_condition`` die Haelfte von
+  R-046 ("hoechstens ein VN je Anfrage"); die andere Haelfte braucht eine zweite
+  Tabelle. R-044 liesse sich nur durch eine eigene Erwartung **je Anfrage**
+  nachbilden — zehntausend Erwartungen statt einer Regel, also kein Ausdruecken,
+  sondern ein Ausrollen.
 * **quellen- und relationsuebergreifende Regeln** — R-049 bis R-051, R-055 bis
   R-058. Sie brauchen zwei Tabellen gleichzeitig.
 * **algorithmische Regeln** — R-004.
@@ -109,6 +123,7 @@ if TYPE_CHECKING:  # pragma: no cover - nur fuer die Typpruefung
 __all__ = [
     "DATEI_B3B",
     "DIAGNOSEGUETE_GE",
+    "G1_REGELN",
     "GE_REGELN",
     "MUSTER_B3B",
     "GEBericht",
@@ -158,6 +173,13 @@ _ROW_ID: Final[str] = "row_id"
 #: zurueck, der nach einer Filterung nicht mehr stabil ist.
 _ERGEBNISFORMAT: Final[Mapping[str, Any]] = MappingProxyType(
     {"result_format": "COMPLETE", "unexpected_index_column_names": [_ROW_ID]}
+)
+
+#: Die vorgelegten Regeln der Gruppe G1 (Attributwertebene).
+#:
+#: Die uebrigen stammen aus G3 und messen den strukturellen Kern der Grenze.
+G1_REGELN: Final[frozenset[str]] = frozenset(
+    {"R-001", "R-002", "R-004", "R-009", "R-010", "R-014", "R-021"}
 )
 
 #: Rohform eines leeren Wertes als regulaerer Ausdruck.
@@ -392,11 +414,49 @@ GE_REGELN: Final[tuple[GeprueftRegel, ...]] = (
         cuallee_ausdruckbar="ja",
         erwartungen=_r021,
     ),
+    # --- Der strukturelle Kern: zwei Regeln aus G3 mit Gruppenbezug ----------
+    GeprueftRegel(
+        regel_id="R-046",
+        entitaet="person",
+        sicht="raw",
+        spalten=("anfrage_id", "rolle"),
+        ausdruckbar=False,
+        begruendung=(
+            "Nur zur Haelfte formulierbar, und deshalb hier als nicht ausdrueckbar "
+            "gefuehrt. 'Hoechstens ein VN je Anfrage' geht in Great Expectations ueber "
+            "row_condition='rolle == \"VN\"' plus ExpectColumnValuesToBeUnique auf "
+            "anfrage_id — nachgemessen. 'Mindestens einer' braucht dagegen die Tabelle "
+            "anfrage und damit einen zweiten Batch; eine Erwartung sieht immer nur einen. "
+            "cuallee kennt keine row_condition und schafft auch die erste Haelfte nicht: "
+            "is_unique('anfrage_id') prueft die Spalte als Ganzes, nicht die auf VN "
+            "gefilterte Teilmenge."
+        ),
+        cuallee_ausdruckbar="nein",
+    ),
+    GeprueftRegel(
+        regel_id="R-054",
+        entitaet="angebot",
+        sicht="numerisch",
+        spalten=("zahlbeitrag_rate_eur",),
+        ausdruckbar=False,
+        begruendung=(
+            "In keinem der beiden Frameworks formulierbar, und das ist der Kern der "
+            "Grenze. Die Regel vergleicht einen Wert mit dem Median der **uebrigen** "
+            "Angebote **derselben Anfrage**. Beide Werkzeuge kennen Aggregate nur ueber "
+            "die ganze Spalte beziehungsweise den ganzen Batch — cuallee has_percentile, "
+            "Great Expectations ExpectColumnMedianToBeBetween. Keines von 57 "
+            "GE-Erwartungen und keines der cuallee-Praedikate traegt 'Group' oder "
+            "'Partition' im Namen. Ein Pruefmodell aus zeilen- und spaltenweisen "
+            "Praedikaten ueber eine Tabelle kennt keine Gruppierung mit Rueckbezug auf "
+            "die Gruppe."
+        ),
+        cuallee_ausdruckbar="nein",
+    ),
 )
 
 
 def ge_katalog() -> tuple[GeprueftRegel, ...]:
-    """Gibt die sieben vorgelegten Regeln zurueck."""
+    """Gibt die vorgelegten Regeln zurueck."""
     return GE_REGELN
 
 
@@ -412,7 +472,10 @@ class GEBericht:
     Attributes:
         ausdrueckbar: Regeln, die Great Expectations vollstaendig formuliert.
         nicht_ausdrueckbar: Regeln, die es nicht formuliert.
-        anteil_ausdrueckbar: Anteil an den vorgelegten Regeln.
+        anteil_ausdrueckbar: Anteil an den vorgelegten **G1**-Regeln.
+        anteil_ausdrueckbar_g3: Anteil an den vorgelegten **G3**-Regeln — dem
+            strukturellen Kern, an dem beide Frameworks scheitern.
+        anteil_cuallee_g3: Dasselbe fuer cuallee.
         cuallee_ausdrueckbar: Dieselben Regeln in der Einordnung von B3.
         anteil_cuallee: Anteil der in cuallee **vollstaendig** formulierbaren.
         codezeilen: Anweisungszeilen je Regel in diesem Modul.
@@ -426,8 +489,10 @@ class GEBericht:
     ausdrueckbar: tuple[str, ...]
     nicht_ausdrueckbar: tuple[str, ...]
     anteil_ausdrueckbar: float
+    anteil_ausdrueckbar_g3: float
     cuallee_ausdrueckbar: Mapping[str, str]
     anteil_cuallee: float
+    anteil_cuallee_g3: float
     codezeilen: Mapping[str, int]
     laufzeit_s: float
     diagnoseguete: Mapping[str, bool]
@@ -440,10 +505,12 @@ class GEBericht:
             "vorgelegte_regeln": [eintrag.regel_id for eintrag in GE_REGELN],
             "ausdrueckbar": list(self.ausdrueckbar),
             "nicht_ausdrueckbar": list(self.nicht_ausdrueckbar),
-            "anteil_ausdrueckbar": round(self.anteil_ausdrueckbar, 6),
+            "anteil_ausdrueckbar_g1": round(self.anteil_ausdrueckbar, 6),
+            "anteil_ausdrueckbar_g3": round(self.anteil_ausdrueckbar_g3, 6),
             "cuallee_zum_vergleich": {
                 "einordnung_je_regel": dict(self.cuallee_ausdrueckbar),
-                "anteil_vollstaendig": round(self.anteil_cuallee, 6),
+                "anteil_vollstaendig_g1": round(self.anteil_cuallee, 6),
+                "anteil_vollstaendig_g3": round(self.anteil_cuallee_g3, 6),
             },
             "codezeilen_je_regel": dict(self.codezeilen),
             "codezeilen_summe": sum(self.codezeilen.values()),
@@ -548,14 +615,21 @@ class GEVergleich:
 
         ausdrueckbar = tuple(e.regel_id for e in GE_REGELN if e.ausdruckbar)
         nicht = tuple(e.regel_id for e in GE_REGELN if not e.ausdruckbar)
-        cuallee_ja = sum(1 for e in GE_REGELN if e.cuallee_ausdruckbar == "ja")
+        # Getrennt nach Regelgruppe: Die G1-Quote misst, wie weit die Werkzeuge auf
+        # Attributwertebene auseinanderliegen; die G3-Quote misst den strukturellen
+        # Kern, an dem beide scheitern. Eine gemeinsame Quote ueber alle neun Regeln
+        # mischte die beiden Aussagen und liesse die zweite verschwinden.
+        g1 = tuple(e for e in GE_REGELN if e.regel_id in G1_REGELN)
+        g3 = tuple(e for e in GE_REGELN if e.regel_id not in G1_REGELN)
 
         return GEBericht(
             ausdrueckbar=ausdrueckbar,
             nicht_ausdrueckbar=nicht,
-            anteil_ausdrueckbar=len(ausdrueckbar) / len(GE_REGELN),
+            anteil_ausdrueckbar=sum(e.ausdruckbar for e in g1) / len(g1),
+            anteil_ausdrueckbar_g3=sum(e.ausdruckbar for e in g3) / len(g3),
             cuallee_ausdrueckbar={e.regel_id: e.cuallee_ausdruckbar for e in GE_REGELN},
-            anteil_cuallee=cuallee_ja / len(GE_REGELN),
+            anteil_cuallee=sum(e.cuallee_ausdruckbar == "ja" for e in g1) / len(g1),
+            anteil_cuallee_g3=sum(e.cuallee_ausdruckbar == "ja" for e in g3) / len(g3),
             codezeilen=self.codezeilen(),
             laufzeit_s=laufzeit,
             diagnoseguete=DIAGNOSEGUETE_GE,

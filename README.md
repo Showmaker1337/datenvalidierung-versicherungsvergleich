@@ -171,6 +171,18 @@ Erzeugt `results/regelkatalog.csv` aus den Regel-Metadaten — die Mapping-Tabel
 Anhang der Arbeit. Optionen: `--ziel VERZEICHNIS`, `--still`.
 
 ```bash
+python -m pip install -r requirements-vergleich.txt
+```
+
+Zusatzabhängigkeit **nur** für den Frameworkvergleich (Great Expectations und siebzehn
+transitive Pakete). Sie steht bewusst **nicht** in `requirements.txt`: Der Gegenschnitt geht
+nicht in die Inferenzstatistik ein, und im Reproduzierbarkeitspaket der Experimentläufe wären
+diese Pakete Ballast, der die Prüfbarkeit von A2 verwässert, ohne zu einem einzigen
+gemessenen Wert des Hauptversuchs beizutragen. Ohne die Installation überspringt sich
+`tests/test_baselines/test_b3b.py` selbst und `scripts/framework_vergleich.py` bricht mit
+einem Installationshinweis ab; alle Läufe und die übrige Testsuite sind unberührt.
+
+```bash
 python -m pytest
 ```
 
@@ -596,8 +608,9 @@ am Berichtsformat eines Werkzeugs. Vier Regelformen sprengen eine spaltenweise C
 #### Wie weit die Zahl trägt — der Gegenschnitt mit Great Expectations
 
 Die 36,2 Prozent sind **für cuallee gemessen**, und der Gegenschnitt zeigt, dass sie nicht
-frameworkunabhängig sind. Sieben G1-Regeln wurden zusätzlich in Great Expectations
-formuliert (`python scripts/framework_vergleich.py`):
+frameworkunabhängig sind. Neun Regeln wurden zusätzlich in Great Expectations formuliert
+(`python scripts/framework_vergleich.py`) — sieben aus G1, dazu zwei aus G3, die den
+strukturellen Kern der Grenze messen:
 
 | Regel | cuallee | Great Expectations | Codezeilen cuallee / GE |
 |---|---|---|---|
@@ -608,7 +621,9 @@ formuliert (`python scripts/framework_vergleich.py`):
 | R-010 (Katalog) | ja | ja | 2 / 2 |
 | R-014 (Bereich) | ja | ja | 3 / 11 |
 | R-021 (Untergrenze) | ja | ja | 4 / 4 |
-| **Summe** | **4 von 7 (57 %)** | **6 von 7 (86 %)** | |
+| **Summe G1** | **4 von 7 (57 %)** | **6 von 7 (86 %)** | |
+| R-046 (Gruppe, satzübergreifend) | **nein** | **nein** (halb) | — / — |
+| R-054 (Aggregat der übrigen Zeilen der Gruppe) | **nein** | **nein** | — / — |
 
 Zwei benennbare Fähigkeiten erklären den Unterschied: `row_condition` macht eine Erwartung
 vom Wert eines anderen Feldes derselben Zeile abhängig (deckt R-001 vollständig ab), und
@@ -620,6 +635,19 @@ Frameworkübergreifend belastbar ist deshalb nicht die eine Zahl, sondern der **
 Grenze: die relationalen Regeln (R-043 bis R-048, R-052, R-054), die quellenübergreifenden
 (R-049 bis R-051, R-055 bis R-058) und die algorithmischen (R-004). Allein die Gruppen G3
 bis G5 umfassen 16 der 58 Regeln, und sie bleiben beiden Frameworks verschlossen.
+
+**Dieser Kern ist gemessen, nicht behauptet.** Die beiden letzten Tabellenzeilen sind der
+Beleg: Keines der 57 Great-Expectations-Erwartungen und keines der cuallee-Prädikate trägt
+`Group` oder `Partition` im Namen; Aggregate gibt es nur über die ganze Spalte
+beziehungsweise den ganzen Batch. **Ein Prüfmodell aus zeilen- und spaltenweisen Prädikaten
+über *eine* Tabelle kennt keine Gruppierung mit Rückbezug auf die Gruppe** — und genau das
+verlangen R-043 bis R-048, R-052 und R-054.
+
+Zwei Feinheiten, die dazugehören: Great Expectations formuliert mit `row_condition` die
+**Hälfte** von R-046 („höchstens ein VN je Anfrage"); die andere Hälfte („mindestens einer")
+braucht eine zweite Tabelle, und eine Erwartung sieht immer nur einen Batch. Und R-044 ließe
+sich per `row_condition` je Anfrage nachbilden — das wären 10.000 Erwartungen statt einer
+Regel, also kein Ausdrücken, sondern ein Ausrollen.
 
 Nebenbefund: Great Expectations drückt mehr aus, kostet dafür aber mehr Quelltext —
 Ausdrucksmächtigkeit und Knappheit gehen auseinander.
