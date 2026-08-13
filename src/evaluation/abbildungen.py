@@ -548,11 +548,17 @@ def abbildung_4(lang: pd.DataFrame, plan: Versuchsplan) -> tuple[Figure, str]:
                 f"{name} liegt mit Recall {wert:.2f} deutlich ueber null".replace(".", ",")
                 for name, wert in auffaellig
             )
-            + ". Das ist ein Befund und kein Widerspruch zur Konstruktion: Welche Regel "
-            "dort greift, zeigt die Kreuztabelle in Abbildung 6. Erkannt wird dann nicht "
-            "der Fehler selbst, sondern eine Nebenwirkung, die er hinterlaesst — und beide "
-            "sehen in einer Ergebnistabelle gleich aus, solange man die Kreuztabelle nicht "
-            "danebenlegt."
+            + ". Das ist ein Befund und kein Widerspruch zur Konstruktion, und es ist "
+            "**keine** Generalisierung des Katalogs: Welche Regel dort greift, zeigt die "
+            "Kreuztabelle in Abbildung 6. Bei HO1 ist es ausschliesslich R-046 — der "
+            "Katalog erkennt die Beinahe-Dublette nicht an der Namensaehnlichkeit, sondern "
+            "an einer davon unabhaengigen Integritaetsverletzung: Der duplizierte "
+            "Personensatz erzeugt einen zweiten Versicherungsnehmer in derselben Anfrage. "
+            "Als Held-out-Klasse fuer Aehnlichkeitserkennung ist HO1 damit **bestaetigt** "
+            "und nicht widerlegt; auf der Zellebene bleibt ihr Recall null. Erkannt wird "
+            "nicht der Fehler selbst, sondern eine Nebenwirkung, die er hinterlaesst — und "
+            "beide sehen in einer Ergebnistabelle gleich aus, solange man die Kreuztabelle "
+            "nicht danebenlegt."
         )
     )
     unterschrift = (
@@ -673,19 +679,63 @@ def abbildung_5(lang: pd.DataFrame, plan: Versuchsplan) -> tuple[Figure, str]:
         framealpha=0.95,
     )
     anteile = tabelle["spiegelt_regel_exakt"].value_counts().to_dict()
+    mittel = tabelle.groupby("spiegelt_regel_exakt")["recall"].mean().to_dict()
     unterschrift = (
         "Abbildung 5: Recall je Injektionsvariante aus dem Teilversuch T6 "
         "(Variantencharakterisierung), mit exaktem Clopper-Pearson-Intervall und der "
         "Fallzahl n an jedem Balken. Gruppiert nach Fehlerklasse; Schraffur und "
         "Graustufe kodieren, ob die Variante die Bedingung ihrer Regel exakt spiegelt "
-        f"({anteile.get('ja', 0)} Varianten), nur teilweise ({anteile.get('teilweise', 0)}) "
-        f"oder gar nicht ({anteile.get('nein', 0)}). Varianten, die laut Spezifikation "
-        "unentdeckt bleiben sollen, sind gekennzeichnet. Die Abbildung stammt nicht aus "
-        "dem faktoriellen Hauptversuch: Dort gibt die universumsproportionale Zuteilung "
-        "knappen Varianten einstellige Fallzahlen, und ein Recall aus n = 1 waere nicht "
-        "interpretierbar."
+        f"({anteile.get('ja', 0)} Varianten, mittlerer Recall "
+        f"{_komma(mittel.get('ja'))}), nur teilweise ({anteile.get('teilweise', 0)}, "
+        f"{_komma(mittel.get('teilweise'))}) oder gar nicht ({anteile.get('nein', 0)}, "
+        f"{_komma(mittel.get('nein'))}). Varianten, die laut Spezifikation unentdeckt "
+        "bleiben sollen, sind gekennzeichnet. "
+        + _trefferquote_text(tabelle)
+        + " Die Abbildung stammt nicht aus dem faktoriellen Hauptversuch: Dort gibt die "
+        "universumsproportionale Zuteilung knappen Varianten einstellige Fallzahlen, und "
+        "ein Recall aus n = 1 waere nicht interpretierbar."
     )
     return figur, unterschrift
+
+
+def _komma(wert: float | None) -> str:
+    """Formatiert eine Zahl mit deutschem Dezimalkomma; ``None`` als Gedankenstrich."""
+    if wert is None or pd.isna(wert):
+        return "—"
+    return f"{float(wert):.3f}".replace(".", ",")
+
+
+def _trefferquote_text(tabelle: pd.DataFrame) -> str:
+    """Formuliert die Trefferquote der Vorab-Zuordnung fuer die Bildunterschrift.
+
+    Die Einstufung stammt aus ``spec/03`` und wurde **vor** der Messung
+    festgelegt. Ihre Quote ist damit eine Guetezahl der Methode: Eine vorab
+    formulierte, falsifizierbare Erwartung, die ueberwiegend, aber nicht
+    vollstaendig eingetroffen ist. Wo sie danebenliegt, ist das ein Ergebnis und
+    kein Makel der Spezifikation — und die **Richtung** der Abweichung sagt
+    verschiedene Dinge.
+
+    Args:
+        tabelle: Die Variantentabelle ``t4`` mit ihren ``attrs``.
+
+    Returns:
+        Den Satz fuer die Bildunterschrift; leer ohne Angaben.
+    """
+    if "vorab_eingetroffen" not in tabelle.attrs:
+        return ""
+    zu_hoch = tabelle.attrs["vorab_ueberschaetzt"]
+    zu_niedrig = tabelle.attrs["vorab_unterschaetzt"]
+    return (
+        f"Die Vorabeinstufung aus spec/03 trifft bei {tabelle.attrs['vorab_eingetroffen']} "
+        f"von {tabelle.attrs['vorab_geprueft']} Varianten zu (Schwelle: Recall 0,5, bei "
+        f"'teilweise' ein Wert echt zwischen 0 und 1). Ueberschaetzt wurde bei "
+        f"{len(zu_hoch)} Varianten ({zu_hoch}) — eine greifende Regel erwartet, die "
+        f"Variante bleibt dennoch unentdeckt. Unterschaetzt bei {len(zu_niedrig)} "
+        f"({zu_niedrig}) — der Katalog findet mehr, als die Taxonomie ihm zutraut. Beide "
+        "Richtungen sind Befunde: Die erste schwaecht die Aussage ueber den Katalog, die "
+        "zweite verkleinert den Kontrast zwischen spiegelnden und nicht spiegelnden "
+        "Varianten."
+    )
 
 
 def abbildung_6(lang: pd.DataFrame, plan: Versuchsplan) -> tuple[Figure, str]:

@@ -71,7 +71,7 @@ if TYPE_CHECKING:  # pragma: no cover - nur fuer die Typpruefung
 
     from src.common.config import Config
 
-__all__ = ["main", "sammle_b2_sweep"]
+__all__ = ["main", "sammle_b2_sweep", "sammle_injizierte_spalten"]
 
 #: Dateiname des laufuebergreifenden Langformats unter ``results/``.
 _LANGFORMAT: Final[str] = "metrics_long.parquet"
@@ -126,6 +126,42 @@ def sammle_b2_sweep(plan: Versuchsplan, config: Config) -> pd.DataFrame:
             {"run_id": lauf.run_id, "klasse": lauf.klasse, **stufe} for stufe in sweep
         )
     return pd.DataFrame(zeilen)
+
+
+def sammle_injizierte_spalten(plan: Versuchsplan, config: Config) -> set[tuple[str, str]]:
+    """Sammelt jedes in der Serie verfaelschte (entitaet, spalte)-Paar.
+
+    Quelle sind die error_log.parquet aller Laeufe — der Ground Truth selbst
+    und nicht der Quelltext des Injektors. Gebraucht wird die Menge, um in
+    t3_regeldiagnose zwei Aussagen auseinanderzuhalten, die sonst in einer
+    Zahl verschwaenden: Eine Regel ohne Treffer, deren Felder verfaelscht wurden,
+    ist **Ueberdeckung** des Katalogs; eine, deren Felder keine Injektion je
+    trifft, ist in diesem Aufbau **nicht pruefbar**. Das erste ist ein Ergebnis,
+    das zweite eine Limitation.
+
+    Args:
+        plan: Der Versuchsplan.
+        config: Geladene Konfiguration; liefert das Laufverzeichnis.
+
+    Returns:
+        Alle verfaelschten Paare. Leer, wenn kein Lauf vorliegt.
+    """
+    paare: set[tuple[str, str]] = set()
+    for lauf in laeufe(plan):
+        pfad = (
+            experiment_verzeichnis(
+                config, lauf.serie, lauf.design, lauf.segment, lauf.fehlerrate, lauf.wiederholung
+            )
+            / Artefakt.ERROR_LOG.value
+        )
+        if not pfad.is_file():
+            continue
+        log = pd.read_parquet(pfad, columns=["entitaet", "spalte"])
+        paare.update(
+            (str(entitaet), str(spalte))
+            for entitaet, spalte in log.drop_duplicates().to_numpy()
+        )
+    return paare
 
 
 def _befunde_markdown(plan: Versuchsplan) -> str:
@@ -295,7 +331,10 @@ def main(argumente: Sequence[str] | None = None) -> int:  # noqa: C901, PLR0912 
 
     if "tabellen" in gewuenscht:
         gebaut = tabellen.baue_alle(
-            lang, plan, frameworkvergleich=ergebnisse / _FRAMEWORKVERGLEICH
+            lang,
+            plan,
+            frameworkvergleich=ergebnisse / _FRAMEWORKVERGLEICH,
+            injizierte_spalten=sammle_injizierte_spalten(plan, config),
         )
         for name, tabelle in gebaut.items():
             tabellen.schreibe_tabelle(tabelle, ergebnisse / _TABELLEN, name)

@@ -44,10 +44,11 @@ from src.evaluation.ergebnisse import (
 from src.evaluation.metriken import clopper_pearson
 from src.evaluation.modell import AuswertungsFehler, Ebene
 from src.evaluation.statistik import Intervall, bootstrap_ci
-from src.evaluation.varianten import VARIANTENTABELLE
+from src.evaluation.varianten import VARIANTENTABELLE, Spiegelung
 from src.rules.katalog import KATALOG
 
 if TYPE_CHECKING:  # pragma: no cover - nur fuer die Typpruefung
+    from collections.abc import Set as AbstractSet
     from pathlib import Path
 
     from src.evaluation.experimentplan import Versuchsplan
@@ -84,6 +85,46 @@ _VARIANTEN: Final[str] = "T6"
 
 #: Das Verfahren, dessen Diagnose berichtet wird.
 _PROTOTYP: Final[str] = "prototyp"
+
+#: Kennung einer Regel, die ueber mehrere Entitaeten hinweg prueft.
+_ALLE_ENTITAETEN: Final[str] = "alle"
+
+#: Die beiden Gruende, aus denen eine Regel in keinem Lauf melden kann.
+#:
+#: Sie sind **zwei verschiedene Aussagen**: Die erste ist ein Ergebnis ueber das
+#: Verhaeltnis von Katalog und Fehlertaxonomie, die zweite eine Limitation des
+#: Versuchsaufbaus. Sie in einer Zahl zusammenzufassen waere der haeufigste
+#: Fehler bei dieser Kennzahl.
+#: Recall, ab dem eine Variante als "ueberwiegend gefunden" gilt.
+#:
+#: Die Schwelle uebersetzt die **qualitative** Vorabangabe aus ``spec/03``
+#: ("spiegelt Regel exakt: ja / teilweise / nein") in eine pruefbare Erwartung an
+#: den gemessenen Recall. Die Haelfte ist die einzige Schwelle, die sich ohne
+#: Blick auf die Daten begruenden laesst: Sie trennt "ueberwiegend gefunden" von
+#: "ueberwiegend uebersehen". Jede andere Zahl waere im Nachhinein gewaehlt.
+_SPIEGELUNGSSCHWELLE: Final[float] = 0.5
+
+#: Die beiden Richtungen, in denen die Vorabangabe danebenliegen kann.
+#:
+#: Sie sind nicht gleichwertig. "Ueberschaetzt" heisst: Die Spezifikation
+#: erwartete eine greifende Regel, und der Katalog findet die Variante trotzdem
+#: nicht — das schwaecht die Aussage ueber den Katalog. "Unterschaetzt" heisst:
+#: Der Katalog findet mehr, als die Taxonomie ihm zutraut; er verallgemeinert
+#: ueber die Vorabzuordnung hinaus, und der Kontrast zwischen spiegelnden und
+#: nicht spiegelnden Varianten faellt entsprechend kleiner aus.
+_UEBERSCHAETZT: Final[str] = "ueberschaetzt"
+_UNTERSCHAETZT: Final[str] = "unterschaetzt"
+
+UEBERDECKUNG: Final[str] = (
+    "Ueberdeckung: Keine Injektionsvariante zielt auf diese Regel, ihre Felder wurden in "
+    "der Serie aber verfaelscht — ohne ihre Bedingung zu verletzen. Der Katalog deckt "
+    "mehr ab, als die Fehlertaxonomie adressiert."
+)
+NICHT_PRUEFBAR: Final[str] = (
+    "In diesem Aufbau nicht pruefbar: Die Felder dieser Regel werden von keiner "
+    "Injektionsvariante getroffen. Ueber die Regel sagt die Serie nichts — das ist eine "
+    "Limitation des Aufbaus und kein Befund ueber den Katalog."
+)
 
 #: Spalten von ``t6_laufzeit``.
 #:
@@ -319,7 +360,15 @@ def _verfahren_des_blocks(plan: Versuchsplan, kennung: str) -> tuple[str, ...]:
 
 
 def t2_fehlerraten(lang: pd.DataFrame, plan: Versuchsplan) -> pd.DataFrame:
-    """Baut ``t2_fehlerraten``: F1 und MCC ueber die Ratenstufen, PR-AUC nur fuer B2.
+    """Baut ``t2_fehlerraten``: F1, MCC und Precision ueber die Ratenstufen.
+
+    Die Precision steht **zweimal** darin, einmal je Metrikebene. Das ist der
+    Kern der Antwort auf HYP3: Auf der Zellebene erzeugt jede Injektion ueber
+    mehrspaltige Regeln zusaetzliche Scheinfehlalarme, deren Zahl mit der
+    Injektionszahl waechst; auf der Constraint-Ebene zaehlt dieselbe Meldung
+    einmal. Ein Trend, der nur auf der Zellebene besteht, ist ein Effekt der
+    Berichtskonvention und keiner des Verfahrens — und das sieht man erst, wenn
+    beide Spalten nebeneinander stehen.
 
     Die PR-AUC steht nur bei B2, und das ist kein Versehen: Der Prototyp, B0 und
     B3 liefern binaere Entscheidungen und damit genau **einen** Punkt im PR-Raum.
@@ -337,33 +386,66 @@ def t2_fehlerraten(lang: pd.DataFrame, plan: Versuchsplan) -> pd.DataFrame:
         for rate in sorted(plan.hauptversuch.raten):
             zeile: dict[str, Any] = {"verfahren": verfahren, "fehlerrate": rate}
             for metrik in ("f1", "mcc", "pr_auc"):
-                gefiltert = auswahl(
-                    lang,
-                    metrik=metrik,
-                    verfahren=verfahren,
-                    ebene=Ebene.ZELLE,
-                    gruppe_art=GRUPPE_GESAMT,
-                    fehlerrate=rate,
-                    teilversuch=_HAUPT,
-                )
-                gefiltert = gefiltert[gefiltert["wert"].notna()]
-                if gefiltert.empty:
-                    zeile.update(
-                        {metrik: None, f"{metrik}_ci_unten": None, f"{metrik}_ci_oben": None}
-                    )
-                    continue
-                intervall = _intervall(
-                    gefiltert, plan, kennung=f"{verfahren}|rate{rate}|{metrik}"
-                )
                 zeile.update(
-                    {
-                        metrik: intervall.punkt,
-                        f"{metrik}_ci_unten": intervall.unten,
-                        f"{metrik}_ci_oben": intervall.oben,
-                    }
+                    _rate_kennzahl(lang, plan, metrik=metrik, verfahren=verfahren, rate=rate)
                 )
+            for ebene, kuerzel in ((Ebene.ZELLE, "zelle"), (Ebene.CONSTRAINT, "constraint")):
+                werte = _rate_kennzahl(
+                    lang, plan, metrik="precision", verfahren=verfahren, rate=rate, ebene=ebene
+                )
+                for name, wert in werte.items():
+                    zeile[name.replace("precision", f"precision_{kuerzel}")] = wert
+            zelle = zeile.get("precision_zelle")
+            constraint = zeile.get("precision_constraint")
+            zeile["precision_differenz"] = (
+                None if zelle is None or constraint is None else constraint - zelle
+            )
             zeilen.append(zeile)
     return pd.DataFrame(zeilen)
+
+
+def _rate_kennzahl(  # noqa: PLR0913 - jede Angabe waehlt eine eigene Dimension
+    lang: pd.DataFrame,
+    plan: Versuchsplan,
+    *,
+    metrik: str,
+    verfahren: str,
+    rate: float,
+    ebene: Ebene = Ebene.ZELLE,
+) -> dict[str, Any]:
+    """Bildet eine Kennzahl je Ratenstufe samt Intervall.
+
+    Args:
+        lang: Das Langformat.
+        plan: Der Versuchsplan.
+        metrik: Die Kennzahl.
+        verfahren: Das Verfahren.
+        rate: Die Fehlerrate.
+        ebene: Die Auswertungsebene.
+
+    Returns:
+        Die Spalten ``<metrik>``, ``<metrik>_ci_unten`` und ``<metrik>_ci_oben``.
+    """
+    gefiltert = auswahl(
+        lang,
+        metrik=metrik,
+        verfahren=verfahren,
+        ebene=ebene,
+        gruppe_art=GRUPPE_GESAMT,
+        fehlerrate=rate,
+        teilversuch=_HAUPT,
+    )
+    gefiltert = gefiltert[gefiltert["wert"].notna()]
+    if gefiltert.empty:
+        return {metrik: None, f"{metrik}_ci_unten": None, f"{metrik}_ci_oben": None}
+    intervall = _intervall(
+        gefiltert, plan, kennung=f"{verfahren}|rate{rate}|{metrik}|{ebene.value}"
+    )
+    return {
+        metrik: intervall.punkt,
+        f"{metrik}_ci_unten": intervall.unten,
+        f"{metrik}_ci_oben": intervall.oben,
+    }
 
 
 def klassenbloecke(plan: Versuchsplan) -> tuple[str, ...]:
@@ -388,7 +470,9 @@ def klassenbloecke(plan: Versuchsplan) -> tuple[str, ...]:
     )
 
 
-def t3_regeldiagnose(lang: pd.DataFrame, plan: Versuchsplan) -> pd.DataFrame:
+def t3_regeldiagnose(
+    lang: pd.DataFrame, plan: Versuchsplan, *, injizierte_spalten: AbstractSet[tuple[str, str]]
+) -> pd.DataFrame:
     """Baut ``t3_regeldiagnose``: Treffer, Precision und Alleinstellung je Regel.
 
     **Alle** Regeln des Katalogs stehen in der Tabelle, auch die ohne einen
@@ -396,13 +480,35 @@ def t3_regeldiagnose(lang: pd.DataFrame, plan: Versuchsplan) -> pd.DataFrame:
     gegenueber der Fehlertaxonomie und damit ein Ergebnis; wer sie herausfiltert,
     loescht es. Wie viele es sind, wird gezaehlt und nicht vorab behauptet.
 
+    Eine Regel ohne Treffer bekommt einen **Grund**, und die beiden moeglichen
+    Gruende sind zwei verschiedene Aussagen:
+
+    ``Ueberdeckung``
+        Keine Injektionsvariante zielt auf die Regel, und ihre Felder wurden in
+        der Serie trotzdem verfaelscht — ohne dass ihre Bedingung verletzt wurde.
+        Der Katalog deckt damit mehr ab, als die Fehlertaxonomie adressiert. Das
+        ist ein **Ergebnis** ueber das Verhaeltnis von Katalog und Taxonomie.
+    ``in diesem Aufbau nicht pruefbar``
+        Die Felder der Regel werden von **keiner** Injektion getroffen. Ueber die
+        Regel sagt die Serie dann nichts — sie ist eine **Limitation** des
+        Aufbaus und kein Befund ueber den Katalog.
+
+    Die Unterscheidung wird nicht behauptet, sondern aus den Ground-Truth-Logs
+    abgeleitet: ``injizierte_spalten`` enthaelt jedes ``(entitaet, spalte)``-Paar,
+    das in irgendeinem Lauf der Serie verfaelscht wurde.
+
     Args:
         lang: Das Langformat.
         plan: Der Versuchsplan.
+        injizierte_spalten: Alle in der Serie verfaelschten ``(entitaet,
+            spalte)``-Paare, aus den ``error_log``-Dateien gesammelt.
 
     Returns:
         Eine Zeile je Regel des Katalogs.
     """
+    gezielt = {
+        regel_id for bezug in VARIANTENTABELLE for regel_id in bezug.erwartete_regeln
+    }
     diagnose = auswahl(
         lang,
         verfahren=_PROTOTYP,
@@ -434,11 +540,13 @@ def t3_regeldiagnose(lang: pd.DataFrame, plan: Versuchsplan) -> pd.DataFrame:
     for regel in KATALOG:
         meldungen = float(summen["meldungen"].get(regel.regel_id, 0.0))
         treffer = float(summen["tp"].get(regel.regel_id, 0.0))
+        zielt = regel.regel_id in gezielt
+        getroffen = _felder_verfaelscht(regel, injizierte_spalten)
         zeilen.append(
             {
                 "regel_id": regel.regel_id,
                 "gruppe": regel.regel_id[:3],
-                "titel": getattr(regel, "titel", ""),
+                "entitaet": regel.entitaet,
                 "laeufe_mit_meldung": int(laeufe.get(regel.regel_id, 0)),
                 "meldungen_gesamt": int(meldungen),
                 "treffer_gesamt": int(treffer),
@@ -447,12 +555,71 @@ def t3_regeldiagnose(lang: pd.DataFrame, plan: Versuchsplan) -> pd.DataFrame:
                     float(mittel[regel.regel_id]) if regel.regel_id in mittel.index else None
                 ),
                 "ohne_treffer": meldungen == 0,
+                "zielt_eine_variante_darauf": zielt,
+                "felder_wurden_verfaelscht": getroffen,
+                "grund_ohne_treffer": _grund_ohne_treffer(
+                    stumm=meldungen == 0, zielt=zielt, getroffen=getroffen
+                ),
             }
         )
     tabelle = pd.DataFrame(zeilen)
-    tabelle.attrs["regeln_ohne_meldung"] = int(tabelle["ohne_treffer"].sum())
+    stumm = tabelle["ohne_treffer"]
+    tabelle.attrs["regeln_ohne_meldung"] = int(stumm.sum())
     tabelle.attrs["regeln_gesamt"] = len(KATALOG)
+    tabelle.attrs["ueberdeckung"] = sorted(
+        tabelle.loc[stumm & (tabelle["grund_ohne_treffer"] == UEBERDECKUNG), "regel_id"]
+    )
+    tabelle.attrs["nicht_pruefbar"] = sorted(
+        tabelle.loc[stumm & (tabelle["grund_ohne_treffer"] == NICHT_PRUEFBAR), "regel_id"]
+    )
     return tabelle
+
+
+def _felder_verfaelscht(
+    regel: object, injizierte_spalten: AbstractSet[tuple[str, str]]
+) -> bool:
+    """Prueft, ob mindestens ein Feld einer Regel in der Serie verfaelscht wurde.
+
+    Regeln ueber mehrere Entitaeten tragen ``entitaet = "alle"``; fuer sie wird
+    geprueft, ob die Spalte in **irgendeiner** Entitaet getroffen wurde.
+
+    Args:
+        regel: Die Regel des Katalogs.
+        injizierte_spalten: Alle verfaelschten ``(entitaet, spalte)``-Paare.
+
+    Returns:
+        ``True``, wenn mindestens ein Feld der Regel getroffen wurde.
+    """
+    entitaet = str(getattr(regel, "entitaet", ""))
+    spalten = tuple(getattr(regel, "spalten", ()))
+    if entitaet == _ALLE_ENTITAETEN:
+        getroffene_spalten = {spalte for _, spalte in injizierte_spalten}
+        return any(spalte in getroffene_spalten for spalte in spalten)
+    return any((entitaet, spalte) in injizierte_spalten for spalte in spalten)
+
+
+def _grund_ohne_treffer(*, stumm: bool, zielt: bool, getroffen: bool) -> str:
+    """Benennt, warum eine Regel in keinem Lauf gemeldet hat.
+
+    Args:
+        stumm: Ob die Regel ueberhaupt keine Meldung abgegeben hat.
+        zielt: Ob eine Injektionsvariante auf sie zielt.
+        getroffen: Ob mindestens eines ihrer Felder verfaelscht wurde.
+
+    Returns:
+        Den Grund als Text; leer, wenn die Regel gemeldet hat.
+    """
+    if not stumm:
+        return ""
+    if zielt:
+        return (
+            "Eine Injektionsvariante zielt auf diese Regel, und sie meldet dennoch nicht. "
+            "Das ist weder Ueberdeckung noch Limitation, sondern ein Befund, der zu "
+            "pruefen ist."
+        )
+    if getroffen:
+        return UEBERDECKUNG
+    return NICHT_PRUEFBAR
 
 
 def t4_varianten(lang: pd.DataFrame, plan: Versuchsplan) -> pd.DataFrame:
@@ -509,6 +676,8 @@ def t4_varianten(lang: pd.DataFrame, plan: Versuchsplan) -> pd.DataFrame:
                     "ci_unten": None,
                     "ci_oben": None,
                     "wiederholungen": 0,
+                    "erwartung_eingetroffen": None,
+                    "abweichungsrichtung": "",
                 }
             )
         else:
@@ -516,18 +685,70 @@ def t4_varianten(lang: pd.DataFrame, plan: Versuchsplan) -> pd.DataFrame:
             fallzahl = round(float(treffer["n"].fillna(0).mean()))
             gefunden = round(float(treffer["wert"].mean()))
             unten, oben = clopper_pearson(gefunden, fallzahl, alpha=plan.statistik.alpha)
+            recall = (gefunden / fallzahl) if fallzahl else None
+            eingetroffen, richtung = _erwartung_geprueft(bezug.spiegelung, recall)
             zeile.update(
                 {
                     "n": fallzahl,
                     "tp": gefunden,
-                    "recall": (gefunden / fallzahl) if fallzahl else None,
+                    "recall": recall,
                     "ci_unten": unten,
                     "ci_oben": oben,
                     "wiederholungen": wiederholungen,
+                    "erwartung_eingetroffen": eingetroffen,
+                    "abweichungsrichtung": richtung,
                 }
             )
         zeilen.append(zeile)
-    return pd.DataFrame(zeilen)
+    tabelle = pd.DataFrame(zeilen)
+    geprueft = tabelle[tabelle["erwartung_eingetroffen"].notna()]
+    tabelle.attrs["vorab_geprueft"] = len(geprueft)
+    tabelle.attrs["vorab_eingetroffen"] = int(geprueft["erwartung_eingetroffen"].sum())
+    tabelle.attrs["vorab_ueberschaetzt"] = sorted(
+        geprueft.loc[geprueft["abweichungsrichtung"] == _UEBERSCHAETZT, "variante"]
+    )
+    tabelle.attrs["vorab_unterschaetzt"] = sorted(
+        geprueft.loc[geprueft["abweichungsrichtung"] == _UNTERSCHAETZT, "variante"]
+    )
+    return tabelle
+
+
+def _erwartung_geprueft(
+    spiegelung: Spiegelung, recall: float | None
+) -> tuple[bool | None, str]:
+    """Prueft die Vorabangabe aus ``spec/03`` gegen den gemessenen Recall.
+
+    Die Angabe "spiegelt Regel exakt" wurde **vor** der Messung formuliert. Sie
+    ist damit eine falsifizierbare Erwartung und keine Beschreibung der Daten —
+    und genau deshalb ist ihre Trefferquote eine Guetezahl der Methode und kein
+    Makel der Spezifikation, wo sie danebenliegt.
+
+    Uebersetzt wird sie ueber :data:`_SPIEGELUNGSSCHWELLE`:
+
+    ``ja``
+        erwartet einen ueberwiegend gefundenen Fehler.
+    ``nein``
+        erwartet einen ueberwiegend uebersehenen Fehler.
+    ``teilweise``
+        erwartet einen Zwischenwert — weder vollstaendig gefunden noch gar nicht.
+
+    Args:
+        spiegelung: Die Vorabeinstufung.
+        recall: Der gemessene Recall; ``None`` ohne Messung.
+
+    Returns:
+        Ob die Erwartung eingetroffen ist, und in welche Richtung sie sonst
+        danebenlag.
+    """
+    if recall is None:
+        return (None, "")
+    if spiegelung is Spiegelung.JA:
+        return (True, "") if recall >= _SPIEGELUNGSSCHWELLE else (False, _UEBERSCHAETZT)
+    if spiegelung is Spiegelung.NEIN:
+        return (True, "") if recall < _SPIEGELUNGSSCHWELLE else (False, _UNTERSCHAETZT)
+    if 0.0 < recall < 1.0:
+        return (True, "")
+    return (False, _UNTERSCHAETZT if recall >= 1.0 else _UEBERSCHAETZT)
 
 
 def t5_frameworkvergleich(pfad: Path) -> pd.DataFrame:
@@ -954,12 +1175,44 @@ def schreibe_tabelle(tabelle: pd.DataFrame, verzeichnis: Path, name: str) -> tup
     if "lesehinweis" in tabelle.attrs:
         kopf += [f"> {tabelle.attrs['lesehinweis']}", ""]
     if "regeln_ohne_meldung" in tabelle.attrs:
+        ueberdeckung = tabelle.attrs["ueberdeckung"]
+        nicht_pruefbar = tabelle.attrs["nicht_pruefbar"]
         kopf += [
             (
                 f"> Von {tabelle.attrs['regeln_gesamt']} Regeln des Katalogs haben "
                 f"{tabelle.attrs['regeln_ohne_meldung']} in keinem Lauf gemeldet. Sie bleiben "
-                "in der Tabelle: Eine Regel ohne Treffer ist Ueberdeckung des Katalogs "
-                "gegenueber der Fehlertaxonomie und damit ein Ergebnis."
+                "in der Tabelle, und ihr Grund steht in der Spalte `grund_ohne_treffer` — "
+                "die beiden moeglichen Gruende sind **zwei verschiedene Aussagen**."
+            ),
+            ">",
+            (
+                f"> **Ueberdeckung ({len(ueberdeckung)}): {ueberdeckung}** — keine "
+                "Injektionsvariante zielt darauf, ihre Felder wurden in der Serie aber "
+                "verfaelscht, ohne die Bedingung zu verletzen. Der Katalog deckt mehr ab, "
+                "als die Fehlertaxonomie adressiert. Das ist ein Ergebnis."
+            ),
+            ">",
+            (
+                f"> **In diesem Aufbau nicht pruefbar ({len(nicht_pruefbar)}): "
+                f"{nicht_pruefbar}** — die Felder dieser Regeln werden von keiner "
+                "Injektion getroffen. Ueber sie sagt die Serie nichts. Das ist eine "
+                "Limitation."
+            ),
+            "",
+        ]
+    if "vorab_eingetroffen" in tabelle.attrs:
+        kopf += [
+            (
+                f"> **Trefferquote der Vorab-Zuordnung: {tabelle.attrs['vorab_eingetroffen']} "
+                f"von {tabelle.attrs['vorab_geprueft']}.** Die Spalte "
+                "`spiegelt_regel_exakt` stammt aus `spec/03`, Abschnitt 2 und wurde "
+                "**vor** der Messung festgelegt; sie ist damit eine falsifizierbare "
+                "Erwartung. Ueberschaetzt wurde bei "
+                f"{tabelle.attrs['vorab_ueberschaetzt']} (eine greifende Regel erwartet, "
+                "Variante bleibt trotzdem unentdeckt), unterschaetzt bei "
+                f"{tabelle.attrs['vorab_unterschaetzt']} (keine Regel erwartet, Variante "
+                "wird trotzdem gefunden). Geprueft wird gegen einen Recall von 0,5; bei "
+                "der Einstufung 'teilweise' gegen einen Wert echt zwischen 0 und 1."
             ),
             "",
         ]
@@ -972,7 +1225,11 @@ def schreibe_tabelle(tabelle: pd.DataFrame, verzeichnis: Path, name: str) -> tup
 
 
 def baue_alle(
-    lang: pd.DataFrame, plan: Versuchsplan, *, frameworkvergleich: Path
+    lang: pd.DataFrame,
+    plan: Versuchsplan,
+    *,
+    frameworkvergleich: Path,
+    injizierte_spalten: AbstractSet[tuple[str, str]],
 ) -> dict[str, pd.DataFrame]:
     """Baut alle zehn Ergebnistabellen.
 
@@ -980,6 +1237,9 @@ def baue_alle(
         lang: Das Langformat.
         plan: Der Versuchsplan.
         frameworkvergleich: Pfad von ``results/framework_vergleich.json``.
+        injizierte_spalten: Alle in der Serie verfaelschten ``(entitaet,
+            spalte)``-Paare; sie unterscheiden in ``t3`` Ueberdeckung von
+            Nichtpruefbarkeit.
 
     Returns:
         Je Tabellenname die Tabelle, in Berichtsreihenfolge.
@@ -987,7 +1247,9 @@ def baue_alle(
     return {
         "t1_hauptergebnis": t1_hauptergebnis(lang, plan),
         "t2_fehlerraten": t2_fehlerraten(lang, plan),
-        "t3_regeldiagnose": t3_regeldiagnose(lang, plan),
+        "t3_regeldiagnose": t3_regeldiagnose(
+            lang, plan, injizierte_spalten=injizierte_spalten
+        ),
         "t4_varianten": t4_varianten(lang, plan),
         "t5_frameworkvergleich": t5_frameworkvergleich(frameworkvergleich),
         "t6_laufzeit": t6_laufzeit(lang, plan),

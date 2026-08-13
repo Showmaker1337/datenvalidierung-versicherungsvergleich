@@ -648,6 +648,18 @@ def spearman(x: Sequence[float], y: Sequence[float]) -> Testergebnis:
         x: Erste Reihe, zum Beispiel die Fehlerrate.
         y: Zweite Reihe, zum Beispiel die Precision.
 
+    Ist eine der beiden Reihen **konstant**, ist die Korrelation nicht definiert:
+    Eine Reihe ohne Streuung kann mit nichts kovariieren. Der Fall ist kein
+    Randfall, sondern der Erwartungsfall auf der Constraint-Ebene, wo die
+    Precision mehrerer Klassen ueber alle Ratenstufen exakt 1,000 betraegt. Statt
+    einer erfundenen Null gibt es dort ``effekt = None`` und einen Hinweis — eine
+    Null liesse sich als "gemessen, kein Zusammenhang" lesen, und das waere etwas
+    anderes als "nicht messbar".
+
+    Args:
+        x: Erste Reihe, zum Beispiel die Fehlerrate.
+        y: Zweite Reihe, zum Beispiel die Precision.
+
     Returns:
         Das Testergebnis; die Statistik **ist** die Effektstaerke ``rho``.
 
@@ -661,6 +673,26 @@ def spearman(x: Sequence[float], y: Sequence[float]) -> Testergebnis:
     if erste.size != zweite.size:
         raise AuswertungsFehler(
             f"Die Reihen muessen gleich lang sein, waren {erste.size} und {zweite.size}."
+        )
+    konstant = [
+        name
+        for name, reihe in (("x", erste), ("y", zweite))
+        if float(reihe.max() - reihe.min()) == 0.0
+    ]
+    if konstant:
+        return Testergebnis(
+            test="Spearman-Rangkorrelation",
+            statistik=float("nan"),
+            p_wert=1.0,
+            effekt=None,
+            effektmass="Spearmans rho",
+            n=erste.size,
+            seitig="zweiseitig",
+            hinweis=(
+                f"Nicht definiert: Die Reihe {konstant} ist konstant. Eine Reihe ohne "
+                "Streuung kann mit nichts kovariieren; eine Null waere hier eine Messung "
+                "vorgetaeuscht, die es nicht gibt."
+            ),
         )
     ergebnis = spearmanr(erste, zweite)
     return Testergebnis(

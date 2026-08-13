@@ -98,6 +98,14 @@ def test_jede_hypothese_traegt_test_p_effekt_und_entscheidung(
         for familie in hypothese["familien"]:
             assert familie["vergleiche"], hypothese["kennung"]
             for vergleich in familie["vergleiche"]:
+                if not vergleich["anwendbar"]:
+                    # Ein nicht durchgefuehrter Vergleich traegt keinen p-Wert,
+                    # sondern eine Begruendung. Eine Null stuende hier fuer ein
+                    # Ergebnis, das es nicht gibt.
+                    assert vergleich["grund"], (hypothese["kennung"], vergleich["gruppe"])
+                    assert vergleich["p_korrigiert"] is None
+                    assert "test" not in vergleich
+                    continue
                 assert vergleich["test"]
                 assert vergleich["p_wert"] is not None
                 assert vergleich["p_korrigiert"] is not None
@@ -123,10 +131,106 @@ def test_die_vier_hypothesen_nutzen_vier_verschiedene_verfahren(
         vergleich["test"] == "Wilcoxon-Vorzeichen-Rangtest"
         for familie in je_kennung["HYP1"]["familien"]
         for vergleich in familie["vergleiche"]
+        if vergleich["anwendbar"]
     )
     assert je_kennung["HYP2"]["primaertest"]["test"] == "Friedman-Test"
     assert je_kennung["HYP3"]["primaertest"]["test"] == "Page-Trendtest"
     assert "ART-ANOVA" in je_kennung["HYP4"]["primaertest"]["test"]
+
+
+def test_holm_familie_zaehlt_nur_durchgefuehrte_vergleiche(
+    ausgewertet: tuple[Path, Path],
+) -> None:
+    """Die Familiengroesse passt zur Zahl der berichteten p-Werte.
+
+    Eine Familiengroesse, die nicht zur Zahl der durchgefuehrten Tests passt,
+    korrigiert gegen Tests, die es nicht gibt — und faellt in einem Kolloquium
+    sofort auf.
+    """
+    fach_config, _ = ausgewertet
+    ergebnisse = lade_config(fach_config).pfade.results
+    inhalt = json.loads((ergebnisse / "hypothesen.json").read_text(encoding="utf-8"))
+    for hypothese in inhalt["hypothesen"]:
+        for familie in hypothese["familien"]:
+            mit_p_wert = [
+                vergleich
+                for vergleich in familie["vergleiche"]
+                if vergleich["p_korrigiert"] is not None
+            ]
+            assert familie["vergleiche_in_der_familie"] == len(mit_p_wert), familie["kennung"]
+            assert familie["berichtete_zeilen"] == len(familie["vergleiche"])
+            assert familie["nicht_anwendbar"] == len(familie["vergleiche"]) - len(mit_p_wert)
+
+
+def test_hyp3_und_hyp4_tragen_beide_metrikebenen(ausgewertet: tuple[Path, Path]) -> None:
+    """HYP3 rechnet auf beiden Precision-Sichten, HYP4 auf beiden Ebenen.
+
+    Ein Effekt, der auf der einen Ebene besteht und auf der anderen verschwindet,
+    ist ein Effekt der Berichtskonvention und keiner des Verfahrens. Ohne den
+    zweiten Test liesse sich das nicht unterscheiden.
+    """
+    fach_config, _ = ausgewertet
+    ergebnisse = lade_config(fach_config).pfade.results
+    inhalt = json.loads((ergebnisse / "hypothesen.json").read_text(encoding="utf-8"))
+    je_kennung = {eintrag["kennung"]: eintrag for eintrag in inhalt["hypothesen"]}
+
+    assert [n["bezeichnung"] for n in je_kennung["HYP3"]["nebentests"]] == ["Constraint-Ebene"]
+    assert {f["kennung"] for f in je_kennung["HYP3"]["familien"]} == {
+        "HYP3-Trend-Zelle",
+        "HYP3-Trend-Constraint",
+    }
+
+    assert [n["bezeichnung"] for n in je_kennung["HYP4"]["nebentests"]] == ["Zellebene"]
+    assert {f["kennung"] for f in je_kennung["HYP4"]["familien"]} == {
+        "HYP4-paarweise-Satz",
+        "HYP4-paarweise-Zelle",
+    }
+    # Die Satzebene ist die Primaerebene des B2-Vergleichs (Phase 5).
+    assert "Satzebene" in je_kennung["HYP4"]["begruendung"]
+
+
+def test_stumme_regeln_tragen_ihren_grund(ausgewertet: tuple[Path, Path]) -> None:
+    """Eine Regel ohne Treffer wird nach Ueberdeckung und Nichtpruefbarkeit getrennt.
+
+    Beides sind verschiedene Aussagen: Die erste ist ein Ergebnis ueber das
+    Verhaeltnis von Katalog und Fehlertaxonomie, die zweite eine Limitation des
+    Aufbaus. Sie in einer Zahl zusammenzufassen waere der haeufigste Fehler bei
+    dieser Kennzahl.
+    """
+    import pandas as pd  # noqa: PLC0415 - nur fuer diesen Test gebraucht
+
+    fach_config, _ = ausgewertet
+    pfad = lade_config(fach_config).pfade.results / "tables" / "t3_regeldiagnose.csv"
+    tabelle = pd.read_csv(pfad)
+    stumm = tabelle[tabelle["ohne_treffer"]]
+    assert not stumm.empty, "Kein stummer Eintrag — dann prueft dieser Test nichts"
+    assert stumm["grund_ohne_treffer"].str.len().gt(0).all()
+    assert tabelle.loc[~tabelle["ohne_treffer"], "grund_ohne_treffer"].isna().all()
+    for spalte in ("zielt_eine_variante_darauf", "felder_wurden_verfaelscht"):
+        assert tabelle[spalte].isin([True, False]).all(), spalte
+
+
+def test_variantentabelle_beziffert_die_vorab_trefferquote(
+    ausgewertet: tuple[Path, Path],
+) -> None:
+    """Die Vorabeinstufung aus ``spec/03`` wird gegen die Messung geprueft.
+
+    Sie wurde vor der Messung festgelegt und ist damit falsifizierbar. Ihre
+    Trefferquote ist eine Guetezahl der Methode; die **Richtung** einer Abweichung
+    sagt zwei verschiedene Dinge und wird deshalb mitgefuehrt.
+    """
+    import pandas as pd  # noqa: PLC0415 - nur fuer diesen Test gebraucht
+
+    fach_config, _ = ausgewertet
+    pfad = lade_config(fach_config).pfade.results / "tables" / "t4_varianten.csv"
+    tabelle = pd.read_csv(pfad)
+    geprueft = tabelle[tabelle["n"] > 0]
+    assert not geprueft.empty
+    assert geprueft["erwartung_eingetroffen"].isin([True, False]).all()
+    abweichend = geprueft[geprueft["erwartung_eingetroffen"] == False]  # noqa: E712
+    assert abweichend["abweichungsrichtung"].isin(["ueberschaetzt", "unterschaetzt"]).all()
+    erfuellt = geprueft[geprueft["erwartung_eingetroffen"] == True]  # noqa: E712
+    assert erfuellt["abweichungsrichtung"].fillna("").eq("").all()
 
 
 def test_alle_zehn_tabellen_entstehen(ausgewertet: tuple[Path, Path]) -> None:

@@ -610,7 +610,9 @@ def _zeige_plan(plan: Versuchsplan, alle: Sequence[Lauf], offen: Sequence[Lauf])
             f"  {block.kennung:<8}{block.design:<8}{block.anzahl_laeufe:>8}"
             f"{block.zellen:>8}  {block.titel}"
         )
-    print(f"\n  Laeufe im gewaehlten Plan: {len(alle)}")
+    auswertungen = sum(block.anzahl_laeufe * len(block.verfahren) for block in plan.bloecke)
+    print(f"\n  Injektionslaeufe im Plan:  {len(alle)}")
+    print(f"  Verfahrensauswertungen:    {auswertungen} (ein Lauf, alle seine Verfahren)")
     print(f"  davon offen:               {len(offen)}")
     print(f"  davon bereits fertig:      {len(alle) - len(offen)}")
 

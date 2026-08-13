@@ -43,20 +43,44 @@ Aggregationsebene und Familien
 Vorab festgelegt: **ueber die Fehlerraten aggregieren, je Klasse testen**. Damit
 ergibt sich je Hypothese die Zahl der Vergleiche, und sie wird ausgewiesen:
 
-======  ==========================================  ===========
-HYP     Familie                                     Vergleiche
-======  ==========================================  ===========
-HYP1    Recall Prototyp gegen B0, je Klasse                   7
-HYP1    Precision Prototyp gegen B0, je Klasse                7
-HYP2    paarweise Klassenvergleiche                          21
-HYP3    Trend je Klasse                                       7
-HYP4    Prototyp gegen B2, je Klasse                          7
-======  ==========================================  ===========
+=============================  ==================================  ============
+Familie                        Vergleicht                          Hoechstens
+=============================  ==================================  ============
+HYP1-Recall                    Prototyp gegen B0, je Klasse                   7
+HYP1-Precision                 Prototyp gegen B0, je Klasse                   7
+HYP2-paarweise                 Klasse gegen Klasse                           21
+HYP3-Trend-Zelle               Trend je Klasse, Zellebene                     7
+HYP3-Trend-Constraint          Trend je Klasse, Constraint-Ebene              7
+HYP4-paarweise-Satz            Prototyp gegen B2, Satzebene                   7
+HYP4-paarweise-Zelle           Prototyp gegen B2, Zellebene                   7
+=============================  ==================================  ============
+
+"Hoechstens", weil die tatsaechliche Familiengroesse kleiner sein kann: Ein
+Vergleich, der inhaltlich nicht durchfuehrbar ist, zaehlt **nicht** mit. So bei
+HYP1-Precision — in den Klassen, in denen B0 gar nichts meldet, ist seine
+Precision eine Konvention und keine Messung, und ein Vergleich dagegen prueft
+nichts. Die Korrektur laeuft dort ueber die verbleibenden Vergleiche, und die
+Familiengroesse steht in jeder Ausgabe neben der Zahl der berichteten Zeilen.
+Eine Familiengroesse, die nicht zur Zahl der durchgefuehrten Tests passt,
+korrigiert gegen Tests, die es nicht gibt.
 
 Die beiden Familien von HYP1 werden **getrennt** korrigiert. Sie pruefen
-verschiedene Kennzahlen, und eine gemeinsame Korrektur ueber vierzehn Vergleiche
+verschiedene Kennzahlen, und eine gemeinsame Korrektur ueber alle Vergleiche
 waere unnoetig streng: Die Precision-Familie dient der Absicherung, nicht der
 Bestaetigung.
+
+Zwei Hypothesen werden auf **zwei Metrikebenen** gerechnet
+-----------------------------------------------------------
+
+HYP3 auf der Zell- **und** der Constraint-Precision: Auf der Zellebene erzeugt
+jede Injektion ueber mehrspaltige Regeln zusaetzliche Scheinfehlalarme, deren
+Zahl mit der Injektionszahl waechst. Ein Trend, der nur dort besteht, ist ein
+Effekt der Berichtskonvention und keiner des Verfahrens.
+
+HYP4 auf der Satz- **und** der Zellebene, mit der Satzebene als Primaerebene (so
+in Phase 5 festgelegt): B2 markiert ganze Zeilen, und die Umrechnung auf Zellen
+deckelt seine Zell-Precision auf etwa den Kehrwert der Spaltenzahl. Ein
+Zellvergleich maesse dort zu einem grossen Teil die Umrechnung.
 """
 
 from __future__ import annotations
@@ -82,7 +106,7 @@ from src.evaluation.statistik import (
 )
 
 if TYPE_CHECKING:  # pragma: no cover - nur fuer die Typpruefung
-    from collections.abc import Sequence
+    from collections.abc import Mapping, Sequence
 
     import pandas as pd
 
@@ -105,6 +129,13 @@ _B2: Final[str] = "B2"
 #: Kennung des Hauptversuchs im Langformat.
 _HAUPT: Final[str] = "haupt"
 
+#: Begruendung fuer einen Precision-Vergleich, den B0 nicht zulaesst.
+_GRUND_OHNE_MELDUNG: Final[str] = (
+    "B0 meldet in dieser Klasse keine einzige Zelle. Seine Precision ist "
+    "konventionsgemaess 0,0 — das ist eine Festlegung und keine Messung, und ein "
+    "Vergleich dagegen prueft nichts."
+)
+
 #: Unterhalb dieser Schwelle wird ein p-Wert nicht mehr beziffert.
 #:
 #: Drei Nachkommastellen sind die Genauigkeit, die in der Arbeit berichtet wird;
@@ -119,15 +150,26 @@ class Vergleich:
 
     Attributes:
         gruppe: Worauf sich der Vergleich bezieht, meist eine Fehlerklasse.
-        test: Das Testergebnis mit unkorrigiertem p-Wert und Effektstaerke.
-        p_korrigiert: Der nach Holm-Bonferroni korrigierte p-Wert.
+        test: Das Testergebnis mit unkorrigiertem p-Wert und Effektstaerke;
+            ``None``, wenn der Vergleich gar nicht durchgefuehrt wurde.
+        p_korrigiert: Der nach Holm-Bonferroni korrigierte p-Wert; ``None`` bei
+            einem nicht anwendbaren Vergleich.
         signifikant: Ob ``p_korrigiert`` das Niveau unterschreitet.
+        anwendbar: ``False``, wenn der Vergleich inhaltlich nicht durchfuehrbar
+            ist — etwa weil das Vergleichsverfahren in dieser Klasse gar nichts
+            meldet und seine Precision damit eine Konvention ist und keine
+            Messung. Solche Vergleiche zaehlen **nicht** zur Holm-Familie: Eine
+            Familiengroesse, die nicht zur Zahl der durchgefuehrten Tests passt,
+            korrigiert gegen Tests, die es nicht gibt.
+        grund: Klartext, warum ein Vergleich nicht anwendbar ist.
     """
 
     gruppe: str
-    test: Testergebnis
-    p_korrigiert: float
+    test: Testergebnis | None
+    p_korrigiert: float | None
     signifikant: bool
+    anwendbar: bool = True
+    grund: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -148,8 +190,23 @@ class Familie:
 
     @property
     def anzahl(self) -> int:
-        """Gibt die Zahl der Vergleiche zurueck — die Groesse der Familie."""
+        """Gibt die Groesse der Holm-Familie zurueck: die anwendbaren Vergleiche.
+
+        **Nicht** die Zahl der berichteten Zeilen. Nicht anwendbare Vergleiche
+        wurden nicht durchgefuehrt und duerfen deshalb nicht mitkorrigiert
+        werden; sie stehen in der Tabelle, damit ihr Fehlen erklaert ist.
+        """
+        return sum(1 for vergleich in self.vergleiche if vergleich.anwendbar)
+
+    @property
+    def berichtet(self) -> int:
+        """Gibt die Zahl aller Zeilen der Familie zurueck, anwendbar oder nicht."""
         return len(self.vergleiche)
+
+    @property
+    def nicht_anwendbar(self) -> int:
+        """Gibt die Zahl der nicht durchgefuehrten Vergleiche zurueck."""
+        return sum(1 for vergleich in self.vergleiche if not vergleich.anwendbar)
 
     @property
     def signifikante(self) -> int:
@@ -167,6 +224,11 @@ class Hypothesenergebnis:
         primaertest: Der Test, der ueber die Hypothese entscheidet; ``None``,
             wenn die Entscheidung aus den Familien folgt.
         familien: Die Vergleichsfamilien.
+        nebentests: Derselbe Test auf einer **anderen** Metrikebene, je mit
+            seiner Bezeichnung. Kein Zusatzmaterial, sondern Teil der Aussage:
+            Ein Effekt, der auf der Zellebene besteht und auf der
+            Constraint-Ebene verschwindet, ist ein Effekt der Berichtskonvention
+            und keiner des Verfahrens.
         entscheidung: ``"gestuetzt"``, ``"nicht gestuetzt"`` oder
             ``"teilweise gestuetzt"``.
         begruendung: Ein Satz, warum die Entscheidung so ausfaellt.
@@ -179,6 +241,7 @@ class Hypothesenergebnis:
     familien: tuple[Familie, ...]
     entscheidung: str
     begruendung: str
+    nebentests: tuple[tuple[str, Testergebnis], ...] = ()
     hinweise: tuple[str, ...] = ()
 
 
@@ -224,15 +287,22 @@ def _reihe(  # noqa: PLR0913 - jede Angabe waehlt eine eigene Dimension des Lang
     return [float(wert) for wert in mittel_je_wiederholung(gefiltert)]
 
 
-def _familie(
+def _familie(  # noqa: PLR0913 - jede Angabe beschreibt einen eigenen Aspekt der Familie
     kennung: str,
     beschreibung: str,
     kennzahl: str,
     ergebnisse: Sequence[tuple[str, Testergebnis]],
     *,
     alpha: float,
+    nicht_anwendbar: Mapping[str, str] | None = None,
 ) -> Familie:
     """Korrigiert eine Folge von Einzeltests nach Holm und baut die Familie.
+
+    Die Holm-Korrektur laeuft **nur ueber die anwendbaren** Vergleiche. Ein
+    Vergleich, der gar nicht durchgefuehrt wurde, darf die Familiengroesse nicht
+    erhoehen: Die Korrektur wuerde sonst gegen Tests schuetzen, die es nicht
+    gibt, und die berichtete Familiengroesse passte nicht zur Zahl der
+    berichteten p-Werte. Beides faellt in einem Kolloquium auf.
 
     Args:
         kennung: Kurzname der Familie.
@@ -240,24 +310,44 @@ def _familie(
         kennzahl: Die verglichene Kennzahl.
         ergebnisse: Je Gruppe ihr Testergebnis, in Berichtsreihenfolge.
         alpha: Signifikanzniveau.
+        nicht_anwendbar: Je nicht anwendbarer Gruppe der Grund. Diese Gruppen
+            erscheinen in der Familie, aber ohne Test und ohne p-Wert.
 
     Returns:
         Die Familie mit korrigierten p-Werten.
     """
-    korrigiert = holm([test.p_wert for _, test in ergebnisse])
+    ausgenommen = dict(nicht_anwendbar or {})
+    anwendbare = [(gruppe, test) for gruppe, test in ergebnisse if gruppe not in ausgenommen]
+    korrigiert = dict(
+        zip(
+            [gruppe for gruppe, _ in anwendbare],
+            holm([test.p_wert for _, test in anwendbare]),
+            strict=True,
+        )
+    )
+    vergleiche = []
+    for gruppe, test in ergebnisse:
+        if gruppe in ausgenommen:
+            vergleiche.append(
+                Vergleich(
+                    gruppe=gruppe,
+                    test=None,
+                    p_korrigiert=None,
+                    signifikant=False,
+                    anwendbar=False,
+                    grund=ausgenommen[gruppe],
+                )
+            )
+            continue
+        wert = korrigiert[gruppe]
+        vergleiche.append(
+            Vergleich(gruppe=gruppe, test=test, p_korrigiert=wert, signifikant=wert < alpha)
+        )
     return Familie(
         kennung=kennung,
         beschreibung=beschreibung,
         kennzahl=kennzahl,
-        vergleiche=tuple(
-            Vergleich(
-                gruppe=gruppe,
-                test=test,
-                p_korrigiert=wert,
-                signifikant=wert < alpha,
-            )
-            for (gruppe, test), wert in zip(ergebnisse, korrigiert, strict=True)
-        ),
+        vergleiche=tuple(vergleiche),
     )
 
 
@@ -340,6 +430,7 @@ def pruefe_hyp1(lang: pd.DataFrame, plan: Versuchsplan) -> Hypothesenergebnis:
         b0_p = _reihe(lang, metrik="precision", verfahren=_B0, klasse=klasse)
         precision.append((klasse, wilcoxon_gepaart(proto_p, b0_p, seitig="zweiseitig")))
 
+    ohne_meldung = _klassen_ohne_meldung(lang, verfahren=_B0, klassen=klassen)
     familie_recall = _familie(
         "HYP1-Recall",
         "Recall des Prototyps gegen B0, je Fehlerklasse, einseitig",
@@ -353,13 +444,15 @@ def pruefe_hyp1(lang: pd.DataFrame, plan: Versuchsplan) -> Hypothesenergebnis:
         "precision",
         precision,
         alpha=alpha,
+        nicht_anwendbar=dict.fromkeys(ohne_meldung, _GRUND_OHNE_MELDUNG),
     )
 
-    ohne_meldung = _klassen_ohne_meldung(lang, verfahren=_B0, klassen=klassen)
     gefallen = [
         vergleich.gruppe
         for vergleich in familie_precision.vergleiche
-        if vergleich.signifikant and (vergleich.test.effekt or 0.0) < 0
+        if vergleich.signifikant
+        and vergleich.test is not None
+        and (vergleich.test.effekt or 0.0) < 0
     ]
     erfuellt = [
         vergleich.gruppe
@@ -383,13 +476,18 @@ def pruefe_hyp1(lang: pd.DataFrame, plan: Versuchsplan) -> Hypothesenergebnis:
         familien=(familie_recall, familie_precision),
         entscheidung=entscheidung,
         begruendung=(
-            f"In {len(erfuellt)} von {len(klassen)} Fehlerklassen ist der Recall des "
-            f"Prototyps signifikant hoeher und die Precision nicht signifikant niedriger. "
+            f"Der Recall ist in {familie_recall.signifikante} von {familie_recall.anzahl} "
+            "Fehlerklassen signifikant hoeher. Die Precision-Bedingung ist nur in "
+            f"{familie_precision.anzahl} Klassen ueberhaupt pruefbar — in "
+            f"{list(ohne_meldung)} meldet B0 nichts. "
             + (
-                f"Signifikant gefallen ist die Precision bei: {gefallen}."
+                f"In {len(gefallen)} der {familie_precision.anzahl} pruefbaren Klassen "
+                f"faellt die Precision signifikant: {gefallen}."
                 if gefallen
-                else "In keiner Klasse faellt die Precision signifikant."
+                else "In keiner pruefbaren Klasse faellt die Precision signifikant."
             )
+            + f" Beide Bedingungen zusammen erfuellen {len(erfuellt)} von {len(klassen)} "
+            "Klassen."
         ),
         hinweise=(
             (
@@ -399,7 +497,7 @@ def pruefe_hyp1(lang: pd.DataFrame, plan: Versuchsplan) -> Hypothesenergebnis:
             ),
             (
                 "Die beiden Familien werden getrennt nach Holm korrigiert; eine gemeinsame "
-                "Korrektur ueber 14 Vergleiche waere unnoetig streng, weil die "
+                "Korrektur ueber alle Vergleiche waere unnoetig streng, weil die "
                 "Precision-Familie der Absicherung dient und nicht der Bestaetigung."
             ),
             _hinweis_ohne_meldung(ohne_meldung),
@@ -502,10 +600,26 @@ def pruefe_hyp2(lang: pd.DataFrame, plan: Versuchsplan) -> Hypothesenergebnis:
 def pruefe_hyp3(lang: pd.DataFrame, plan: Versuchsplan) -> Hypothesenergebnis:
     """Prueft HYP3: Die Precision steigt mit der Fehlerrate (Praevalenzeffekt).
 
+    Gerechnet wird auf **beiden** Metrikebenen, und das ist keine Zugabe, sondern
+    der Kern der Aussage.
+
+    Auf der **Zellebene** erzeugt jede Injektion ueber mehrspaltige Regeln
+    zusaetzliche Zellmeldungen: Eine Regel meldet alle an einem Verstoss
+    beteiligten Felder, verfaelscht wurde aber nur eines. Die Zahl dieser
+    Scheinfehlalarme waechst mit der Zahl der Injektionen — die Precision steigt
+    dadurch **kaum**, obwohl sie es bei konstanter Fehlalarmzahl deutlich
+    muesste. Ein gemessener Trend auf dieser Ebene kann damit ebenso gut die
+    Berichtskonvention abbilden wie einen Praevalenzeffekt des Verfahrens.
+
+    Auf der **Constraint-Ebene** ist die Einheit der gemeldete Verstoss statt der
+    Zelle; die mehrspaltige Meldung zaehlt dort einmal. Bleibt der Trend hier
+    bestehen, ist er ein Effekt des Verfahrens. Verschwindet er, war er einer der
+    Konvention. Beide Ergebnisse stehen deshalb nebeneinander.
+
     Primaertest ist ein Page-Trendtest ueber **alle** Bloecke: Ein Block ist ein
-    Paar aus Fehlerklasse und Wiederholung, die vier Ratenstufen bilden die
-    geordneten Spalten. Ein Wilcoxon-Test waere hier falsch — er verglicht zwei
-    Stufen und liesse die Ordnung ungenutzt.
+    Paar aus Fehlerklasse und Wiederholung, die Ratenstufen bilden die geordneten
+    Spalten. Ein Wilcoxon-Test waere hier falsch — er verglicht zwei Stufen ohne
+    Ordnung.
 
     Args:
         lang: Das Langformat.
@@ -521,95 +635,187 @@ def pruefe_hyp3(lang: pd.DataFrame, plan: Versuchsplan) -> Hypothesenergebnis:
     klassen = _klassen(plan)
     raten = sorted(plan.hauptversuch.raten)
 
-    gepoolt: list[list[float]] = []
-    je_klasse_tests: list[tuple[str, Testergebnis]] = []
-    rate_werte: list[float] = []
-    precision_werte: list[float] = []
-
-    for klasse in klassen:
-        spalten: list[list[float]] = []
-        for rate in raten:
-            gefiltert = auswahl(
-                lang,
-                metrik="precision",
-                verfahren=_PROTOTYP,
-                ebene=Ebene.ZELLE,
-                gruppe_art=GRUPPE_GESAMT,
-                klasse=klasse,
-                fehlerrate=rate,
-                teilversuch=_HAUPT,
+    je_ebene: dict[Ebene, tuple[Testergebnis, Testergebnis, list[tuple[str, Testergebnis]]]] = {}
+    for ebene in (Ebene.ZELLE, Ebene.CONSTRAINT):
+        gepoolt: list[list[float]] = []
+        einzeln: list[tuple[str, Testergebnis]] = []
+        rate_werte: list[float] = []
+        precision_werte: list[float] = []
+        for klasse in klassen:
+            bloecke = _bloecke_ueber_raten(
+                lang, klasse=klasse, raten=raten, ebene=ebene, rate_werte=rate_werte,
+                precision_werte=precision_werte,
             )
-            werte = [float(wert) for wert in mittel_je_wiederholung(gefiltert)]
-            spalten.append(werte)
-            rate_werte.extend([rate] * len(werte))
-            precision_werte.extend(werte)
-        laengen = {len(spalte) for spalte in spalten}
-        if len(laengen) != 1:
-            raise AuswertungsFehler(
-                f"Klasse {klasse}: Die Ratenstufen haben verschieden viele Wiederholungen "
-                f"({laengen}); der Page-Trendtest setzt vollstaendige Bloecke voraus."
-            )
-        bloecke = [
-            [spalten[stufe][block] for stufe in range(len(raten))]
-            for block in range(next(iter(laengen)))
-        ]
-        gepoolt.extend(bloecke)
-        je_klasse_tests.append((klasse, page_trend(bloecke)))
+            gepoolt.extend(bloecke)
+            einzeln.append((klasse, page_trend(bloecke)))
+        je_ebene[ebene] = (
+            page_trend(gepoolt),
+            spearman(rate_werte, precision_werte),
+            einzeln,
+        )
 
-    primaer = page_trend(gepoolt)
-    korrelation = spearman(rate_werte, precision_werte)
-    familie = _familie(
-        "HYP3-Trend",
-        "Page-Trendtest der Precision ueber die geordneten Ratenstufen, je Klasse",
-        "precision",
-        je_klasse_tests,
-        alpha=alpha,
+    primaer, korrelation, einzeln_zelle = je_ebene[Ebene.ZELLE]
+    constraint, korrelation_constraint, einzeln_constraint = je_ebene[Ebene.CONSTRAINT]
+
+    familien = (
+        _familie(
+            "HYP3-Trend-Zelle",
+            "Page-Trendtest der Zell-Precision ueber die geordneten Ratenstufen, je Klasse",
+            "precision (Zellebene)",
+            einzeln_zelle,
+            alpha=alpha,
+        ),
+        _familie(
+            "HYP3-Trend-Constraint",
+            "Page-Trendtest der Constraint-Precision ueber die geordneten Ratenstufen, "
+            "je Klasse",
+            "precision (Constraint-Ebene)",
+            einzeln_constraint,
+            alpha=alpha,
+        ),
     )
+
+    auf_zelle = primaer.p_wert < alpha
+    auf_constraint = constraint.p_wert < alpha
+    if auf_zelle and auf_constraint:
+        entscheidung = "gestuetzt"
+        deutung = (
+            "Der Trend besteht auf beiden Metrikebenen. Er ist damit ein Effekt des "
+            "Verfahrens und nicht der Berichtskonvention."
+        )
+    elif auf_zelle:
+        entscheidung = "teilweise gestuetzt"
+        deutung = (
+            "Der Trend besteht auf der Zellebene und **nicht** auf der Constraint-Ebene. "
+            "Damit ist er kein Praevalenzeffekt des Verfahrens, sondern ein Effekt der "
+            "Berichtskonvention: Auf der Zellebene erzeugt jede Injektion ueber "
+            "mehrspaltige Regeln zusaetzliche Scheinfehlalarme, deren Zahl mit der "
+            "Injektionszahl waechst. Auf der Constraint-Ebene, wo dieselbe Meldung einmal "
+            "zaehlt, verschwindet er. Das ist eine praezisere Antwort als ein kleines rho."
+        )
+    else:
+        entscheidung = "nicht gestuetzt"
+        deutung = "Auf keiner der beiden Metrikebenen besteht ein signifikanter Trend."
+
     return Hypothesenergebnis(
         kennung="HYP3",
         aussage="Die Precision steigt mit steigender Fehlerrate (Praevalenzeffekt).",
         primaertest=primaer,
-        familien=(familie,),
-        entscheidung="gestuetzt" if primaer.p_wert < alpha else "nicht gestuetzt",
+        nebentests=(("Constraint-Ebene", constraint),),
+        familien=familien,
+        entscheidung=entscheidung,
         begruendung=(
-            f"Page-Trendtest ueber {primaer.n} Bloecke (Klasse x Wiederholung) und "
-            f"{len(raten)} geordnete Ratenstufen: L = {primaer.statistik:.1f}, "
-            f"p = {primaer.p_wert:.3g}. Spearman ueber alle Beobachtungen: rho = "
-            f"{korrelation.statistik:.3f} (p = {korrelation.p_wert:.3g}). Einzeln "
-            f"signifikant sind {familie.signifikante} der {familie.anzahl} Klassen."
+            f"Zellebene: Page-Trendtest ueber {primaer.n} Bloecke (Klasse x Wiederholung) "
+            f"und {len(raten)} geordnete Ratenstufen, L = {primaer.statistik:.1f}, "
+            f"p = {primaer.p_wert:.3g}, Spearman rho = {_zahl(korrelation.effekt)}. "
+            f"Constraint-Ebene: L = {constraint.statistik:.1f}, p = {constraint.p_wert:.3g}, "
+            f"Spearman rho = {_zahl(korrelation_constraint.effekt)}. Einzeln signifikant "
+            f"sind {familien[0].signifikante} von {familien[0].anzahl} Klassen auf der "
+            f"Zellebene und {familien[1].signifikante} von {familien[1].anzahl} auf der "
+            f"Constraint-Ebene. {deutung}"
         ),
         hinweise=(
             (
+                "Wo die Constraint-Precision bereits 1,000 betraegt, kann kein "
+                "Praevalenzeffekt mehr entstehen — der Trend ist dort nicht klein, sondern "
+                "durch die Obergrenze ausgeschlossen. Das betrifft mehrere Klassen und ist "
+                "der Grund, die beiden Ebenen nebeneinanderzustellen statt nur die eine zu "
+                "berichten."
+            ),
+            (
                 "UV2 ist erst seit Phase 4b sauber testbar: Das Klassenkontingent wird "
-                "proportional zum Universum jeder Variante verteilt, die Variantenmischung ist "
-                "damit ueber alle Ratenstufen identisch. Vorher haette ein Trend ueber die "
-                "Ratenstufen teils die Rate gemessen und teils eine Verschiebung der "
-                "Variantenmischung; HYP3 ist erst dadurch eine Hypothese ueber die Fehlerrate "
-                "(docs/iteration_log.md, Phase 4, Befund 4)."
+                "proportional zum Universum jeder Variante verteilt, die Variantenmischung "
+                "ist damit ueber alle Ratenstufen identisch. Vorher haette ein Trend ueber "
+                "die Ratenstufen teils die Rate gemessen und teils eine Verschiebung der "
+                "Variantenmischung; HYP3 ist erst dadurch eine Hypothese ueber die "
+                "Fehlerrate (docs/iteration_log.md, Phase 4, Befund 4)."
             ),
             (
                 "Ein zweiter Confounder derselben Bauart wurde in Phase 5 gefunden und "
                 "beseitigt: Kohaerenz, die je Verfaelschung gegen den Ausgangszustand "
-                "hergestellt wird, bricht bei Ueberlagerung innerhalb derselben Bezugsgruppe "
-                "und waere als scheinbarer Sachtrend von HO2 ueber UV2 aufgetaucht "
-                "(docs/iteration_log.md, Befund 14)."
+                "hergestellt wird, bricht bei Ueberlagerung innerhalb derselben "
+                "Bezugsgruppe und waere als scheinbarer Sachtrend von HO2 ueber UV2 "
+                "aufgetaucht (docs/iteration_log.md, Befund 14)."
             ),
             (
-                "Ein Wilcoxon-Test waere hier das falsche Werkzeug: Er verglicht zwei Stufen "
-                "ohne Ordnung und liesse die Information ungenutzt, dass die Stufen "
+                "Ein Wilcoxon-Test waere hier das falsche Werkzeug: Er verglicht zwei "
+                "Stufen ohne Ordnung und liesse die Information ungenutzt, dass die Stufen "
                 "aufsteigend sind."
             ),
         ),
     )
 
 
+def _bloecke_ueber_raten(  # noqa: PLR0913 - jede Angabe waehlt eine Dimension
+    lang: pd.DataFrame,
+    *,
+    klasse: str,
+    raten: Sequence[float],
+    ebene: Ebene,
+    rate_werte: list[float],
+    precision_werte: list[float],
+) -> list[list[float]]:
+    """Baut die Bloecke einer Klasse ueber die geordneten Ratenstufen.
+
+    Args:
+        lang: Das Langformat.
+        klasse: Die Fehlerklasse.
+        raten: Die Ratenstufen in aufsteigender Reihenfolge.
+        ebene: Die Auswertungsebene.
+        rate_werte: Sammelliste der Raten fuer die Spearman-Korrelation.
+        precision_werte: Sammelliste der Werte fuer die Spearman-Korrelation.
+
+    Returns:
+        Je Wiederholung eine Zeile mit einem Wert je Ratenstufe.
+
+    Raises:
+        AuswertungsFehler: Wenn die Ratenstufen verschieden viele Wiederholungen
+            haben; der Page-Trendtest setzt vollstaendige Bloecke voraus.
+    """
+    spalten: list[list[float]] = []
+    for rate in raten:
+        gefiltert = auswahl(
+            lang,
+            metrik="precision",
+            verfahren=_PROTOTYP,
+            ebene=ebene,
+            gruppe_art=GRUPPE_GESAMT,
+            klasse=klasse,
+            fehlerrate=rate,
+            teilversuch=_HAUPT,
+        )
+        werte = [float(wert) for wert in mittel_je_wiederholung(gefiltert)]
+        spalten.append(werte)
+        rate_werte.extend([rate] * len(werte))
+        precision_werte.extend(werte)
+    laengen = {len(spalte) for spalte in spalten}
+    if len(laengen) != 1:
+        raise AuswertungsFehler(
+            f"Klasse {klasse}, Ebene {ebene.value}: Die Ratenstufen haben verschieden "
+            f"viele Wiederholungen ({laengen}); der Page-Trendtest setzt vollstaendige "
+            "Bloecke voraus."
+        )
+    return [
+        [spalten[stufe][block] for stufe in range(len(raten))]
+        for block in range(next(iter(laengen)))
+    ]
+
+
 def pruefe_hyp4(lang: pd.DataFrame, plan: Versuchsplan) -> Hypothesenergebnis:
     """Prueft HYP4: Der Unterschied zwischen Prototyp und B2 ist klassenabhaengig.
 
-    Das ist eine **Interaktionshypothese**, kein Mittelwertvergleich. Primaertest
-    ist deshalb eine ART-ANOVA (Aligned Rank Transform) auf dem F1-Wert mit den
-    Faktoren Verfahren und Fehlerklasse; die paarweisen Vergleiche je Klasse
-    stehen als Familie daneben und zeigen, **wo** der Unterschied liegt.
+    Primaerebene ist die **Satzebene**, so in Phase 5 festgelegt. Der Grund ist
+    nicht Geschmack: B2 markiert ganze Zeilen, und die Umrechnung "markierte
+    Zeile markiert alle ihre befuellten Zellen" deckelt seine Zell-Precision auf
+    etwa den Kehrwert der Spaltenzahl. Ein Zellvergleich maesse dort zu einem
+    grossen Teil die Umrechnung und nicht das Verfahren. Die Zellebene steht als
+    Nebentest daneben.
+
+    Das ist eine **Interaktions**hypothese, kein Mittelwertvergleich.
+    Primaertest ist deshalb eine ART-ANOVA (Aligned Rank Transform) auf dem
+    F1-Wert mit den Faktoren Verfahren und Fehlerklasse; die paarweisen
+    Vergleiche je Klasse stehen als Familie daneben und zeigen, **wo** der
+    Unterschied liegt.
 
     Args:
         lang: Das Langformat.
@@ -621,46 +827,52 @@ def pruefe_hyp4(lang: pd.DataFrame, plan: Versuchsplan) -> Hypothesenergebnis:
     alpha = plan.statistik.alpha
     klassen = _klassen(plan)
 
-    werte: list[float] = []
-    faktor_verfahren: list[str] = []
-    faktor_klasse: list[str] = []
-    paarweise: list[tuple[str, Testergebnis]] = []
+    ergebnisse: dict[Ebene, tuple[Testergebnis, Familie, list[str], list[str]]] = {}
+    for ebene, kennung in ((Ebene.SATZ, "Satz"), (Ebene.ZELLE, "Zelle")):
+        werte: list[float] = []
+        faktor_verfahren: list[str] = []
+        faktor_klasse: list[str] = []
+        paarweise: list[tuple[str, Testergebnis]] = []
+        for klasse in klassen:
+            proto = _reihe(lang, metrik="f1", verfahren=_PROTOTYP, klasse=klasse, ebene=ebene)
+            baseline = _reihe(lang, metrik="f1", verfahren=_B2, klasse=klasse, ebene=ebene)
+            paarweise.append((klasse, wilcoxon_gepaart(proto, baseline)))
+            werte.extend(proto)
+            faktor_verfahren.extend([_PROTOTYP] * len(proto))
+            faktor_klasse.extend([klasse] * len(proto))
+            werte.extend(baseline)
+            faktor_verfahren.extend([_B2] * len(baseline))
+            faktor_klasse.extend([klasse] * len(baseline))
 
-    for klasse in klassen:
-        proto = _reihe(lang, metrik="f1", verfahren=_PROTOTYP, klasse=klasse)
-        baseline = _reihe(lang, metrik="f1", verfahren=_B2, klasse=klasse)
-        paarweise.append((klasse, wilcoxon_gepaart(proto, baseline)))
-        werte.extend(proto)
-        faktor_verfahren.extend([_PROTOTYP] * len(proto))
-        faktor_klasse.extend([klasse] * len(proto))
-        werte.extend(baseline)
-        faktor_verfahren.extend([_B2] * len(baseline))
-        faktor_klasse.extend([klasse] * len(baseline))
+        familie = _familie(
+            f"HYP4-paarweise-{kennung}",
+            f"F1 des Prototyps gegen B2, je Fehlerklasse, zweiseitig ({kennung}ebene)",
+            f"f1 ({kennung}ebene)",
+            paarweise,
+            alpha=alpha,
+        )
+        richtungen = {
+            vergleich.gruppe: (vergleich.test.effekt or 0.0)
+            for vergleich in familie.vergleiche
+            if vergleich.signifikant and vergleich.test is not None
+        }
+        ergebnisse[ebene] = (
+            art_anova_interaktion(werte, faktor_verfahren, faktor_klasse),
+            familie,
+            sorted(name for name, effekt in richtungen.items() if effekt > 0),
+            sorted(name for name, effekt in richtungen.items() if effekt < 0),
+        )
 
-    primaer = art_anova_interaktion(werte, faktor_verfahren, faktor_klasse)
-    familie = _familie(
-        "HYP4-paarweise",
-        "F1 des Prototyps gegen B2, je Fehlerklasse, zweiseitig",
-        "f1",
-        paarweise,
-        alpha=alpha,
-    )
-    richtungen = {
-        vergleich.gruppe: (vergleich.test.effekt or 0.0)
-        for vergleich in familie.vergleiche
-        if vergleich.signifikant
-    }
-    fuer_prototyp = sorted(name for name, effekt in richtungen.items() if effekt > 0)
-    fuer_b2 = sorted(name for name, effekt in richtungen.items() if effekt < 0)
+    primaer, familie_satz, proto_satz, b2_satz = ergebnisse[Ebene.SATZ]
+    zelle, familie_zelle, proto_zelle, b2_zelle = ergebnisse[Ebene.ZELLE]
 
     # Die Hypothese behauptet zweierlei: eine Interaktion **und** eine Richtung
     # ("statistisch gewinnt bei Ausreissern"). Der Test prueft nur das erste.
-    # Gewinnt B2 in keiner einzigen Klasse, ist die Richtungsaussage widerlegt —
-    # und ein blosses "gestuetzt" waere dann die halbe Wahrheit.
-    interaktion = primaer.p_wert < alpha
-    if not interaktion:
+    # Gewinnt B2 auf der Primaerebene in keiner Klasse, ist die Richtungsaussage
+    # widerlegt — und ein blosses "gestuetzt" waere dann die halbe Wahrheit.
+    if primaer.p_wert >= alpha:
         entscheidung = "nicht gestuetzt"
-    elif fuer_b2:
+    elif b2_satz:
         entscheidung = "gestuetzt"
     else:
         entscheidung = "teilweise gestuetzt"
@@ -673,38 +885,51 @@ def pruefe_hyp4(lang: pd.DataFrame, plan: Versuchsplan) -> Hypothesenergebnis:
             "Ausreissern."
         ),
         primaertest=primaer,
-        familien=(familie,),
+        nebentests=(("Zellebene", zelle),),
+        familien=(familie_satz, familie_zelle),
         entscheidung=entscheidung,
         begruendung=(
-            f"ART-ANOVA, Interaktion Verfahren x Fehlerklasse auf F1: "
-            f"{primaer.hinweis}, F = {primaer.statistik:.2f}, p = {primaer.p_wert:.3g}, "
-            f"partielles Eta-Quadrat = {primaer.effekt:.3f}. Nach Holm-Korrektur gewinnt "
-            f"der Prototyp in {len(fuer_prototyp)} Klassen ({fuer_prototyp}), B2 in "
-            f"{len(fuer_b2)} Klassen ({fuer_b2})."
+            f"ART-ANOVA auf der **Satzebene** (Primaerebene laut Phase 5), Interaktion "
+            f"Verfahren x Fehlerklasse auf F1: {primaer.hinweis}, F = {primaer.statistik:.2f}, "
+            f"p = {primaer.p_wert:.3g}, partielles Eta-Quadrat = {primaer.effekt:.3f}. "
+            f"Nach Holm-Korrektur gewinnt der Prototyp in {len(proto_satz)} Klassen "
+            f"({proto_satz}), B2 in {len(b2_satz)} Klassen ({b2_satz}). Zur Kontrolle die "
+            f"Zellebene: F = {zelle.statistik:.2f}, p = {zelle.p_wert:.3g}; dort gewinnt "
+            f"der Prototyp in {len(proto_zelle)} und B2 in {len(b2_zelle)} Klassen."
             + (
                 ""
-                if fuer_b2
+                if b2_satz
                 else (
                     " Die Hypothese behauptet zweierlei: eine Interaktion und eine "
                     "Richtung. Die Interaktion ist belegt — der Abstand zwischen den "
-                    "Verfahren haengt deutlich von der Fehlerklasse ab. Die Richtungs"
-                    "aussage 'statistisch gewinnt bei Ausreissern' ist es **nicht**: B2 "
-                    "liegt in keiner einzigen Klasse vorn. Deshalb 'teilweise gestuetzt' "
-                    "und nicht 'gestuetzt'."
+                    "Verfahren haengt deutlich von der Fehlerklasse ab. Die "
+                    "Richtungsaussage 'statistisch gewinnt bei Ausreissern' ist es "
+                    "**nicht**: B2 liegt auch auf der Satzebene in keiner einzigen Klasse "
+                    "vorn. Deshalb 'teilweise gestuetzt' und nicht 'gestuetzt'."
                 )
             )
         ),
         hinweise=(
             (
-                "Die ART-ANOVA prueft die Interaktion auf Raengen der um beide Haupteffekte "
-                "bereinigten Werte; sie setzt keine Normalitaet voraus. Der p-Wert bezieht "
-                "sich ausschliesslich auf den Interaktionsterm."
+                "Die Satzebene ist die Primaerebene des B2-Vergleichs, so in Phase 5 "
+                "festgelegt. B2 markiert ganze Zeilen; die Umrechnung 'markierte Zeile "
+                "markiert alle ihre befuellten Zellen' deckelt seine Zell-Precision auf "
+                "etwa den Kehrwert der Spaltenzahl. Ein Zellvergleich maesse dort zu einem "
+                "grossen Teil die Umrechnung und nicht das Verfahren. Genau deshalb steht "
+                "die Zellebene hier als Nebentest und nicht als Ergebnis."
             ),
             (
                 "B2 waehlt seine contamination-Stufe ueber die beste F1 der Satzebene und "
-                "bekommt dafuer den Ground Truth zu sehen. Das ist eine bewusst optimistische "
-                "Einstellung zugunsten der Baseline; der Prototyp bekommt keine vergleichbare "
-                "Anpassung."
+                "bekommt dafuer den Ground Truth zu sehen. Das ist eine bewusst "
+                "optimistische Einstellung **zugunsten der Baseline**; der Prototyp bekommt "
+                "keine vergleichbare Anpassung. Ein Verfahren, das trotz dieses Vorteils "
+                "auf seiner eigenen Primaerebene in keiner Klasse gewinnt, verliert "
+                "ueberzeugend."
+            ),
+            (
+                "Die ART-ANOVA prueft die Interaktion auf Raengen der um beide "
+                "Haupteffekte bereinigten Werte; sie setzt keine Normalitaet voraus. Der "
+                "p-Wert bezieht sich ausschliesslich auf den Interaktionsterm."
             ),
         ),
     )
@@ -774,19 +999,35 @@ def hypothesen_als_dict(
                 "primaertest": (
                     None if ergebnis.primaertest is None else _test_als_dict(ergebnis.primaertest)
                 ),
+                "nebentests": [
+                    {"bezeichnung": bezeichnung, **_test_als_dict(test)}
+                    for bezeichnung, test in ergebnis.nebentests
+                ],
                 "familien": [
                     {
                         "kennung": familie.kennung,
                         "beschreibung": familie.beschreibung,
                         "kennzahl": familie.kennzahl,
                         "vergleiche_in_der_familie": familie.anzahl,
+                        "berichtete_zeilen": familie.berichtet,
+                        "nicht_anwendbar": familie.nicht_anwendbar,
                         "davon_signifikant": familie.signifikante,
+                        "hinweis_familiengroesse": (
+                            "Die Holm-Korrektur laeuft ueber die anwendbaren Vergleiche; "
+                            "nicht durchgefuehrte Tests erhoehen die Familiengroesse nicht."
+                        ),
                         "vergleiche": [
                             {
                                 "gruppe": vergleich.gruppe,
+                                "anwendbar": vergleich.anwendbar,
+                                "grund": vergleich.grund,
                                 "p_korrigiert": vergleich.p_korrigiert,
                                 "signifikant": vergleich.signifikant,
-                                **_test_als_dict(vergleich.test),
+                                **(
+                                    _test_als_dict(vergleich.test)
+                                    if vergleich.test is not None
+                                    else {}
+                                ),
                             }
                             for vergleich in familie.vergleiche
                         ],
@@ -800,8 +1041,15 @@ def hypothesen_als_dict(
     }
 
 
-def _p_text(wert: float) -> str:
-    """Formatiert einen p-Wert lesbar und ohne falsche Genauigkeit."""
+def _p_text(wert: float | None) -> str:
+    """Formatiert einen p-Wert lesbar und ohne falsche Genauigkeit.
+
+    ``None`` heisst "nicht durchgefuehrt" und bekommt einen Gedankenstrich. Eine
+    Null waere hier das schlechteste aller Zeichen: Sie liest sich wie ein
+    hochsignifikantes Ergebnis.
+    """
+    if wert is None:
+        return "—"
     if wert < _P_SCHWELLE:
         return "< 0,001"
     return f"{wert:.3f}".replace(".", ",")
@@ -814,7 +1062,7 @@ def _zahl(wert: float | None, stellen: int = 3) -> str:
     return f"{wert:.{stellen}f}".replace(".", ",")
 
 
-def als_markdown(
+def als_markdown(  # noqa: C901, PLR0912 - eine Verzweigung je Ausgabeteil, alle flach
     ergebnisse: Sequence[Hypothesenergebnis], *, alpha: float = STANDARD_ALPHA, warnung: str = ""
 ) -> str:
     """Formatiert die Hypothesenergebnisse als Markdown-Tabellen.
@@ -888,15 +1136,44 @@ def als_markdown(
             if test.hinweis:
                 zeilen.append(f"- Hinweis: {test.hinweis}")
             zeilen.append("")
+        if ergebnis.nebentests:
+            zeilen += [
+                "**Dieselbe Hypothese auf der anderen Metrikebene.** Kein Zusatzmaterial:",
+                "Ein Effekt, der auf der einen Ebene besteht und auf der anderen",
+                "verschwindet, ist ein Effekt der Berichtskonvention und keiner des",
+                "Verfahrens.",
+                "",
+                "| Ebene | Test | Statistik | p | Effektstaerke |",
+                "|---|---|---|---|---|",
+            ]
+            zeilen += [
+                (
+                    f"| {bezeichnung} | {test.test} | {_zahl(test.statistik, 1)} | "
+                    f"{_p_text(test.p_wert)} | {test.effektmass} = {_zahl(test.effekt)} |"
+                )
+                for bezeichnung, test in ergebnis.nebentests
+            ]
+            zeilen.append("")
         zeilen += [f"**Entscheidung: {ergebnis.entscheidung}.** {ergebnis.begruendung}", ""]
 
         for familie in ergebnis.familien:
             zeilen += [
                 f"### Familie {familie.kennung} — {familie.anzahl} Vergleiche",
                 "",
+                f"{familie.beschreibung}. Kennzahl: `{familie.kennzahl}`.",
+                "",
                 (
-                    f"{familie.beschreibung}. Kennzahl: `{familie.kennzahl}`. "
-                    f"Nach Holm-Korrektur signifikant: {familie.signifikante} von {familie.anzahl}."
+                    f"- **Groesse der Holm-Familie: {familie.anzahl}** — so viele Vergleiche "
+                    "wurden tatsaechlich durchgefuehrt, und ueber genau diese laeuft die "
+                    "Korrektur."
+                ),
+                (
+                    f"- Berichtete Zeilen: {familie.berichtet}, davon nicht anwendbar: "
+                    f"{familie.nicht_anwendbar}."
+                ),
+                (
+                    f"- Nach Holm-Korrektur signifikant: {familie.signifikante} von "
+                    f"{familie.anzahl}."
                 ),
                 "",
                 "| Gruppe | n | Statistik | p roh | p korrigiert | Effektstaerke | signifikant |",
@@ -904,6 +1181,11 @@ def als_markdown(
             ]
             for vergleich in familie.vergleiche:
                 test = vergleich.test
+                if test is None:
+                    zeilen.append(
+                        f"| {vergleich.gruppe} | — | — | — | — | — | **nicht anwendbar** |"
+                    )
+                    continue
                 zeilen.append(
                     f"| {vergleich.gruppe} | {test.n} | {_zahl(test.statistik, 1)} | "
                     f"{_p_text(test.p_wert)} | {_p_text(vergleich.p_korrigiert)} | "
@@ -911,6 +1193,19 @@ def als_markdown(
                     f"{'ja' if vergleich.signifikant else 'nein'} |"
                 )
             zeilen.append("")
+            nicht_anwendbare = [
+                vergleich for vergleich in familie.vergleiche if not vergleich.anwendbar
+            ]
+            if nicht_anwendbare:
+                zeilen += [
+                    "Nicht anwendbar und deshalb **nicht** Teil der Holm-Familie:",
+                    "",
+                    *[
+                        f"- **{vergleich.gruppe}**: {vergleich.grund}"
+                        for vergleich in nicht_anwendbare
+                    ],
+                    "",
+                ]
 
         if ergebnis.hinweise:
             zeilen.append("**Zur Einordnung.**")

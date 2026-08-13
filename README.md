@@ -759,7 +759,8 @@ Der Versuchsplan steht in `config/experiment.yaml`, gefahren wird er mit
 
 | | |
 |---|---|
-| Läufe im Plan | 1.035 |
+| Injektionsläufe im Plan | 1.035 |
+| Verfahrensauswertungen daraus | 2.370, davon 1.680 im Hauptversuch |
 | davon gescheitert | **0** |
 | Wanduhrzeit | 3,26 h (2,09 h Hauptteil mit 8 Prozessen, 1,12 h Teilversuch T4 mit 2, 0,05 h Pilotserie) |
 | Zeilen im Langformat | 884.843 |
@@ -818,8 +819,8 @@ statt dass eine gewählt wird.
 |---|---|---|---|
 | **HYP1** | Höherer Recall als B0, ohne dass die Precision fällt | gepaarter Wilcoxon, zwei Familien à 7 Vergleiche | **teilweise gestützt** |
 | **HYP2** | Der Recall unterscheidet sich zwischen den Klassen | Friedman: χ² = 120,0, *p* = 1,6 · 10⁻²³, Kendalls *W* = 1,000 | **gestützt** |
-| **HYP3** | Die Precision steigt mit der Fehlerrate | Page-Trendtest: *L* = 3.785, *p* = 3,6 · 10⁻¹⁷, 140 Blöcke | **gestützt** |
-| **HYP4** | Der Unterschied zu B2 ist klassenabhängig | ART-ANOVA: *F*(6, 266) = 1590,0, *p* < 10⁻²⁰⁰, η²ₚ = 0,973 | **teilweise gestützt** |
+| **HYP3** | Die Precision steigt mit der Fehlerrate | Page-Trendtest, Zellebene: *L* = 3.785, *p* = 3,6 · 10⁻¹⁷; Constraint-Ebene: *p* = 0,570 | **teilweise gestützt** |
+| **HYP4** | Der Unterschied zu B2 ist klassenabhängig | ART-ANOVA, Satzebene: *F*(6, 266) = 5776,7, *p* < 10⁻²⁰⁰, η²ₚ = 0,992 | **teilweise gestützt** |
 
 **HYP1 — warum nur teilweise.** Der Recall ist in **allen sieben** Klassen signifikant höher
 (rank-biserial *r* = 1,000, *p* < 0,001 nach Holm). Die Precision fällt aber in genau den
@@ -827,19 +828,20 @@ drei Klassen signifikant, in denen B0 überhaupt meldet: F1, F2, F3. In F4, F5, 
 meldet B0 **nichts**; seine Precision ist dort konventionsgemäß 0,0 — das heißt „keine
 Meldung" und nicht „alle Meldungen falsch". Ein Precision-Vergleich gegen diese Null stellt
 eine Messung neben eine Festlegung. **Die Precision-Bedingung von HYP1 scheitert damit in
-jeder Klasse, in der sie überhaupt prüfbar ist.**
+jeder Klasse, in der sie überhaupt prüfbar ist.** Die Holm-Familie der Precision-Hälfte hat
+entsprechend **drei** Vergleiche und nicht sieben; die vier übrigen stehen als „nicht
+anwendbar" mit Begründung in `hypothesen.md`.
 
-**HYP3 — signifikant, aber klein.** Der gepoolte Page-Test ist hochsignifikant, weil er
-blockweise die *Ordnung* prüft. Die rohe Korrelation über alle Beobachtungen ist dagegen
-schwach (Spearman ρ = 0,069, *p* = 0,103), und einzeln signifikant sind nur 3 der 7 Klassen
-(F1, F3, F5); F8 zeigt sogar einen leicht fallenden Trend. Der Prävalenzeffekt existiert,
-ist aber klein.
+**HYP3 — der Effekt existiert nur auf der Zellebene.** Auf der Constraint-Ebene
+verschwindet der Trend vollständig (*p* = 0,570, 0 von 7 Klassen einzeln signifikant). Er
+ist ein Artefakt der Berichtskonvention und kein Prävalenzeffekt des Verfahrens; der eigene
+Abschnitt weiter unten führt die Zahlen auf.
 
-**HYP4 — die Interaktion trägt, die Richtung nicht.** Der Interaktionsterm ist
-außergewöhnlich stark (η²ₚ = 0,973): Der Abstand zwischen den Verfahren hängt deutlich von
-der Fehlerklasse ab. Die Richtungsaussage „statistisch gewinnt bei Ausreißern" ist dagegen
-**widerlegt** — B2 liegt in keiner einzigen Klasse vorn, obwohl es seine
-`contamination`-Stufe über den Ground Truth wählen darf.
+**HYP4 — die Interaktion trägt, die Richtung nicht.** Auch auf der **Satzebene**, der
+Primärebene des B2-Vergleichs, liegt B2 in keiner einzigen Klasse vorn — obwohl es seine
+`contamination`-Stufe über den Ground Truth wählen darf. Der Interaktionsterm ist
+außergewöhnlich stark (η²ₚ = 0,992). Die Richtungsaussage „statistisch gewinnt bei
+Ausreißern" ist damit widerlegt, nicht bestätigt.
 
 ### Der empirische Beleg gegen den Zirkularitätsvorwurf
 
@@ -869,7 +871,7 @@ Vier Einzelbefunde aus derselben Abbildung, die in die Diskussion gehören:
 - **F5-e (0,000), F7-d (0,000), HO2-a und HO2-b (je 0,000)** bleiben unentdeckt, genau wie
   konstruiert. F8-e liegt bei 0,121.
 
-### HO1 ist auf der Satzebene nicht held out — und das ist ein Befund
+### HO1 wird satzbasiert gefunden — über eine Nebenwirkung, nicht über Ähnlichkeit
 
 Die unscharfe Dublette HO1 erreicht satzbasiert einen Recall von **0,795 bei Precision
 1,000**. Die Kreuztabelle (Abbildung 6) zeigt, warum: Es meldet ausschließlich **R-046**
@@ -886,10 +888,9 @@ Befund 14 (Kohärenzpflege als eigener Schritt) hält über die gesamte Serie.
 
 ### Katalogüberdeckung
 
-**4 der 58 Regeln** haben in keinem einzigen Lauf gemeldet: **R-030, R-047, R-048, R-049**.
-Sie bleiben in `t3_regeldiagnose.csv` und in Abbildung 6 als leere Zeilen stehen — eine
-Regel ohne Treffer ist Überdeckung des Katalogs gegenüber der Fehlertaxonomie und damit
-selbst ein Ergebnis.
+**4 der 58 Regeln** haben in keinem einzigen Lauf gemeldet: **R-030, R-047, R-048,
+R-049**. Alle vier sind **Überdeckung** und keine Limitation des Aufbaus; die Herleitung
+steht weiter unten in einem eigenen Abschnitt.
 
 ### Praxismix gegen isolierte Klassen
 
@@ -925,6 +926,164 @@ Verhältnis der Standardabweichungen (Daten zu Injektion) für die Klasse F5 bei
 Die Datenvarianz ist größer als die Injektionsvarianz, aber in derselben Größenordnung. Das
 Ergebnis hängt damit nicht überwiegend am Generator. Wäre das Verhältnis deutlich größer,
 gehörte es in die Limitationen — es ist gemessen und nicht behauptet.
+
+### Zwei Zählweisen derselben Serie — 1.035 und 2.370
+
+Beide Zahlen gehören in die Arbeit, weil sie verschiedene Dinge zählen.
+
+Ein **Injektionslauf** verfälscht einen Datensatz. Eine **Verfahrensauswertung** ist ein
+Verfahren auf einem solchen Lauf. Da ein Lauf von allen seinen Verfahren ausgewertet wird,
+ist die zweite Zahl ein Vielfaches der ersten:
+
+| Block | Injektionsläufe | × Verfahren | = Verfahrensauswertungen |
+|---|---|---|---|
+| Hauptversuch | 7 Klassen × 4 Raten × 20 Wdh. = **560** | 3 | **1.680** |
+| T1 Duplikate | 1 × 4 × 20 = 80 | 3 | 240 |
+| T2 Held-out | 2 × 1 × 20 = 40 | 1 | 40 |
+| T3 Praxismix | 1 × 1 × 20 = 20 | 3 | 60 |
+| T4 Skalierung | 3 × 1 × 5 = 15 | 2 | 30 |
+| T5 Datenvarianz | 1 × 1 × 20 = 20 | 1 | 20 |
+| T6 Varianten | 60 × 1 × 5 = 300 | 1 | 300 |
+| **Summe** | **1.035** | | **2.370** |
+
+Die im Phasenprompt genannten **1.680 Läufe** sind die Verfahrensauswertungen des
+Hauptversuchs. Gelaufen sind **1.035 Injektionsläufe**, aus denen **2.370**
+Verfahrensauswertungen entstanden — davon 1.680 im Hauptversuch, exakt wie geplant.
+
+„1.035 von 1.680 geplanten Läufen" wäre eine verdeckte Stichprobenreduktion. Es fehlt
+nichts: Drei getrennte Läufe je Zelle hätten die drei Verfahren auf **verschiedene**
+Datensätze gestellt, und der gepaarte Wilcoxon-Test hätte seine Paarung verloren — genau
+die Eigenschaft, aus der er seine Trennschärfe zieht.
+
+Beide Zahlen stehen mit ihrer Herleitung je Block in `results/experiment_lauf.json` unter
+`zaehlweise`.
+
+### HYP3 auf beiden Metrikebenen — der Prävalenzeffekt ist ein Artefakt der Konvention
+
+Auf der Zellebene erzeugt jede Injektion über mehrspaltige Regeln zusätzliche
+Scheinfehlalarme; ihre Zahl wächst mit der Injektionszahl. Auf der Constraint-Ebene zählt
+dieselbe Meldung einmal. Gerechnet wurde der Page-Trendtest deshalb auf beiden:
+
+| Ebene | Page *L* | *p* | Spearman ρ | einzeln signifikante Klassen |
+|---|---|---|---|---|
+| Zellebene | 3.785 | 3,6 · 10⁻¹⁷ | 0,069 | 3 von 7 |
+| Constraint-Ebene | 3.494 | **0,570** | −0,002 | **0 von 7** |
+
+**Der Trend verschwindet vollständig.** Er ist damit kein Prävalenzeffekt des Verfahrens,
+sondern ein Effekt der Berichtskonvention. Das ist eine deutlich präzisere Antwort als ein
+kleines ρ: Nicht „der Effekt ist schwach", sondern „auf der Ebene, auf der die Precision
+das misst, was sie zu messen vorgibt, gibt es ihn nicht".
+
+Die Precision je Ratenstufe zeigt es unmittelbar (`t2_fehlerraten.csv`, Prototyp):
+
+| Fehlerrate | Precision Zellebene | Precision Constraint-Ebene |
+|---|---|---|
+| 1 % | 0,5462 | 0,9418 |
+| 2 % | 0,5503 | 0,9458 |
+| 5 % | 0,5543 | 0,9465 |
+| 10 % | 0,5608 | 0,9472 |
+
+Wo die Constraint-Precision bereits 1,000 beträgt — bei F2, F3, F4 und F5 —, kann kein
+Prävalenzeffekt mehr entstehen. Der Trend ist dort nicht klein, sondern durch die
+Obergrenze ausgeschlossen.
+
+### HYP4 auf der Satzebene — die Primärebene des B2-Vergleichs
+
+B2 markiert ganze Zeilen. Die Umrechnung „markierte Zeile markiert alle ihre befüllten
+Zellen" deckelt seine Zell-Precision auf etwa den Kehrwert der Spaltenzahl; ein
+Zellvergleich misst dort zu einem großen Teil die Umrechnung und nicht das Verfahren.
+Primärebene ist deshalb die **Satzebene**, so in Phase 5 festgelegt.
+
+| Ebene | ART-ANOVA Interaktion | η²ₚ | Prototyp gewinnt | B2 gewinnt |
+|---|---|---|---|---|
+| **Satzebene (primär)** | *F*(6, 266) = 5776,7, *p* < 10⁻²⁰⁰ | 0,992 | **7 von 7** | **0** |
+| Zellebene (Kontrolle) | *F*(6, 266) = 1590,0, *p* < 10⁻²⁰⁰ | 0,973 | 7 von 7 | 0 |
+
+Auf der Satzebene ist B2 deutlich besser als auf der Zellebene — bei F1 etwa F1 = 0,473
+statt 0,066 — und liegt trotzdem in **keiner** Klasse vorn. Der Einwand „der Zellvergleich
+benachteiligt B2" ist damit vorweggenommen und ausgeräumt.
+
+Dabei durfte B2 seine `contamination`-Stufe über die beste F1 der Satzebene wählen und
+bekam dafür den Ground Truth zu sehen — eine bewusst optimistische Einstellung **zugunsten
+der Baseline**. Der Prototyp bekommt keine vergleichbare Anpassung. Ein Verfahren, das
+trotz dieses Vorteils auf seiner eigenen Primärebene in keiner Klasse gewinnt, verliert
+überzeugend.
+
+Die Interaktion ist damit belegt, die Richtungsaussage „statistisch gewinnt bei Ausreißern"
+**nicht**. HYP4 ist deshalb als „teilweise gestützt" geführt.
+
+### Die Holm-Familien passen zur Zahl der durchgeführten Tests
+
+In den vier Klassen F4, F5, F7 und F8 meldet B0 **überhaupt nichts**; seine Precision ist
+dort konventionsgemäß 0,0 — eine Festlegung, keine Messung. Ein Precision-Vergleich dagegen
+prüft nichts und wird deshalb nicht durchgeführt.
+
+Die Familie **HYP1-Precision hat damit drei Vergleiche, nicht sieben.** Die
+Holm-Korrektur läuft über diese drei; die vier übrigen stehen in `hypothesen.md` als
+„nicht anwendbar" mit Begründung. Eine Familiengröße, die nicht zur Zahl der berichteten
+Tests passt, korrigiert gegen Tests, die es nicht gibt.
+
+Das Ergebnis wird dadurch **schärfer**, nicht schwächer: In allen drei Klassen, in denen die
+Precision-Bedingung überhaupt prüfbar ist, fällt die Precision signifikant.
+
+### Die vier stummen Regeln — Überdeckung, nicht Limitation
+
+R-030, R-047, R-048 und R-049 haben in keinem Lauf gemeldet. Der Grund ist je Regel aus den
+Ground-Truth-Logs abgeleitet und steht in `t3_regeldiagnose.csv`:
+
+| Prüfung | Ergebnis |
+|---|---|
+| Zielt eine Injektionsvariante auf die Regel? | bei allen vier: **nein** |
+| Wurden ihre Felder in der Serie verfälscht? | bei allen vier: **ja** |
+
+Damit sind alle vier **Überdeckung**: Der Katalog prüft mehr, als die Fehlertaxonomie
+adressiert. Keine ist „in diesem Aufbau nicht prüfbar" — das wäre der Fall, wenn ihre Felder
+von keiner Injektion getroffen würden, und wäre eine Limitation statt eines Ergebnisses.
+
+Aufschlussreich ist R-049 (Auflösbarkeit aller Fremdschlüssel): `angebot.tarif_id` **wird**
+von F7-a verfälscht — aber auf eine andere *existierende* Tarif-ID, sodass der Fremdschlüssel
+auflösbar bleibt. Die Regel war der Verfälschung ausgesetzt und hat korrekt geschwiegen.
+
+### Die Vorab-Zuordnung trifft bei 45 von 60 Varianten zu
+
+Die Spalte „spiegelt Regel exakt" in `spec/03`, Abschnitt 2 wurde **vor** jeder Messung
+festgelegt. Sie ist damit eine falsifizierbare Erwartung, und ihre Trefferquote ist eine
+Gütezahl der Methode. Geprüft wird gegen einen Recall von 0,5; bei der Einstufung
+„teilweise" gegen einen Wert echt zwischen 0 und 1.
+
+**45 von 60 treffen zu.** Die 15 Abweichungen haben zwei verschiedene Richtungen, und der
+Unterschied ist wichtiger als die Quote:
+
+**Überschätzt (4):** F1-a, F8-a, F8-c, F8-d. Die Spezifikation erwartete eine greifende
+Regel, der Katalog findet die Variante trotzdem überwiegend nicht. F1-a ist der klarste
+Fall: `spec/03` führt sie als „ja (R-001)", gemessen sind 0,219 — weil F1 alle Felder trifft
+und R-001 nur Pflichtfelder prüft. Diese vier **schwächen** die Aussage über den Katalog.
+
+**Unterschätzt (11):** F1-c, F1-d, F1-e, F1-f, F2-a, F2-h, F2-i, F2-k, F3-g, HO1-a, HO1-b.
+Keine Regel war erwartet, der Katalog findet sie trotzdem — die Sentinelwerte über R-025,
+die Fremdformate über die Typregeln, HO1 über R-046. Er verallgemeinert damit über die
+Vorabzuordnung hinaus. Diese elf **verkleinern den Kontrast** zwischen spiegelnden und nicht
+spiegelnden Varianten und relativieren den Abstand 0,918 zu 0,499 aus Abbildung 5.
+
+Beides sind Befunde. Dass eine vorab formulierte Erwartung zu drei Vierteln eintrifft und
+ihre Abweichungen erklärbar sind, spricht für die Methode — nicht gegen die Spezifikation.
+
+### HO1 ist als Held-out-Klasse bestätigt, nicht widerlegt
+
+Der Recall von 0,795 auf der Satzebene ist **keine** Generalisierung des Katalogs auf
+unscharfe Dubletten. Die Kreuztabelle zeigt: Es meldet ausschließlich **R-046** („je Anfrage
+genau ein VN").
+
+> Der Katalog erkennt die Beinahe-Dublette **nicht an der Namensähnlichkeit**, sondern an
+> einer davon unabhängigen Integritätsverletzung: Der duplizierte Personensatz erzeugt einen
+> zweiten Versicherungsnehmer in derselben Anfrage.
+
+Auf der Zellebene bleibt HO1 bei Recall 0. Als Held-out-Klasse für **Ähnlichkeitserkennung**
+ist sie damit bestätigt: Keine Regel des Katalogs vergleicht Namen oder Adressen auf
+Ähnlichkeit, und keine hat es getan. Erkannt wurde eine Nebenwirkung, nicht der Fehler.
+
+Ohne diesen Satz liest sich 0,795 wie eine Generalisierung des Katalogs — und das wäre die
+falsche Schlussfolgerung.
 
 ### Reproduzierbarkeit dieser Serie
 

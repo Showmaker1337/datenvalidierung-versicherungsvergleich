@@ -1,61 +1,61 @@
-variante,fehlerklasse,ebene,spiegelt_regel_exakt,erwartet_unentdeckt,erwartete_regeln,anmerkung,n,tp,recall,ci_unten,ci_oben,wiederholungen
-F1-a,F1,zellebene,ja,False,R-001,,3000,657,0.219,0.2043138901727572,0.23423609901596634,5
-F1-b,F1,zellebene,nein,False,"R-001, R-057","Der Leerstring ist auf der Rohschicht nicht von einem planmaessig leeren Feld zu unterscheiden; R-025 meldet ihn deshalb nicht. Erkennbar nur ueber die Pflichtfeldregeln. Informationsverlust der Serialisierung, kein Mangel.",3000,646,0.21533333333333332,0.20074075678768732,0.2304831252175617,5
-F1-c,F1,zellebene,nein,False,R-025,"Sentinelwert; R-025 prueft eine Platzhalterliste, nicht das Fehlen selbst.",3000,1588,0.5293333333333333,0.5112842586463869,0.5473251383576856,5
-F1-d,F1,zellebene,nein,False,R-025,"Sentinelwert; R-025 prueft eine Platzhalterliste, nicht das Fehlen selbst.",3000,1588,0.5293333333333333,0.5112842586463869,0.5473251383576856,5
-F1-e,F1,zellebene,nein,False,R-025,"Numerisches Sentinel; nur auffindbar, wenn es in der Platzhalterliste steht.",3000,2968,0.9893333333333333,0.9849749486925495,0.9926928855181102,5
-F1-f,F1,zellebene,nein,False,R-025,"Datums-Sentinel; nur auffindbar, wenn es in der Platzhalterliste steht.",3000,3000,1.0,0.9987711291961745,1.0,5
-F2-a,F2,zellebene,teilweise,False,R-002,"Die Laengenbedingung von R-002 wird nur verletzt, wenn die Postleitzahl mit einer Null beginnt; sonst bleibt der Wert formal gueltig.",1124,1124,1.0,0.9967234583941655,1.0,5
-F2-b,F2,zellebene,ja,False,R-002,,3000,3000,1.0,0.9987711291961745,1.0,5
-F2-c,F2,zellebene,ja,False,R-004,,3000,3000,1.0,0.9987711291961745,1.0,5
-F2-d,F2,zellebene,ja,False,R-003,,3000,3000,1.0,0.9987711291961745,1.0,5
-F2-e,F2,zellebene,ja,False,R-005,,3000,3000,1.0,0.9987711291961745,1.0,5
-F2-f,F2,zellebene,ja,False,R-009,,3000,3000,1.0,0.9987711291961745,1.0,5
-F2-g,F2,zellebene,ja,False,R-009,,3000,3000,1.0,0.9987711291961745,1.0,5
-F2-h,F2,zellebene,nein,False,R-008,Fremdformat aus einer anderen Schnittstelle; keine Regel zielt darauf.,3000,3000,1.0,0.9987711291961745,1.0,5
-F2-i,F2,zellebene,nein,False,R-008,Excel-Serial; keine Regel zielt auf diese Darstellung.,3000,3000,1.0,0.9987711291961745,1.0,5
-F2-j,F2,zellebene,ja,False,R-007,,3000,3000,1.0,0.9987711291961745,1.0,5
-F2-k,F2,zellebene,teilweise,False,R-007,"Kleinbuchstaben in der TSN; die Musterbedingung schliesst sie nicht ausdruecklich aus, sondern nur ueber die Zeichenklasse.",3000,3000,1.0,0.9987711291961745,1.0,5
-F2-l,F2,zellebene,ja,False,R-006,,3000,3000,1.0,0.9987711291961745,1.0,5
-F3-a,F3,zellebene,ja,False,R-014,,3000,3000,1.0,0.9987711291961745,1.0,5
-F3-b,F3,zellebene,ja,False,R-014,,3000,3000,1.0,0.9987711291961745,1.0,5
-F3-c,F3,zellebene,nein,False,R-013,Typfehler statt Bereichsfehler; die Bereichsregel greift nicht.,3000,0,0.0,0.0,0.0012288708038255115,5
-F3-d,F3,zellebene,ja,False,R-010,,3000,3000,1.0,0.9987711291961745,1.0,5
-F3-e,F3,zellebene,ja,False,R-010,,3000,3000,1.0,0.9987711291961745,1.0,5
-F3-f,F3,zellebene,ja,False,R-016,,3000,3000,1.0,0.9987711291961745,1.0,5
-F3-g,F3,zellebene,nein,False,R-011,Darstellungswechsel der SF-Klasse; keine Bereichsregel zielt darauf.,3000,3000,1.0,0.9987711291961745,1.0,5
-F3-h,F3,zellebene,ja,False,R-017,,3000,3000,1.0,0.9987711291961745,1.0,5
-F3-i,F3,zellebene,ja,False,R-015,,3000,3000,1.0,0.9987711291961745,1.0,5
-F4-a,F4,zellebene,ja,False,R-026,,3000,3000,1.0,0.9987711291961745,1.0,5
-F4-b,F4,zellebene,ja,False,R-023,,3000,3000,1.0,0.9987711291961745,1.0,5
-F4-c,F4,zellebene,ja,False,R-022,,3000,3000,1.0,0.9987711291961745,1.0,5
-F4-d,F4,zellebene,ja,False,R-022,Grenzfall knapp unterhalb der Schwelle.,3000,3000,1.0,0.9987711291961745,1.0,5
-F4-e,F4,zellebene,ja,False,R-038,,3000,3000,1.0,0.9987711291961745,1.0,5
-F4-f,F4,zellebene,ja,False,R-024,,57,57,1.0,0.9373325190855151,1.0,5
-F4-g,F4,zellebene,ja,False,R-021,,3000,3000,1.0,0.9987711291961745,1.0,5
-F5-a,F5,zellebene,ja,False,R-031,,3000,3000,1.0,0.9987711291961745,1.0,5
-F5-b,F5,zellebene,ja,False,"R-032, R-033",,3000,3000,1.0,0.9987711291961745,1.0,5
-F5-c,F5,zellebene,ja,False,R-033,,3000,3000,1.0,0.9987711291961745,1.0,5
-F5-d,F5,zellebene,ja,False,R-031,Grenzfall knapp oberhalb der Toleranz von R-031.,3000,3000,1.0,0.9987711291961745,1.0,5
-F5-e,F5,zellebene,nein,True,,"Liegt innerhalb der Toleranz von R-031 und soll unentdeckt bleiben; die Variante prueft, ob die Toleranzgrenze korrekt implementiert ist.",3000,0,0.0,0.0,0.0012288708038255115,5
-F5-f,F5,zellebene,ja,False,R-029,,3000,3000,1.0,0.9987711291961745,1.0,5
-F5-g,F5,zellebene,ja,False,R-039,,3000,3000,1.0,0.9987711291961745,1.0,5
-F5-h,F5,zellebene,ja,False,R-042,,2691,2691,1.0,0.9986301180928148,1.0,5
-F5-i,F5,zellebene,ja,False,R-035,,3000,3000,1.0,0.9987711291961745,1.0,5
-F6-a,F6,satzebene,ja,False,"R-043, R-045",,6000,6000,1.0,0.9993853757165824,1.0,5
-F6-b,F6,satzebene,ja,False,R-043,,6000,6000,1.0,0.9993853757165824,1.0,5
-F6-c,F6,satzebene,ja,False,R-045,,6000,6000,1.0,0.9993853757165824,1.0,5
-F6-d,F6,satzebene,ja,False,R-046,,6000,5407,0.9011666666666667,0.8933357480458459,0.9086050130995467,5
-F7-a,F7,zellebene,ja,False,R-055,,3000,3000,1.0,0.9987711291961745,1.0,5
-F7-b,F7,zellebene,ja,False,R-055,,3000,3000,1.0,0.9987711291961745,1.0,5
-F7-c,F7,zellebene,ja,False,R-056,,231,231,1.0,0.9841576561234423,1.0,5
-F7-d,F7,zellebene,nein,True,,Das Feld tarifgeneration wird von keiner Regel geprueft; erwartet unentdeckt.,231,0,0.0,0.0,0.015842343876557693,5
-F8-a,F8,zellebene,ja,False,R-052,,2998,984,0.32821881254169444,0.311417964028446,0.34535552305950973,5
-F8-b,F8,zellebene,ja,False,R-053,,3000,2169,0.723,0.7066072229564411,0.7389567901638373,5
-F8-c,F8,zellebene,ja,False,R-053,,3000,747,0.249,0.23360992781025178,0.2648810321261186,5
-F8-d,F8,zellebene,ja,False,R-054,,3000,406,0.13533333333333333,0.12328578930591311,0.1480967880410937,5
-F8-e,F8,zellebene,nein,True,,"R-054 prueft gegen den Median der uebrigen Angebote; skaliert man alle Angebote einer Anfrage, wandert der Median mit. Strukturelle Grenze relationaler Plausibilitaetspruefung, erwartet unentdeckt.",2989,362,0.1211107393777183,0.10962238093169858,0.13334632341650596,5
-HO1-a,HO1,satzebene,nein,True,,Held-out: unscharfe Dublette; der Katalog kennt nur exakte Duplikate.,6000,4794,0.799,0.7886322393385246,0.8090762326149554,5
-HO1-b,HO1,satzebene,nein,True,,Held-out: Tippfehler im Vornamen; keine Regel prueft Namensaehnlichkeit.,6000,4791,0.7985,0.7881230619627067,0.8085859003849751,5
-HO2-a,HO2,zellebene,nein,True,,Held-out: die ersetzte Postleitzahl existiert und der Ort wird mitgezogen; der Datensatz bleibt in sich stimmig.,3000,0,0.0,0.0,0.0012288708038255115,5
-HO2-b,HO2,zellebene,nein,True,,"Held-out: kohaerente Senkung um 15 Prozent; R-031, R-032 und R-036 bleiben erfuellt, der Wert bleibt im plausiblen Korridor.",3000,0,0.0,0.0,0.0012288708038255115,5
+variante,fehlerklasse,ebene,spiegelt_regel_exakt,erwartet_unentdeckt,erwartete_regeln,anmerkung,n,tp,recall,ci_unten,ci_oben,wiederholungen,erwartung_eingetroffen,abweichungsrichtung
+F1-a,F1,zellebene,ja,False,R-001,,3000,657,0.219,0.2043138901727572,0.23423609901596634,5,False,ueberschaetzt
+F1-b,F1,zellebene,nein,False,"R-001, R-057","Der Leerstring ist auf der Rohschicht nicht von einem planmaessig leeren Feld zu unterscheiden; R-025 meldet ihn deshalb nicht. Erkennbar nur ueber die Pflichtfeldregeln. Informationsverlust der Serialisierung, kein Mangel.",3000,646,0.21533333333333332,0.20074075678768732,0.2304831252175617,5,True,
+F1-c,F1,zellebene,nein,False,R-025,"Sentinelwert; R-025 prueft eine Platzhalterliste, nicht das Fehlen selbst.",3000,1588,0.5293333333333333,0.5112842586463869,0.5473251383576856,5,False,unterschaetzt
+F1-d,F1,zellebene,nein,False,R-025,"Sentinelwert; R-025 prueft eine Platzhalterliste, nicht das Fehlen selbst.",3000,1588,0.5293333333333333,0.5112842586463869,0.5473251383576856,5,False,unterschaetzt
+F1-e,F1,zellebene,nein,False,R-025,"Numerisches Sentinel; nur auffindbar, wenn es in der Platzhalterliste steht.",3000,2968,0.9893333333333333,0.9849749486925495,0.9926928855181102,5,False,unterschaetzt
+F1-f,F1,zellebene,nein,False,R-025,"Datums-Sentinel; nur auffindbar, wenn es in der Platzhalterliste steht.",3000,3000,1.0,0.9987711291961745,1.0,5,False,unterschaetzt
+F2-a,F2,zellebene,teilweise,False,R-002,"Die Laengenbedingung von R-002 wird nur verletzt, wenn die Postleitzahl mit einer Null beginnt; sonst bleibt der Wert formal gueltig.",1124,1124,1.0,0.9967234583941655,1.0,5,False,unterschaetzt
+F2-b,F2,zellebene,ja,False,R-002,,3000,3000,1.0,0.9987711291961745,1.0,5,True,
+F2-c,F2,zellebene,ja,False,R-004,,3000,3000,1.0,0.9987711291961745,1.0,5,True,
+F2-d,F2,zellebene,ja,False,R-003,,3000,3000,1.0,0.9987711291961745,1.0,5,True,
+F2-e,F2,zellebene,ja,False,R-005,,3000,3000,1.0,0.9987711291961745,1.0,5,True,
+F2-f,F2,zellebene,ja,False,R-009,,3000,3000,1.0,0.9987711291961745,1.0,5,True,
+F2-g,F2,zellebene,ja,False,R-009,,3000,3000,1.0,0.9987711291961745,1.0,5,True,
+F2-h,F2,zellebene,nein,False,R-008,Fremdformat aus einer anderen Schnittstelle; keine Regel zielt darauf.,3000,3000,1.0,0.9987711291961745,1.0,5,False,unterschaetzt
+F2-i,F2,zellebene,nein,False,R-008,Excel-Serial; keine Regel zielt auf diese Darstellung.,3000,3000,1.0,0.9987711291961745,1.0,5,False,unterschaetzt
+F2-j,F2,zellebene,ja,False,R-007,,3000,3000,1.0,0.9987711291961745,1.0,5,True,
+F2-k,F2,zellebene,teilweise,False,R-007,"Kleinbuchstaben in der TSN; die Musterbedingung schliesst sie nicht ausdruecklich aus, sondern nur ueber die Zeichenklasse.",3000,3000,1.0,0.9987711291961745,1.0,5,False,unterschaetzt
+F2-l,F2,zellebene,ja,False,R-006,,3000,3000,1.0,0.9987711291961745,1.0,5,True,
+F3-a,F3,zellebene,ja,False,R-014,,3000,3000,1.0,0.9987711291961745,1.0,5,True,
+F3-b,F3,zellebene,ja,False,R-014,,3000,3000,1.0,0.9987711291961745,1.0,5,True,
+F3-c,F3,zellebene,nein,False,R-013,Typfehler statt Bereichsfehler; die Bereichsregel greift nicht.,3000,0,0.0,0.0,0.0012288708038255115,5,True,
+F3-d,F3,zellebene,ja,False,R-010,,3000,3000,1.0,0.9987711291961745,1.0,5,True,
+F3-e,F3,zellebene,ja,False,R-010,,3000,3000,1.0,0.9987711291961745,1.0,5,True,
+F3-f,F3,zellebene,ja,False,R-016,,3000,3000,1.0,0.9987711291961745,1.0,5,True,
+F3-g,F3,zellebene,nein,False,R-011,Darstellungswechsel der SF-Klasse; keine Bereichsregel zielt darauf.,3000,3000,1.0,0.9987711291961745,1.0,5,False,unterschaetzt
+F3-h,F3,zellebene,ja,False,R-017,,3000,3000,1.0,0.9987711291961745,1.0,5,True,
+F3-i,F3,zellebene,ja,False,R-015,,3000,3000,1.0,0.9987711291961745,1.0,5,True,
+F4-a,F4,zellebene,ja,False,R-026,,3000,3000,1.0,0.9987711291961745,1.0,5,True,
+F4-b,F4,zellebene,ja,False,R-023,,3000,3000,1.0,0.9987711291961745,1.0,5,True,
+F4-c,F4,zellebene,ja,False,R-022,,3000,3000,1.0,0.9987711291961745,1.0,5,True,
+F4-d,F4,zellebene,ja,False,R-022,Grenzfall knapp unterhalb der Schwelle.,3000,3000,1.0,0.9987711291961745,1.0,5,True,
+F4-e,F4,zellebene,ja,False,R-038,,3000,3000,1.0,0.9987711291961745,1.0,5,True,
+F4-f,F4,zellebene,ja,False,R-024,,57,57,1.0,0.9373325190855151,1.0,5,True,
+F4-g,F4,zellebene,ja,False,R-021,,3000,3000,1.0,0.9987711291961745,1.0,5,True,
+F5-a,F5,zellebene,ja,False,R-031,,3000,3000,1.0,0.9987711291961745,1.0,5,True,
+F5-b,F5,zellebene,ja,False,"R-032, R-033",,3000,3000,1.0,0.9987711291961745,1.0,5,True,
+F5-c,F5,zellebene,ja,False,R-033,,3000,3000,1.0,0.9987711291961745,1.0,5,True,
+F5-d,F5,zellebene,ja,False,R-031,Grenzfall knapp oberhalb der Toleranz von R-031.,3000,3000,1.0,0.9987711291961745,1.0,5,True,
+F5-e,F5,zellebene,nein,True,,"Liegt innerhalb der Toleranz von R-031 und soll unentdeckt bleiben; die Variante prueft, ob die Toleranzgrenze korrekt implementiert ist.",3000,0,0.0,0.0,0.0012288708038255115,5,True,
+F5-f,F5,zellebene,ja,False,R-029,,3000,3000,1.0,0.9987711291961745,1.0,5,True,
+F5-g,F5,zellebene,ja,False,R-039,,3000,3000,1.0,0.9987711291961745,1.0,5,True,
+F5-h,F5,zellebene,ja,False,R-042,,2691,2691,1.0,0.9986301180928148,1.0,5,True,
+F5-i,F5,zellebene,ja,False,R-035,,3000,3000,1.0,0.9987711291961745,1.0,5,True,
+F6-a,F6,satzebene,ja,False,"R-043, R-045",,6000,6000,1.0,0.9993853757165824,1.0,5,True,
+F6-b,F6,satzebene,ja,False,R-043,,6000,6000,1.0,0.9993853757165824,1.0,5,True,
+F6-c,F6,satzebene,ja,False,R-045,,6000,6000,1.0,0.9993853757165824,1.0,5,True,
+F6-d,F6,satzebene,ja,False,R-046,,6000,5407,0.9011666666666667,0.8933357480458459,0.9086050130995467,5,True,
+F7-a,F7,zellebene,ja,False,R-055,,3000,3000,1.0,0.9987711291961745,1.0,5,True,
+F7-b,F7,zellebene,ja,False,R-055,,3000,3000,1.0,0.9987711291961745,1.0,5,True,
+F7-c,F7,zellebene,ja,False,R-056,,231,231,1.0,0.9841576561234423,1.0,5,True,
+F7-d,F7,zellebene,nein,True,,Das Feld tarifgeneration wird von keiner Regel geprueft; erwartet unentdeckt.,231,0,0.0,0.0,0.015842343876557693,5,True,
+F8-a,F8,zellebene,ja,False,R-052,,2998,984,0.32821881254169444,0.311417964028446,0.34535552305950973,5,False,ueberschaetzt
+F8-b,F8,zellebene,ja,False,R-053,,3000,2169,0.723,0.7066072229564411,0.7389567901638373,5,True,
+F8-c,F8,zellebene,ja,False,R-053,,3000,747,0.249,0.23360992781025178,0.2648810321261186,5,False,ueberschaetzt
+F8-d,F8,zellebene,ja,False,R-054,,3000,406,0.13533333333333333,0.12328578930591311,0.1480967880410937,5,False,ueberschaetzt
+F8-e,F8,zellebene,nein,True,,"R-054 prueft gegen den Median der uebrigen Angebote; skaliert man alle Angebote einer Anfrage, wandert der Median mit. Strukturelle Grenze relationaler Plausibilitaetspruefung, erwartet unentdeckt.",2989,362,0.1211107393777183,0.10962238093169858,0.13334632341650596,5,True,
+HO1-a,HO1,satzebene,nein,True,,Held-out: unscharfe Dublette; der Katalog kennt nur exakte Duplikate.,6000,4794,0.799,0.7886322393385246,0.8090762326149554,5,False,unterschaetzt
+HO1-b,HO1,satzebene,nein,True,,Held-out: Tippfehler im Vornamen; keine Regel prueft Namensaehnlichkeit.,6000,4791,0.7985,0.7881230619627067,0.8085859003849751,5,False,unterschaetzt
+HO2-a,HO2,zellebene,nein,True,,Held-out: die ersetzte Postleitzahl existiert und der Ort wird mitgezogen; der Datensatz bleibt in sich stimmig.,3000,0,0.0,0.0,0.0012288708038255115,5,True,
+HO2-b,HO2,zellebene,nein,True,,"Held-out: kohaerente Senkung um 15 Prozent; R-031, R-032 und R-036 bleiben erfuellt, der Wert bleibt im plausiblen Korridor.",3000,0,0.0,0.0,0.0012288708038255115,5,True,
