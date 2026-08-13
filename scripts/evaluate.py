@@ -93,6 +93,7 @@ from scripts.inject import (  # noqa: E402
     _pruefe_modus,
     _schreibe_json,
     _seed_inject,
+    injektions_index,
 )
 from src.baselines import B0Schema, B3Framework, IsolationForestBaseline, Prototyp  # noqa: E402
 from src.common.config import lade_config  # noqa: E402
@@ -323,7 +324,8 @@ def _pruefe_hashes(
             + "\n  ".join(abweichungen)
             + "\nDer wiederhergestellte Datensatz ist nicht der, auf dem der Ground Truth "
             "erhoben wurde. Moegliche Ursachen: ein anderer --seed, ein anderes "
-            "--n-anfragen, ein anderer --clean-run oder eine geaenderte Konfiguration. "
+            "--n-anfragen, ein anderer --basis-index, ein anderer --clean-run oder eine "
+            "geaenderte Konfiguration. "
             "Die Auswertung waere auf einen anderen Datensatz bezogen und wird abgebrochen."
         )
     return {
@@ -357,7 +359,7 @@ def _seed_modell(config: Config, optionen: argparse.Namespace) -> SeedSequence:
         _namensfaktor(optionen.design),
         _namensfaktor(optionen.segment),
         round(optionen.rate * _BASISPUNKTE),
-        optionen.wdh,
+        injektions_index(optionen),
     )
 
 
@@ -544,6 +546,24 @@ def _argumente() -> argparse.ArgumentParser:
         default=None,
         help="Kennung eines erzeugten Laufs; ohne Angabe wird der saubere Datensatz erzeugt",
     )
+    parser.add_argument(
+        "--basis-index",
+        type=int,
+        default=0,
+        dest="basis_index",
+        help=(
+            "Nummer des Basisdatensatzes; 0 ist der kanonische. Muss mit der Angabe des "
+            "Injektionslaufs uebereinstimmen — ein falscher Wert faellt beim "
+            "Reproduzierbarkeitsnachweis auf"
+        ),
+    )
+    parser.add_argument(
+        "--injektions-index",
+        type=int,
+        default=None,
+        dest="injektions_index",
+        help="Nummer, die in seed_inject eingeht; ohne Angabe die Wiederholung",
+    )
     parser.add_argument("--seed", type=int, default=None, help="Master-Seed uebersteuern")
     parser.add_argument(
         "--n-anfragen", type=int, default=None, help="Anzahl der Anfragen uebersteuern"
@@ -602,7 +622,7 @@ def main(argumente: Sequence[str] | None = None) -> int:
         print("Der verfaelschte Datensatz wird aus den Seeds wiederhergestellt.")
 
     beginn = time.perf_counter()
-    daten_clean, _ = _lade_clean(config, optionen.clean_run)
+    daten_clean, _ = _lade_clean(config, optionen.clean_run, basis_index=optionen.basis_index)
     ergebnis = injiziere(
         daten_clean,
         optionen.rate,

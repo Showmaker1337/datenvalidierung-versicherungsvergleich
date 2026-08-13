@@ -80,6 +80,16 @@ class Strom(IntEnum):
     REFERENZ = 3
     """Einmalige Erzeugung der Referenztabellen unter ``data/reference``."""
 
+    STATISTIK = 4
+    """Ziehungen der Auswertung, insbesondere der Bootstrap-Konfidenzintervalle.
+
+    Getrennt von :attr:`MODELL`, weil die beiden nichts miteinander zu tun haben:
+    :attr:`MODELL` gehoert zum Messvorgang (das Subsampling von B2), dieser Strom
+    zur Auswertung der bereits gemessenen Zahlen. Ein gemeinsamer Strom haette
+    zur Folge, dass eine geaenderte Bootstrap-Einstellung die Baseline B2
+    veraendert — und damit die Messwerte selbst.
+    """
+
 
 @dataclass(frozen=True, slots=True)
 class Seeds:

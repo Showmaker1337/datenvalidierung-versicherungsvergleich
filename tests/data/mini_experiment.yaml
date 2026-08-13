@@ -1,0 +1,126 @@
+# Mini-Versuchsplan der Testsuite.
+#
+# Bildet die Struktur von config/experiment.yaml vollstaendig ab — Hauptversuch
+# und alle sechs Teilversuche —, aber in einer Groesse, die in Minuten laeuft.
+# Dadurch prueft tests/test_experiment.py denselben Codeweg wie die echte Serie
+# und nicht eine vereinfachte Nachbildung.
+#
+# Drei Klassen und drei Ratenstufen sind die Untergrenze: Der Friedman-Test
+# braucht mindestens drei Gruppen, der Page-Trendtest mindestens drei geordnete
+# Stufen. Mit weniger liefe die Auswertung nicht durch, und der Test pruefte
+# genau die Stelle nicht, an der sie scheitern koennte.
+
+serie: mini
+worker: 2
+schreibe_detections: false
+
+statistik:
+  alpha: 0.05
+  bootstrap_resamples: 400
+  seed_bootstrap: 7
+
+hauptversuch:
+  kennung: haupt
+  titel: "Mini-Hauptversuch"
+  design: A
+  modus: klasse
+  gruppen: [F2, F3, F4]
+  raten: [0.01, 0.02, 0.05]
+  verfahren: [prototyp, B0, B2]
+  wiederholungen: 3
+  n_anfragen: 300
+  basis_variiert: false
+  max_fehler: null
+  messe_speicher: false
+
+teilversuche:
+  - kennung: T1
+    titel: "Mini-Duplikate"
+    design: B
+    modus: klasse
+    gruppen: [F6]
+    raten: [0.02]
+    verfahren: [prototyp, B0, B2]
+    wiederholungen: 3
+    n_anfragen: 300
+    basis_variiert: false
+    max_fehler: null
+    messe_speicher: false
+
+  - kennung: T2
+    titel: "Mini-Held-out"
+    design: C
+    modus: klasse
+    gruppen: [HO1, HO2]
+    raten: [0.02]
+    verfahren: [prototyp]
+    wiederholungen: 3
+    n_anfragen: 300
+    basis_variiert: false
+    max_fehler: null
+    messe_speicher: false
+
+  - kennung: T3
+    titel: "Mini-Praxismix"
+    design: M
+    modus: klasse
+    gruppen: [mix]
+    raten: [0.02]
+    verfahren: [prototyp, B0, B2]
+    wiederholungen: 3
+    n_anfragen: 300
+    basis_variiert: false
+    max_fehler: null
+    messe_speicher: false
+
+  - kennung: T4
+    titel: "Mini-Skalierung, 200 Anfragen"
+    design: N1
+    modus: klasse
+    gruppen: [F3]
+    raten: [0.02]
+    verfahren: [prototyp, B0]
+    wiederholungen: 2
+    n_anfragen: 200
+    basis_variiert: false
+    max_fehler: null
+    messe_speicher: true
+
+  - kennung: T4
+    titel: "Mini-Skalierung, 400 Anfragen"
+    design: N2
+    modus: klasse
+    gruppen: [F3]
+    raten: [0.02]
+    verfahren: [prototyp, B0]
+    wiederholungen: 2
+    n_anfragen: 400
+    basis_variiert: false
+    max_fehler: null
+    messe_speicher: true
+
+  - kennung: T5
+    titel: "Mini-Datenvarianz"
+    design: D
+    modus: klasse
+    gruppen: [F2]
+    raten: [0.02]
+    verfahren: [prototyp]
+    wiederholungen: 3
+    n_anfragen: 300
+    basis_variiert: true
+    max_fehler: null
+    messe_speicher: false
+
+  - kennung: T6
+    titel: "Mini-Variantencharakterisierung"
+    design: V
+    modus: variante
+    gruppen: [F3-a, F3-c, F4-f, F7-c, F7-d]
+    raten: [1.0]
+    verfahren: [prototyp]
+    wiederholungen: 2
+    n_anfragen: 300
+    basis_variiert: false
+    max_fehler: 40
+    messe_speicher: false

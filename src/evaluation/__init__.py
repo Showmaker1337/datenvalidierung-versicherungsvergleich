@@ -29,6 +29,29 @@ Module
     ``metrics.json`` und das laufuebergreifende Langformat.
 ``pipeline``
     Orchestrierung: Verfahren ausfuehren, messen, auswerten.
+
+Ab Phase 6 kommen die Module der Ergebnisdarstellung hinzu. Sie werden hier
+bewusst **nicht** re-exportiert: ``abbildungen`` zieht matplotlib in den Prozess,
+``tabellen`` und ``hypothesen`` ziehen scipy. Wer den Experiment-Runner startet,
+braucht nichts davon, und ein Import von ``src.evaluation`` soll nicht mehrere
+Sekunden kosten.
+
+``varianten``
+    Zuordnung Injektionsvariante auf Regel, abgeschrieben aus ``spec/03``,
+    Abschnitt 2 — nicht aus dem Injektor (siehe dort, Abschnitt 6).
+``experimentplan``
+    Der Versuchsplan aus ``config/experiment.yaml``, aufgefaltet zu Einzellaeufen.
+``ergebnisse``
+    Zugriff auf ``results/metrics_long.parquet`` — die eine Quelle aller
+    Ergebniszahlen.
+``statistik``
+    Konfidenzintervalle, Hypothesentests, Effektstaerken.
+``hypothesen``
+    HYP1 bis HYP4, je mit dem zu ihnen passenden Testverfahren.
+``tabellen``
+    Die zehn Ergebnistabellen.
+``abbildungen``
+    Die zehn Abbildungen samt Bildunterschriften.
 """
 
 from __future__ import annotations

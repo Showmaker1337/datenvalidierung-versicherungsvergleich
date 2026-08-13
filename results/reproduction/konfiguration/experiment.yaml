@@ -1,0 +1,205 @@
+# Versuchsplan der Phase 6.
+#
+# Diese Datei wird ausschliesslich von src/evaluation/experimentplan.py gelesen.
+# Unbekannte Schluessel fuehren zum Abbruch, fehlende ebenfalls — es gibt keine
+# stillen Defaultwerte. Ein wirkungsloser Schluessel "wiederholungen" waere eine
+# stillschweigende Stichprobenreduktion.
+#
+# Die fachliche Konfiguration (Stichtag, Master-Seed, Schwellenwerte) steht
+# unveraendert in config/default.yaml. Hier stehen nur die Faktorstufen.
+#
+# ---------------------------------------------------------------------------
+# Abweichung von spec/03, Abschnitt 3 — bewusst und begruendet
+# ---------------------------------------------------------------------------
+# spec/03 nennt sechs Ratenstufen (0,5 / 1 / 2 / 5 / 10 / 20 Prozent). Der
+# Hauptversuch faehrt vier davon:
+#
+#   - 0,005 entfaellt: Bei den knappen Klassen liegt die absolute Fehlerzahl dann
+#     im niedrigen zweistelligen Bereich, und der klassenweise Recall streut
+#     staerker als der Effekt, den er zeigen soll.
+#   - 0,20 entfaellt: Abedjan et al. berichten reale Raten von 0,1 bis 34 Prozent;
+#     zwanzig Prozent liegt am oberen Rand und ist fuer ein
+#     Vergleichsportal praxisfern.
+#
+# Beide Stufen sind damit nicht "vergessen", sondern ausgeschlossen. Die
+# Begruendung gehoert in den Methodikteil der Arbeit.
+#
+# ---------------------------------------------------------------------------
+# Abweichung von spec/03, Abschnitt 3 zum Mischmodus
+# ---------------------------------------------------------------------------
+# spec/03 nennt fuer den praxisnahen Mischmodus 30 Seeds, der Phasenprompt 20.
+# Gefahren werden 20 — dieselbe Zahl wie im Hauptversuch, damit T3 und die
+# isolierten Klassen mit identischer Stichprobengroesse nebeneinander stehen
+# (Abbildung 10). Ein Vergleich, bei dem eine Seite 30 und die andere 20
+# Wiederholungen hat, verschoebe die Breite der Konfidenzintervalle aus einem
+# Grund, der nichts mit der Sache zu tun hat.
+
+serie: s01
+worker: 8
+schreibe_detections: false # Rohmeldungen je Verfahren; siehe scripts/run_experiment.py
+
+statistik:
+  alpha: 0.05
+  bootstrap_resamples: 10000
+  seed_bootstrap: 7 # Nummer des Zufallsstroms; ohne ihn waere jedes CI ein anderes
+
+# ---------------------------------------------------------------------------
+# Hauptversuch — vollfaktoriell
+# ---------------------------------------------------------------------------
+# 7 Klassen x 4 Raten x 3 Verfahren = 84 Zellen, 20 Wiederholungen.
+# Das sind 1.680 Zellmessungen aus 560 Laeufen: Ein Lauf verfaelscht **einen**
+# Datensatz und laesst alle drei Verfahren darauf laufen. Drei getrennte Laeufe
+# je Zelle waeren nicht nur dreimal so teuer, sie waeren auch methodisch
+# schlechter — die drei Verfahren saehen dann verschiedene Datensaetze, und der
+# gepaarte Wilcoxon-Test verloere seine Paarung.
+#
+# F6 fehlt hier mit Absicht: Die Klasse erzeugt zusaetzliche Zeilen und hat
+# keinen zellbasierten Ground Truth. Sie laeuft als Teilversuch T1.
+# B3 fehlt, weil es inhaltlich dieselben Regeln ausfuehrt wie der Prototyp; ein
+# Test dagegen pruefte eine Nullhypothese, von der man weiss, dass sie gilt.
+# B3 wird qualitativ verglichen (scripts/framework_vergleich.py, t5).
+
+hauptversuch:
+  kennung: haupt
+  titel: "Hauptversuch: Fehlerklasse x Fehlerrate x Verfahren"
+  design: A
+  modus: klasse
+  gruppen: [F1, F2, F3, F4, F5, F7, F8]
+  raten: [0.01, 0.02, 0.05, 0.10]
+  verfahren: [prototyp, B0, B2]
+  wiederholungen: 20
+  n_anfragen: 10000
+  basis_variiert: false
+  max_fehler: null
+  messe_speicher: false # tracemalloc verlangsamt jeden Lauf spuerbar; T4 misst
+
+# ---------------------------------------------------------------------------
+# Teilversuche
+# ---------------------------------------------------------------------------
+
+teilversuche:
+  - kennung: T1
+    titel: "Duplikate: satzbasierte Metrik fuer F6"
+    design: B
+    modus: klasse
+    gruppen: [F6]
+    raten: [0.01, 0.02, 0.05, 0.10]
+    verfahren: [prototyp, B0, B2]
+    wiederholungen: 20
+    n_anfragen: 10000
+    basis_variiert: false
+    max_fehler: null
+    messe_speicher: false
+
+  - kennung: T2
+    titel: "Held-out: erwarteter Recall nahe null"
+    design: C
+    modus: klasse
+    gruppen: [HO1, HO2]
+    raten: [0.02]
+    verfahren: [prototyp]
+    wiederholungen: 20
+    n_anfragen: 10000
+    basis_variiert: false
+    max_fehler: null
+    messe_speicher: false
+
+  - kennung: T3
+    titel: "Praxismix: alle Klassen gemeinsam mit den Gewichten aus spec/03"
+    design: M
+    modus: klasse
+    gruppen: [mix]
+    raten: [0.02]
+    verfahren: [prototyp, B0, B2]
+    wiederholungen: 20
+    n_anfragen: 10000
+    basis_variiert: false
+    max_fehler: null
+    messe_speicher: false
+
+  # T4 misst Laufzeit und Speicher ueber die Datensatzgroesse. Drei Eintraege
+  # statt einer Liste, weil n_anfragen nicht in der run_id steht: Die drei
+  # Groessen brauchen verschiedene Designkennungen, sonst ueberschreiben sich
+  # ihre Laufverzeichnisse.
+  #
+  # Injiziert wird F3 — die Klasse mit dem kleinsten Universum. Gemessen werden
+  # soll die Skalierung der **Verfahren**, nicht die der Injektion; ein kleines,
+  # ueber alle drei Groessen anteilig gleiches Injektionspensum haelt die
+  # Messung dort, wo sie hingehoert.
+  - kennung: T4
+    titel: "Skalierung: 1.000 Anfragen"
+    design: N1
+    modus: klasse
+    gruppen: [F3]
+    raten: [0.02]
+    verfahren: [prototyp, B0]
+    wiederholungen: 5
+    n_anfragen: 1000
+    basis_variiert: false
+    max_fehler: null
+    messe_speicher: true
+
+  - kennung: T4
+    titel: "Skalierung: 10.000 Anfragen"
+    design: N2
+    modus: klasse
+    gruppen: [F3]
+    raten: [0.02]
+    verfahren: [prototyp, B0]
+    wiederholungen: 5
+    n_anfragen: 10000
+    basis_variiert: false
+    max_fehler: null
+    messe_speicher: true
+
+  - kennung: T4
+    titel: "Skalierung: 100.000 Anfragen"
+    design: N3
+    modus: klasse
+    gruppen: [F3]
+    raten: [0.02]
+    verfahren: [prototyp, B0]
+    wiederholungen: 5
+    n_anfragen: 100000
+    basis_variiert: false
+    max_fehler: null
+    messe_speicher: true
+
+  # T5 variiert den Basisdatensatz statt des Injektionsstroms. Nur so ist die
+  # Datenvarianz von der Injektionsvarianz des Hauptversuchs zu trennen
+  # (Abbildung 8). F5 ist gewaehlt, weil die Klasse mittelgross ist und ihre
+  # Varianten breit ueber die Entitaeten streuen.
+  - kennung: T5
+    titel: "Datenvarianz: 20 verschiedene Basisdatensaetze"
+    design: D
+    modus: klasse
+    gruppen: [F5]
+    raten: [0.02]
+    verfahren: [prototyp]
+    wiederholungen: 20
+    n_anfragen: 10000
+    basis_variiert: true
+    max_fehler: null
+    messe_speicher: false
+
+  # T6 charakterisiert jede der sechzig Varianten einzeln. Fehlerrate 1,0 heisst
+  # "das ganze Universum dieser Variante"; max_fehler deckelt es bei 3.000.
+  #
+  # Die Deckelung ist ausgewiesen und nicht stillschweigend: Varianten mit einem
+  # kleineren Universum (F4-f: 57, F7-c und F7-d: je 231) werden erschoepfend
+  # injiziert, groessere auf 3.000 gezogen. Bei 3.000 liegt das
+  # Clopper-Pearson-Intervall selbst im unguenstigsten Fall p = 0,5 bei rund
+  # plus/minus 1,8 Prozentpunkten — mehr Genauigkeit braucht Abbildung 5 nicht,
+  # und der Rest waere Rechenzeit ohne Erkenntnisgewinn.
+  - kennung: T6
+    titel: "Variantencharakterisierung: alle 60 Varianten einzeln"
+    design: V
+    modus: variante
+    gruppen: alle
+    raten: [1.0]
+    verfahren: [prototyp]
+    wiederholungen: 5
+    n_anfragen: 10000
+    basis_variiert: false
+    max_fehler: 3000
+    messe_speicher: false

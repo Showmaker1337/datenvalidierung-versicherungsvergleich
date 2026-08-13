@@ -1,7 +1,7 @@
 # Phase 6 — Experimentläufe, Statistik und Abbildungen
 
-> Voraussetzung: Phase 5 abgeschlossen, Tests grün.
-> Kopiere alles ab der Trennlinie in Claude Code.
+> Voraussetzung: Phase 5 samt Nachträgen 5b bis 5d abgeschlossen, Tests grün.
+> Neuer Chat. Kopiere alles ab der Trennlinie in Claude Code.
 
 ---
 
@@ -52,6 +52,18 @@ Wenn die Rechenzeit es hergibt, können 0,005 und 0,20 sowie 30 statt 20 Seeds e
 werden. Das ist eine Erweiterung, keine Voraussetzung — dokumentiere, was tatsächlich
 gelaufen ist.
 
+**Gleiche die Stufen mit `config/default.yaml` ab.** Dieser Prompt wurde vor Phase 4b
+geschrieben; in der Konfiguration stehen inzwischen mehr Ratenstufen, und die Nachträge
+haben mit 0,005 bis 0,05 gemessen. Der Hauptversuch nutzt die vier oben genannten Stufen.
+Weicht die Konfiguration ab, melde es und ändere nichts eigenmächtig — die Faktorstufen
+sind nicht eingefroren, aber die Zahl der Läufe hängt daran.
+
+**Warum UV2 jetzt sauber testbar ist — ein Satz für die Methodik.** Seit Phase 4b wird das
+Klassenkontingent proportional zum Universum jeder Variante verteilt, die Mischung ist über
+alle Ratenstufen identisch. Vorher hätte ein Trend über die Ratenstufen teils die Rate,
+teils eine Verschiebung der Variantenmischung gemessen. HYP3 ist erst dadurch eine
+Hypothese über die Fehlerrate. Halte das in `results/hypothesen.md` bei HYP3 fest.
+
 ### Fünf Teilversuche
 
 | Teilversuch | Design | Zweck |
@@ -61,6 +73,18 @@ gelaufen ist.
 | **T3 Praxismix** | alle Klassen gemeinsam mit den Gewichten aus `spec/03`, Rate 0,02, 20 Seeds, alle Verfahren | Realistischer Fehlermix statt isolierter Klassen. Inhaltlich der interessanteste Teilversuch |
 | **T4 Skalierung** | 1.000 / 10.000 / 100.000 Anfragen, Rate 0,02, Prototyp und B0, 5 Seeds | Laufzeit und Speicher |
 | **T5 Datenvarianz** | eine Klasse (F5), Rate 0,02, 20 verschiedene **Basisdatensatz**-Seeds, nur Prototyp | Vergleich gegen die Injektionsvarianz des Hauptversuchs |
+| **T6 Variantencharakterisierung** | alle 60 Varianten einzeln über `--modus variante`, erschöpfendes n je Variante, 5 Seeds, nur Prototyp | **Quelle für Abbildung 5 und `t4_varianten.csv`** |
+
+**T6 ist neu und in diesem Prompt ursprünglich nicht vorgesehen.** Er ist seit Phase 4b
+nötig: Die proportionale Zuteilung gibt knappen Varianten im faktoriellen Plan einstellige
+Fallzahlen — F4-f bekommt bei 2 Prozent eine einzige Injektion, F7-c fünf. Ein Recall aus
+n = 1 gehört in keine Abbildung. Im Modus `variante` schöpft jede Variante ihr Universum
+aus (F4-f 57, F7-c und F7-d je 231) und bekommt ein belastbares Konfidenzintervall.
+
+**Der Praxismix (T3) und die Zuteilung greifen ineinander:** Die Gewichte aus `spec/03`
+regeln die Aufteilung **zwischen** den Klassen, die universumsproportionale Regel aus
+Phase 4b die Aufteilung **innerhalb** einer Klasse. Beides ist zu protokollieren, sonst ist
+die tatsächliche Zusammensetzung des Mischlaufs später nicht rekonstruierbar.
 
 ## Aufgabe 2 — Seeding
 
@@ -93,6 +117,9 @@ ungeordnete Strukturen, `pip freeze` je Experimentserie archivieren.
 
 - Läuft die Faktorstufen ab, mit Fortschrittsanzeige und Checkpointing: Ein bereits
   abgeschlossener Lauf wird beim nächsten Start übersprungen, nicht wiederholt.
+- **Nutzt das Pfad- und `run_id`-Schema aus Phase 4b** — verschachtelt
+  `data/runs/<serie>/<design>/<klasse>/<rate>/<wdh>/`, `run_id` als Token derselben
+  Information. Erfinde kein zweites Schema.
 - Parallelisierung über `multiprocessing`, Worker-Zahl konfigurierbar. Die Ergebnisse
   müssen **unabhängig von der Worker-Zahl identisch** sein.
 - Schreibt je Lauf `metrics.json` und aggregiert alles nach `results/metrics_long.parquet`.
@@ -199,8 +226,8 @@ Graustufen-tauglich (unterschiedliche Marker und Linienstile, nicht nur Farbe).
 | 2 | Boxplots | F1-Verteilung über die Seeds, je Verfahren, je Fehlerklasse |
 | 3 | PR-Kurve | **nur B2** (einziges Verfahren mit kontinuierlichem Score); die übrigen Verfahren als einzelne Betriebspunkte in dasselbe Diagramm |
 | 4 | Balkendiagramm | Recall je Fehlerklasse mit Konfidenzintervall, HO1 und HO2 deutlich abgesetzt |
-| 5 | **Recall je Injektionsvariante** | gruppiert nach Fehlerklasse, mit Markierung „spiegelt Regel exakt". **Die wichtigste Abbildung der Arbeit** — sie zeigt empirisch, dass nicht-spiegelnde Varianten schlechter erkannt werden, und entkräftet damit den Zirkularitätsvorwurf |
-| 6 | Kreuztabelle als Heatmap | `regel_id` × `fehlerklasse`, zeigt Über- und Unterdeckung des Katalogs inklusive der 15 Regeln ohne Treffer |
+| 5 | **Recall je Injektionsvariante** | **aus T6, nicht aus dem Hauptversuch.** Gruppiert nach Fehlerklasse, mit Markierung „spiegelt Regel exakt", `n` und Konfidenzintervall an jedem Balken. **Die wichtigste Abbildung der Arbeit** — sie zeigt empirisch, dass nicht-spiegelnde Varianten schlechter erkannt werden, und entkräftet damit den Zirkularitätsvorwurf. Aus dem faktoriellen Plan gezeichnet wäre sie wertlos, weil dort einzelne Varianten n = 1 haben |
+| 6 | Kreuztabelle als Heatmap | `regel_id` × `fehlerklasse`, zeigt Über- und Unterdeckung des Katalogs. **Alle 58 Regeln bleiben in der Abbildung**, auch die ohne einen einzigen Treffer. Nenne vorab keine Zahl dafür — wie viele es sind, ist ein Ergebnis |
 | 7 | Laufzeitkurve | Laufzeit über Datensatzgröße, je Verfahren, log-log (aus T4) |
 | 8 | Varianzvergleich | Injektionsvarianz (Hauptversuch) gegen Datenvarianz (T5) |
 | 9 | Zellmetrik vs. Constraint-Metrik | Precision beider Sichten je Fehlerklasse — macht das Artefakt mehrspaltiger Verstöße sichtbar |
@@ -218,8 +245,18 @@ Nach `results/tables/` als CSV **und** als Markdown:
 - `t3_regeldiagnose.csv` — je Regel: Treffer, Precision, Anteil „einzige treffende Regel".
   **Die Regeln ohne Treffer bleiben in der Tabelle** und werden als Überdeckung
   interpretiert, nicht stillschweigend entfernt
-- `t4_varianten.csv` — Recall je Injektionsvariante mit der Spalte „spiegelt Regel exakt"
-- `t5_baseline_b3.csv` — Ausdrückbarkeit, Codezeilen je Regel, Laufzeit, Diagnosegüte
+- `t4_varianten.csv` — Recall je Injektionsvariante **aus T6**, mit `n`,
+  Clopper-Pearson-Intervall und der Spalte „spiegelt Regel exakt"
+- `t5_frameworkvergleich.csv` — Ausdrückbarkeit, Codezeilen je Regel, Laufzeit,
+  Diagnosegüte, **je Framework eine Spalte: cuallee und Great Expectations.** Beide gehen
+  nicht in die Inferenzstatistik. Die Lokalisierungsaussage ist eine cuallee-Eigenschaft,
+  nicht die der Kategorie — siehe Phase 5b
+- `t9_gewichtung.csv` — Klassen-Recall zellgewichtet gegen variantengewichtet, je Klasse.
+  Die Differenz zeigt, wie stark der Klassenwert von der Zusammensetzung abhängt
+- `t10_mitgezogen.csv` — Sensitivitätsrechnung: alle Hauptkennzahlen mit
+  `mitgezogen_als_fehler` = False und = True. Die Richtung des Effekts ist
+  klassenabhängig — bei F8 senkt der Schalter den Recall, bei HO2 hob er ihn vor der
+  Korrektur aus 5d. Beschreibe ihn deshalb nirgends pauschal als „senkt den Recall"
 - `t6_laufzeit.csv` — Laufzeit und Speicher, normiert auf 1.000 Zeilen
 - `t7_teilversuche.csv` — Ergebnisse aus T1 bis T5 im Überblick
 - `t8_metrikvergleich.csv` — Zellmetrik gegen Constraint-Metrik
@@ -229,8 +266,11 @@ Nach `results/tables/` als CSV **und** als Markdown:
 `scripts/make_repro_package.py` erzeugt `results/reproduction/` mit:
 
 - allen Konfigurationen und Seeds
-- `pip freeze`
-- Git-Commit-Hash des aktuellen Standes **und** des Tags `freeze-regelkatalog`
+- `pip freeze`, dazu `requirements.txt` und `requirements-vergleich.txt` getrennt — der
+  Frameworkvergleich wird separat installiert und nimmt an den Läufen nicht teil
+- Git-Commit-Hash des aktuellen Standes **und** des Tags `freeze-regelkatalog`. Für den Tag
+  gilt `git rev-parse freeze-regelkatalog^{commit}`, also
+  `30ca5ea429a0abddec7050af1d1a42cdf9942548` — **nicht** das Tag-Objekt `3f64827…`
 - SHA-256 aller Ein- und Ausgabedateien
 - `README_reproduction.md` mit den exakten Kommandos in der richtigen Reihenfolge
 - der Zahl fehlgeschlagener Läufe aus `failed_runs.json`
@@ -254,7 +294,8 @@ Damit ist jeder Einzelwert der Ergebnistabellen rückverfolgbar. Das ist Hevner 
 
 1. Mini-Experiment läuft vollständig durch, alle Artefakte entstehen.
 2. Ergebnisse sind unabhängig von der Worker-Zahl.
-3. Alle zehn Abbildungen und acht Tabellen werden erzeugt.
+3. Alle zehn Abbildungen und zehn Tabellen werden erzeugt.
+3a. Abbildung 5 und `t4_varianten.csv` stammen aus T6, nicht aus dem Hauptversuch.
 4. `results/hypothesen.md` enthält je Hypothese Teststatistik, korrigierten p-Wert,
    Effektstärke und Entscheidung — mit dem je Hypothese passenden Testverfahren.
 5. Der Bootstrap degeneriert bei den Held-out-Klassen nicht, sondern weicht auf
@@ -266,6 +307,24 @@ Damit ist jeder Einzelwert der Ergebnistabellen rückverfolgbar. Das ist Hevner 
 
 Keine Änderung am Regelkatalog, am Generator oder am Injektor. Wenn ein Ergebnis
 unerwartet ausfällt, ist das ein Befund — kein Anlass, das Artefakt anzupassen.
+
+## Vor dem großen Lauf: eine Hochrechnung, kein Sprung
+
+Fahre zuerst eine **Pilotserie von 20 Läufen** über verschiedene Klassen und Verfahren,
+miss die tatsächliche Zeit je Lauf und rechne auf den vollen Plan hoch. Berichte die
+Hochrechnung, **bevor** du die Serie startest. Liegt sie über zwölf Stunden, reduziere in
+der oben genannten Reihenfolge und dokumentiere, was tatsächlich gelaufen ist.
+
+Ein abgebrochener Lauf über 1.680 Zellen kostet mehr als eine Stunde Messung vorher.
+
+## Was aus den Nachträgen in die Ergebnisdarstellung gehört
+
+Die Befunde 11 bis 14 aus `docs/iteration_log.md` sind keine internen Notizen, sondern
+Material für die Diskussion. Sorge dafür, dass sie in den Ergebnisdateien wiederfindbar
+sind, insbesondere Befund 14: Kohärenz, die je Verfälschung gegen den Ausgangszustand
+hergestellt wird, bricht bei Überlagerung innerhalb derselben Bezugsgruppe und wäre in
+diesem Experiment als scheinbarer Sachtrend von HO2 über UV2 aufgetaucht. Dass er vorher
+gefunden wurde, ist Teil des Ergebnisses.
 
 Halte am Ende an und berichte: die Hauptergebnisse in Zahlen, welche Hypothesen gehalten
 haben, wie hoch die tatsächliche Laufzeit war und wo die Ergebnisse von deiner Erwartung

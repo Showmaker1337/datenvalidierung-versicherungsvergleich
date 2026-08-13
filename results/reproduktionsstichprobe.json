@@ -1,0 +1,32 @@
+{
+  "bestanden": 5,
+  "geprueft": 5,
+  "laeufe": [
+    {
+      "bestanden": true,
+      "meldung": null,
+      "run_id": "s01_A_F1_r0100_w00"
+    },
+    {
+      "bestanden": true,
+      "meldung": null,
+      "run_id": "s01_A_F3_r0500_w07"
+    },
+    {
+      "bestanden": true,
+      "meldung": null,
+      "run_id": "s01_A_F7_r0100_w14"
+    },
+    {
+      "bestanden": true,
+      "meldung": null,
+      "run_id": "s01_B_F6_r1000_w01"
+    },
+    {
+      "bestanden": true,
+      "meldung": null,
+      "run_id": "s01_V_F3-a_r10000_w03"
+    }
+  ],
+  "zweck": "prozessuebergreifender Reproduzierbarkeitsnachweis: scripts/evaluate.py stellt den verfaelschten Datensatz neu aus den Seeds her und vergleicht ihn je Entitaet gegen die SHA-256-Werte im manifest.json"
+}

@@ -1,0 +1,1 @@
+Abbildung 2: Verteilung des F1-Werts auf der Zellebene ueber die 20 Wiederholungen, je Verfahren und Fehlerklasse, aggregiert ueber die vier Ratenstufen. Die Kaesten zeigen den Interquartilsabstand, die Linie den Median, die Antennen das 1,5-fache des Interquartilsabstands. Die Verfahren sind ueber Schraffur und Graustufe unterschieden und bleiben damit im Graustufendruck lesbar.

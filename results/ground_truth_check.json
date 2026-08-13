@@ -826,7 +826,46 @@
       "zelluniversum": {
         "F7": 231
       }
+    },
+    "zz_A_F3_r0200_w00": {
+      "abweichungen": {
+        "diff_ohne_log": 0,
+        "doppelte_logzeilen": 0,
+        "doppelte_row_ids": 0,
+        "entfallene_zeilen_ohne_log": 0,
+        "log_ohne_diff": 0,
+        "neue_zeilen_ohne_log": 0,
+        "row_id_als_ziel": 0,
+        "wertabweichungen": 0,
+        "wirkungslose_eintraege": 0
+      },
+      "beispiele": {
+        "diff_ohne_log": [],
+        "doppelte_logzeilen": [],
+        "doppelte_row_ids": [],
+        "entfallene_zeilen_ohne_log": [],
+        "log_ohne_diff": [],
+        "neue_zeilen_ohne_log": [],
+        "row_id_als_ziel": [],
+        "wertabweichungen": [],
+        "wirkungslose_eintraege": []
+      },
+      "fehlerrate": 0.02,
+      "klasse": "F3",
+      "modus": "klasse",
+      "saetze_im_log": 0,
+      "sauber": true,
+      "variante": null,
+      "zeilen_nur_clean": 0,
+      "zeilen_nur_dirty": 0,
+      "zellen_fehlerhaft": 34,
+      "zellen_geaendert_gesamt": 34,
+      "zellen_im_diff": 34,
+      "zellen_im_log": 34,
+      "zelluniversum": {
+        "F3": 1719
+      }
     }
   },
-  "laeufe_gesamt": 21
+  "laeufe_gesamt": 22
 }

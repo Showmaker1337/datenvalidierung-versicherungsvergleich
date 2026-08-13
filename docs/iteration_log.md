@@ -1127,3 +1127,190 @@ Die Größenordnung stimmt, und die kleinen Abweichungen sind erklärt, nicht we
 | Gegencheck über alle neu erzeugten Läufe | ohne Abweichung | ohne Abweichung |
 | `test_f6b_luecke_bleibt_bestehen` | F6-b bleibt verletzt | grün |
 | `test_rangfolge_bleibt_nach_skalierung_stimmig` (F8, HO2, Rate 0,05) | keine Verletzung | grün |
+
+---
+
+## Phase 6 — Versuchsplan, Statistik und Ergebnisdarstellung
+
+**Der Regelkatalog bleibt unberührt.** Diese Phase misst, sie ändert nichts am Prototyp.
+Geändert wurden ausschließlich `scripts/inject.py` und `scripts/evaluate.py`, und zwar
+abwärtskompatibel um zwei Schalter (siehe „Zwei neue Schalter" weiter unten).
+
+### Entscheidung 1 — vier statt sechs Ratenstufen im Hauptversuch
+
+- **Datum:** 2026-08-12
+- **Sachlage:** `spec/03`, Abschnitt 3 nennt sechs Stufen (0,5 / 1 / 2 / 5 / 10 / 20 Prozent).
+  Der Hauptversuch fährt vier: **1 / 2 / 5 / 10 Prozent**.
+- **Begründung:**
+  - **0,005 entfällt.** Bei den knappen Klassen liegt die absolute Fehlerzahl dann im
+    niedrigen zweistelligen Bereich; der klassenweise Recall streut dort stärker als der
+    Effekt, den er zeigen soll.
+  - **0,20 entfällt.** Abedjan et al. berichten reale Raten von 0,1 bis 34 Prozent.
+    Zwanzig Prozent liegt am oberen Rand und ist für ein Vergleichsportal praxisfern.
+- **Folge für den Umfang:** 7 Klassen × 4 Raten × 3 Verfahren = 84 Zellen × 20
+  Wiederholungen = 1.680 Zellmessungen. Sie entstehen aus **560 Läufen**: Ein Lauf
+  verfälscht einen Datensatz und lässt alle drei Verfahren darauf laufen.
+- **Warum nicht drei Läufe je Zelle:** Die drei Verfahren sähen dann verschiedene
+  Datensätze, und der gepaarte Wilcoxon-Test verlöre seine Paarung. Die Paarung ist der
+  Grund für seine höhere Trennschärfe gegenüber dem ungepaarten Test.
+
+### Entscheidung 2 — 20 statt 30 Seeds im Mischmodus
+
+- **Sachlage:** `spec/03`, Abschnitt 3 nennt für den praxisnahen Mischmodus 30 Seeds, der
+  Phasenprompt 20.
+- **Entschieden: 20**, dieselbe Zahl wie im Hauptversuch.
+- **Begründung:** Abbildung 10 stellt den Praxismix neben den Mittelwert über die isolierten
+  Klassen. Hätte eine Seite 30 und die andere 20 Wiederholungen, unterschieden sich die
+  Breiten der Konfidenzintervalle aus einem Grund, der nichts mit der Sache zu tun hat.
+
+### Entscheidung 3 — die Konfiguration trägt keine Faktorstufen, und das bleibt so
+
+- **Sachlage:** Der Phasenprompt geht davon aus, in `config/default.yaml` stünden inzwischen
+  Ratenstufen. **Das ist nicht der Fall** — die Datei enthält Stichtag, Master-Seed,
+  Datensatzgröße, Spartenverteilung, Schwellenwerte und Referenzdatenumfang, aber keine
+  einzige Faktorstufe. Die Ratenstufen stehen in `spec/03`, Abschnitt 3.
+- **Entschieden:** Der Versuchsplan bekommt eine **eigene** Datei `config/experiment.yaml`,
+  gelesen von `src/evaluation/experimentplan.py`. `config/default.yaml` bleibt unverändert.
+- **Begründung:** Die beiden Dateien haben verschiedene Lebensdauern. Die fachliche
+  Konfiguration ist seit dem Freeze stabil und geht in jeden Lauf ein; der Versuchsplan ist
+  eine Aussage über *dieses* Experiment. Sie zu vermischen hieße, den Master-Seed neben der
+  Zahl der Wiederholungen zu führen — und eine Änderung des einen sähe aus wie eine des
+  anderen.
+
+### Entscheidung 4 — Teilversuch T6 ist nötig, nicht optional
+
+- **Sachlage:** Seit der universumsproportionalen Zuteilung (Phase 4, Befund 4) bekommen
+  knappe Varianten im faktoriellen Plan einstellige Fallzahlen: F4-f bei zwei Prozent eine
+  einzige Injektion, F7-c fünf.
+- **Entschieden:** Abbildung 5 und `t4_varianten.csv` stammen **ausschließlich** aus dem
+  Teilversuch T6 (`--modus variante`), in dem jede Variante ihr Universum ausschöpft.
+- **Deckelung, ausgewiesen statt stillschweigend:** `max_fehler: 3000`. Varianten mit
+  kleinerem Universum werden erschöpfend injiziert, größere auf 3.000 gezogen. Bei 3.000
+  liegt das Clopper-Pearson-Intervall selbst im ungünstigsten Fall p = 0,5 bei rund
+  ±1,8 Prozentpunkten.
+- **Die fünf Wiederholungen sind Replikate, keine Vergrößerung der Stichprobe.** Bei
+  Varianten unterhalb der Deckelung injizieren alle fünf dieselben Zellen. `t4_varianten`
+  berichtet deshalb das **Mittel** über die Wiederholungen und nicht ihre Summe — sonst wäre
+  n dort fünfmal zu groß und das Intervall entsprechend zu eng.
+
+### Entscheidung 5 — zwei Varianzquellen brauchen zwei Indizes
+
+- **Sachlage:** Der Hauptversuch misst die **Injektionsvarianz** (fester Basisdatensatz,
+  variierender Injektionsstrom), T5 die **Datenvarianz** (fester Injektionsstrom, zwanzig
+  Basisdatensätze).
+- **Entschieden:** Der Versuchsplan führt `basis_index` und `injektions_index` getrennt.
+  Im Regelfall ist `injektions_index` gleich der Wiederholung und `basis_index` null.
+- **Begründung:** Variierten beide zugleich, mäße T5 die **Summe** aus beiden Streuungen,
+  und der Vergleich in Abbildung 8 verlöre seinen Sinn.
+
+### Zwei neue Schalter in `scripts/inject.py` und `scripts/evaluate.py`
+
+Beide sind abwärtskompatibel — ohne Angabe verhalten sich die Skripte exakt wie vorher, und
+jeder bisherige Lauf bleibt bitgleich reproduzierbar.
+
+| Schalter | Vorgabe | Zweck |
+|---|---|---|
+| `--basis-index` | `0` | Wählt den Basisdatensatz. `0` ist der kanonische aus `wurzel_seeds(master_seed).basis`. Nur T5 setzt ihn ungleich null. |
+| `--injektions-index` | keine | Nummer, die in `seed_inject` eingeht; ohne Angabe die Wiederholung. Nur T5 hält sie fest, während `--basis-index` variiert. |
+
+Damit ist **jeder** Lauf des Experiments von Hand nachvollziehbar, auch die des Teilversuchs
+T5. `tests/test_experiment.py::test_manifest_gleicht_handlauf` belegt das: Der Runner und
+ein Aufruf von `scripts/inject.py` mit denselben Faktorstufen erzeugen ein Manifest, das
+sich in **keinem** Feld unterscheidet — einschließlich der SHA-256-Werte des sauberen und
+des verfälschten Datensatzes.
+
+### Entscheidung 6 — der Runner rechnet in einem Prozess, und das wird ausgewiesen
+
+- **Sachlage:** Getrennt aufgerufen erzeugt `inject.py` den sauberen Datensatz und
+  `evaluate.py` erzeugt ihn ein zweites Mal, um den verfälschten wiederherzustellen. Bei
+  1.035 Läufen wären das rund 2.000 Datensatzerzeugungen zu je zwölf Sekunden — knapp sieben
+  Stunden allein dafür.
+- **Entschieden:** `scripts/run_experiment.py` erzeugt den sauberen Datensatz einmal je
+  Arbeitsprozess und Faktorkombination und verfälscht ihn je Lauf neu.
+- **Der Preis, ehrlich benannt:** Der Hashvergleich von `evaluate.py` ist im Runner trivial
+  erfüllt, weil beide Seiten dasselbe Objekt sind. Er wird deshalb **nicht** als bestandener
+  Nachweis geführt, sondern in `metrics.json` als `"identitaet"` gekennzeichnet. Der echte,
+  prozessübergreifende Nachweis entsteht über `--stichprobe`: Dort läuft `scripts/evaluate.py`
+  in einem eigenen Prozess, stellt den verfälschten Datensatz neu aus den Seeds her und
+  vergleicht ihn Entität für Entität gegen das Manifest. Das Ergebnis steht in
+  `results/reproduktionsstichprobe.json`.
+
+### Entscheidung 7 — `PYTHONHASHSEED` wird erzwungen, nicht erhofft
+
+`scripts/run_experiment.py` startet sich einmalig mit `PYTHONHASHSEED=0` neu, wenn die
+Variable nicht gesetzt ist, und schreibt den Wert in `results/experiment_lauf.json`. Der
+Neustart läuft über einen **Unterprozess** und nicht über `os.execve`: Unter Windows gibt es
+kein echtes `exec`; die Bibliotheksfunktion legt dort einen neuen Prozess an und beendet den
+alten sofort — die aufrufende Schale sähe den Aufruf als beendet an, während die Arbeit noch
+läuft, und verlöre die Ausgabe.
+
+Das Projekt umgeht die Streuung an den Stellen, die zählen (`_namensfaktor` hasht mit
+SHA-256, es wird nicht über ungeordnete Mengen iteriert). „Wir haben aufgepasst" ist
+allerdings kein Nachweis.
+
+### Entscheidung 8 — `detections_*.parquet` werden standardmäßig nicht abgelegt
+
+- **Sachlage:** Die Rohmeldungen je Verfahren wären bei 1.035 Läufen zweistellige Gigabyte.
+- **Entschieden:** `schreibe_detections: false` als Vorgabe, `--detections` schaltet sie ein.
+- **Begründung:** **Keine** Tabelle und **keine** Abbildung braucht sie. Die Regeldiagnose
+  und die Kreuztabelle Regel × Fehlerklasse stehen bereits im Langformat; die Rohmeldungen
+  wären eine dritte Fassung derselben Information. Für das Nachsehen an einem Einzelfall
+  genügt `python scripts/evaluate.py` auf diesem Lauf.
+
+### Entscheidung 9 — die Zuordnung Variante → Regel entsteht in der Auswertung
+
+`spec/03`, Abschnitt 6 verlangt es wörtlich. Umgesetzt in `src/evaluation/varianten.py`:
+Die Tabelle ist aus der **Spezifikation** abgeschrieben, nicht aus dem Quelltext des
+Injektors, und `src/evaluation` importiert nichts aus `src/injector`. Der Preis dieser
+Trennung ist eine Abschrift, die auseinanderlaufen kann; bezahlt wird er mit
+`tests/test_evaluation/test_varianten.py`, das beide Seiten gegeneinander hält. Ein Test
+darf beide kennen — der Produktivcode nicht.
+
+Die Spalte „spiegelt Regel exakt" hat **drei** Stufen (ja / teilweise / nein), nicht zwei.
+F2-a verletzt die Längenbedingung von R-002 nur bei Postleitzahlen mit führender Null, F2-k
+trifft eine Musterbedingung, die Kleinbuchstaben nicht ausdrücklich ausschließt. Beide als
+„spiegelt exakt" zu führen würde den Beleg gegen die Zirkularität schwächen; beide als
+„spiegelt nicht" zu führen wäre in die andere Richtung geschönt.
+
+### Entscheidung 10 — je Hypothese das passende Testverfahren, kein t-Test
+
+| Hypothese | Behauptung | Primärtest | Warum nicht anders |
+|---|---|---|---|
+| HYP1 | Prototyp findet mehr als B0, ohne dass die Precision fällt | gepaarter Wilcoxon-Test, zwei Familien | Die drei Verfahren sehen denselben Datensatz; die Paarung ist vorhanden und wird genutzt |
+| HYP2 | Der Recall unterscheidet sich zwischen den Klassen | Friedman-Test, danach 21 paarweise Wilcoxon-Tests | Sieben verbundene Gruppen auf denselben Blöcken |
+| HYP3 | Die Precision steigt mit der Fehlerrate | Page-Trendtest über die geordneten Stufen | Ein Wilcoxon-Test verglicht zwei Stufen **ohne Ordnung** und ließe die Information ungenutzt, dass die Stufen aufsteigend sind |
+| HYP4 | Der Unterschied zu B2 ist klassenabhängig | ART-ANOVA, Interaktionsterm | Das ist eine Interaktions- und keine Mittelwerthypothese |
+
+Ein t-Test kommt nirgends vor: F1-Verteilungen sind nach oben durch 1 beschränkt, oft
+linksschief und bei den Held-out-Klassen auf einen einzigen Wert entartet.
+
+Die Multiplizitätskorrektur ist Holm-Bonferroni, **je Familie getrennt**. Die beiden Familien
+von HYP1 (Recall und Precision) werden nicht gemeinsam korrigiert: Sie prüfen verschiedene
+Kennzahlen, und eine gemeinsame Korrektur über vierzehn Vergleiche wäre unnötig streng — die
+Precision-Familie dient der Absicherung, nicht der Bestätigung.
+
+### Entscheidung 11 — der Bootstrap muss entarten dürfen
+
+Die BCa-Beschleunigung wird aus einem Jackknife geschätzt. Liefern alle Wiederholungen
+denselben Wert — bei den Held-out-Klassen mit Recall null der **Erwartungsfall** —, ist die
+Jackknife-Streuung null und die Beschleunigung ein Bruch `0/0`.
+
+`src/evaluation/statistik.bootstrap_ci` fängt das ab und weicht auf ein exaktes
+**Clopper-Pearson-Intervall** aus, sobald der Aufrufer die zugrunde liegenden Anteilszahlen
+mitgibt. Das Ergebnis sagt in seinem Feld `art` immer, welcher Weg genommen wurde; in
+Abbildung 4 sind diese Balken mit `CP` markiert. Ohne den Ausweichweg bräche ausgerechnet die
+Abbildung, die das „inwieweit" der Forschungsfrage beantwortet.
+
+### Entscheidung 12 — die Warnung zur Stichprobengröße rechnet, statt zu raunen
+
+`seed_warnung` bestimmt die Grenzen des exakten Wilcoxon-Tests für die **tatsächliche** Zahl
+der Wiederholungen. Eine pauschale Warnung wäre je nach Familiengröße schlicht falsch. Bei
+zehn Wiederholungen gilt:
+
+| Familie | kleinster erreichbarer korrigierter p-Wert | zweitkleinster |
+|---|---|---|
+| 7 Vergleiche (HYP1, HYP4) | 0,0137 — signifikant | 0,0234 — signifikant |
+| 21 Vergleiche (HYP2) | 0,0410 — signifikant | 0,0781 — **nicht** mehr |
+
+Bei den geplanten 20 Wiederholungen greift die Warnung nicht; sie steht für den Fall, dass
+jemand die Serie verkleinert.

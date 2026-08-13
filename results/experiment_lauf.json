@@ -1,0 +1,18 @@
+{
+  "hochrechnung_rest": {
+    "laeufe_gemessen": 0.0,
+    "mittlere_laufzeit_s": 0.0,
+    "rest_parallel_h": 0.0,
+    "rest_seriell_h": 0.0
+  },
+  "laeufe_gerechnet": 0,
+  "laeufe_gescheitert": 0,
+  "laeufe_im_plan": 1035,
+  "laeufe_uebersprungen": 1035,
+  "pythonhashseed": "0",
+  "serie": "s01",
+  "wanduhrzeit_h": 0.0,
+  "wanduhrzeit_s": 0.0,
+  "worker": 8,
+  "zeilen_langformat": 884843
+}

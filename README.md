@@ -54,10 +54,9 @@ Skripte unter `scripts/` setzen ihn beim Start selbst.
 | **→** | **Freeze des Regelkatalogs** (`git tag freeze-regelkatalog`) | — |
 | 4 | `df_raw_dirty` + Ground Truth + unabhängiger Gegencheck | `python scripts/inject.py --serie s01 --design A --klasse F3 --rate 0.02 --wdh 7` (abgeschlossen) |
 | 5 | Metriken auf vier Ebenen sowie die Baselines B0, B2 und B3 | `python scripts/evaluate.py --serie s01 --design A --klasse F3 --rate 0.02 --wdh 7` (abgeschlossen) |
-| 6 | Hauptversuch, Teilversuche, Statistik, Abbildungen und Tabellen | folgt in Phase 6 |
+| 6 | Hauptversuch, sechs Teilversuche, Inferenzstatistik, zehn Tabellen und zehn Abbildungen | `python scripts/run_experiment.py` und `python scripts/analyze.py` (abgeschlossen) |
 
-Die Einstiegspunkte je Phase entstehen unter `scripts/` beziehungsweise in `src/cli.py`. Die
-konkreten Kommandos werden hier eingetragen, sobald sie existieren.
+Die Einstiegspunkte je Phase liegen unter `scripts/` beziehungsweise in `src/cli.py`.
 
 ## Kommandos
 
@@ -169,6 +168,44 @@ python scripts/export_katalog.py
 
 Erzeugt `results/regelkatalog.csv` aus den Regel-Metadaten — die Mapping-Tabelle für den
 Anhang der Arbeit. Optionen: `--ziel VERZEICHNIS`, `--still`.
+
+```bash
+python scripts/run_experiment.py --config config/experiment.yaml
+```
+
+Fährt den Versuchsplan der Phase 6 ab: Injektion, Auswertung und Aggregation je Lauf, verteilt
+auf mehrere Prozesse. Je Lauf entstehen `error_log.parquet`, `error_log_records.parquet`,
+`config.yaml`, `manifest.json`, `metrics.json` und `langformat.parquet`; am Ende fasst das
+Skript alle Langformate zu `results/metrics_long.parquet` zusammen.
+
+Optionen: `--nur-teilversuch haupt T3 T6` (nur diese Blöcke), `--worker ZAHL`,
+`--pilot ZAHL` (Stichprobe über den ganzen Plan, für die Laufzeithochrechnung),
+`--trockenlauf` (nur den Umfang ausgeben), `--neu` (vorhandene Ergebnisse ignorieren),
+`--detections` (Rohmeldungen je Verfahren ablegen), `--stichprobe ZAHL`
+(anschließend so viele Läufe mit `scripts/evaluate.py` in einem eigenen Prozess nachrechnen).
+
+Ein bereits vollständiger Lauf wird übersprungen; ein gescheiterter landet mit Traceback in
+`results/failed_runs.json` und bricht die Serie **nicht** ab. Die Zahl der Fehlschläge steht
+am Ende und in `results/experiment_lauf.json` — stillschweigend mit weniger Läufen
+weiterzurechnen wäre eine verdeckte Stichprobenreduktion.
+
+```bash
+python scripts/analyze.py --config config/experiment.yaml
+```
+
+Wertet die Serie aus: `results/hypothesen.json` und `results/hypothesen.md`, zehn Tabellen
+unter `results/tables/` (je als CSV und Markdown), zehn Abbildungen unter `results/figures/`
+(je als PDF, PNG mit 300 dpi und Bildunterschrift als `.txt`) sowie
+`results/befunde_aus_der_entwicklung.md`. Option: `--nur hypothesen tabellen abbildungen befunde`.
+
+```bash
+python scripts/make_repro_package.py
+```
+
+Baut `results/reproduction/` mit Konfigurationen, `pip freeze`, beiden Anforderungsdateien
+getrennt, Commit-Hash des aktuellen Standes und des Tags `freeze-regelkatalog`, den Seeds
+**jedes** Laufs, SHA-256 aller Ein- und Ausgabedateien, der Zahl gescheiterter Läufe und
+`README_reproduction.md` mit den exakten Kommandos in der richtigen Reihenfolge.
 
 ```bash
 python -m pip install -r requirements-vergleich.txt
@@ -712,6 +749,201 @@ als `markierte_zellen_row_id` getrennt aus.
 Die Zahlen stammen aus einem einzelnen Lauf einer einzelnen Fehlerklasse und sind **keine**
 Ergebnisse der Arbeit — der Versuchsplan über alle Klassen, Ratenstufen und Wiederholungen
 ist Phase 6.
+
+## Experimentläufe und Ergebnisse (Phase 6)
+
+Der Versuchsplan steht in `config/experiment.yaml`, gefahren wird er mit
+`python scripts/run_experiment.py`, ausgewertet mit `python scripts/analyze.py`.
+
+### Umfang der Serie `s01`
+
+| | |
+|---|---|
+| Läufe im Plan | 1.035 |
+| davon gescheitert | **0** |
+| Wanduhrzeit | 3,26 h (2,09 h Hauptteil mit 8 Prozessen, 1,12 h Teilversuch T4 mit 2, 0,05 h Pilotserie) |
+| Zeilen im Langformat | 884.843 |
+| `PYTHONHASHSEED` | `0`, vom Runner erzwungen |
+
+Der Hauptversuch ist vollfaktoriell: 7 Fehlerklassen × 4 Fehlerraten × 3 Verfahren
+= 84 Zellen × 20 Wiederholungen = **1.680 Zellmessungen aus 560 Läufen**. Ein Lauf
+verfälscht *einen* Datensatz und lässt alle drei Verfahren darauf laufen — nur so bleibt
+der gepaarte Wilcoxon-Test gepaart.
+
+### Hauptergebnis — Prototyp
+
+Gemittelt über alle vier Ratenstufen und 20 Wiederholungen. F6 und HO1 sind satzbasiert
+(sie erzeugen zusätzliche Zeilen und haben keinen zellbasierten Ground Truth), alle übrigen
+zellbasiert.
+
+| Klasse | Precision | Recall | F1 | Ebene |
+|---|---|---|---|---|
+| F1 Fehlender Wert | 0,615 | 0,445 | 0,516 | Zelle |
+| F2 Format | 0,821 | **1,000** | 0,901 | Zelle |
+| F3 Wertebereich | 0,539 | 0,866 | 0,665 | Zelle |
+| F4 Fachlich unmöglich | 0,297 | **1,000** | 0,458 | Zelle |
+| F5 Inkonsistenz | 0,417 | 0,830 | 0,555 | Zelle |
+| F7 Aktualität | 0,347 | 0,986 | 0,511 | Zelle |
+| F8 Einheiten | 0,834 | 0,309 | 0,451 | Zelle |
+| F6 Duplikate | 0,298 | 0,994 | 0,457 | Satz |
+| HO1 (held out) | 1,000 | 0,795 | 0,885 | Satz |
+| HO2 (held out) | 0,000 | **0,000** | 0,000 | Zelle |
+
+Zum Vergleich, gemittelt über alle Klassen und Raten: **Prototyp F1 = 0,578**,
+**B0 = 0,241**, **B2 = 0,026**.
+
+### Die niedrige Zell-Precision ist zum großen Teil ein Berichtsartefakt
+
+Auf der Constraint-Ebene — Einheit ist der gemeldete Verstoß statt der Zelle — steigt die
+Precision drastisch, während der Recall unverändert bleibt:
+
+| Klasse | Precision Zelle | Precision Constraint | Differenz |
+|---|---|---|---|
+| F4 | 0,297 | **1,000** | +0,703 |
+| F5 | 0,417 | **1,000** | +0,583 |
+| F3 | 0,539 | **1,000** | +0,461 |
+| F7 | 0,347 | 0,682 | +0,335 |
+| F1 | 0,615 | 0,948 | +0,332 |
+| F2 | 0,821 | **1,000** | +0,180 |
+| F8 | 0,834 | 0,988 | +0,153 |
+
+Bei F3, F4, F5 und F2 geht damit **jeder einzelne** scheinbare Fehlalarm der Zellebene auf
+die Berichtskonvention zurück: Eine mehrspaltige Regel meldet alle beteiligten Felder,
+verfälscht wurde aber nur eines. Beide Zahlen stehen nebeneinander (Abbildung 9, `t8`),
+statt dass eine gewählt wird.
+
+### Die vier Hypothesen
+
+| | Aussage | Primärtest | Ergebnis |
+|---|---|---|---|
+| **HYP1** | Höherer Recall als B0, ohne dass die Precision fällt | gepaarter Wilcoxon, zwei Familien à 7 Vergleiche | **teilweise gestützt** |
+| **HYP2** | Der Recall unterscheidet sich zwischen den Klassen | Friedman: χ² = 120,0, *p* = 1,6 · 10⁻²³, Kendalls *W* = 1,000 | **gestützt** |
+| **HYP3** | Die Precision steigt mit der Fehlerrate | Page-Trendtest: *L* = 3.785, *p* = 3,6 · 10⁻¹⁷, 140 Blöcke | **gestützt** |
+| **HYP4** | Der Unterschied zu B2 ist klassenabhängig | ART-ANOVA: *F*(6, 266) = 1590,0, *p* < 10⁻²⁰⁰, η²ₚ = 0,973 | **teilweise gestützt** |
+
+**HYP1 — warum nur teilweise.** Der Recall ist in **allen sieben** Klassen signifikant höher
+(rank-biserial *r* = 1,000, *p* < 0,001 nach Holm). Die Precision fällt aber in genau den
+drei Klassen signifikant, in denen B0 überhaupt meldet: F1, F2, F3. In F4, F5, F7 und F8
+meldet B0 **nichts**; seine Precision ist dort konventionsgemäß 0,0 — das heißt „keine
+Meldung" und nicht „alle Meldungen falsch". Ein Precision-Vergleich gegen diese Null stellt
+eine Messung neben eine Festlegung. **Die Precision-Bedingung von HYP1 scheitert damit in
+jeder Klasse, in der sie überhaupt prüfbar ist.**
+
+**HYP3 — signifikant, aber klein.** Der gepoolte Page-Test ist hochsignifikant, weil er
+blockweise die *Ordnung* prüft. Die rohe Korrelation über alle Beobachtungen ist dagegen
+schwach (Spearman ρ = 0,069, *p* = 0,103), und einzeln signifikant sind nur 3 der 7 Klassen
+(F1, F3, F5); F8 zeigt sogar einen leicht fallenden Trend. Der Prävalenzeffekt existiert,
+ist aber klein.
+
+**HYP4 — die Interaktion trägt, die Richtung nicht.** Der Interaktionsterm ist
+außergewöhnlich stark (η²ₚ = 0,973): Der Abstand zwischen den Verfahren hängt deutlich von
+der Fehlerklasse ab. Die Richtungsaussage „statistisch gewinnt bei Ausreißern" ist dagegen
+**widerlegt** — B2 liegt in keiner einzigen Klasse vorn, obwohl es seine
+`contamination`-Stufe über den Ground Truth wählen darf.
+
+### Der empirische Beleg gegen den Zirkularitätsvorwurf
+
+Teilversuch T6 charakterisiert jede der 60 Injektionsvarianten einzeln (Abbildung 5,
+`t4_varianten.csv`), mit ausgeschöpftem Universum und exaktem Clopper-Pearson-Intervall:
+
+| „Spiegelt Regel exakt?" | Varianten | mittlerer Recall |
+|---|---|---|
+| ja | 42 | **0,918** |
+| teilweise | 2 | 1,000 |
+| nein | 16 | **0,499** |
+
+Varianten, die eine Regelbedingung spiegeln, werden fast doppelt so gut erkannt wie solche,
+die es nicht tun. **Der Katalog misst damit nicht sich selbst.**
+
+Vier Einzelbefunde aus derselben Abbildung, die in die Diskussion gehören:
+
+- **F1-a erreicht nur 0,219**, obwohl `spec/03` es als „ja (R-001)" führt. Der Grund: F1
+  trifft alle Felder, R-001 prüft nur Pflichtfelder. Ein `None` in einem optionalen Feld
+  ist kein Verstoß. Die Einstufung der Spezifikation ist an dieser Stelle optimistisch — und
+  das sieht man erst in der Messung.
+- **F8-d erreicht 0,135** trotz Einstufung „ja (R-054)". Die relationale Regel vergleicht
+  gegen den Median der übrigen Angebote; ihre Toleranz ist offenbar zu weit für eine
+  Division durch zwölf.
+- **F2-a und F2-k** sind als „teilweise" eingestuft und werden vollständig gefunden. Die
+  vorsichtige Einstufung war zu vorsichtig.
+- **F5-e (0,000), F7-d (0,000), HO2-a und HO2-b (je 0,000)** bleiben unentdeckt, genau wie
+  konstruiert. F8-e liegt bei 0,121.
+
+### HO1 ist auf der Satzebene nicht held out — und das ist ein Befund
+
+Die unscharfe Dublette HO1 erreicht satzbasiert einen Recall von **0,795 bei Precision
+1,000**. Die Kreuztabelle (Abbildung 6) zeigt, warum: Es meldet ausschließlich **R-046**
+(„je Anfrage genau ein VN"). Das Duplizieren eines Personensatzes erzeugt einen zweiten
+Versicherungsnehmer in derselben Anfrage — erkannt wird die **Nebenwirkung**, nicht die
+Namensähnlichkeit. Auf der Zellebene bleibt HO1 bei Recall 0.
+
+Das ist derselbe Mechanismus, den `docs/iteration_log.md` unter „Fehler erkannt ist nicht
+Nebenwirkung erkannt" beschreibt. Ohne die Kreuztabelle wäre er aus dem Klassenwert nicht
+herauszulesen — beide Fälle sehen in einer Ergebnistabelle gleich aus.
+
+**HO2 bleibt auf allen Ebenen und allen Ratenstufen bei exakt 0,000.** Die Korrektur aus
+Befund 14 (Kohärenzpflege als eigener Schritt) hält über die gesamte Serie.
+
+### Katalogüberdeckung
+
+**4 der 58 Regeln** haben in keinem einzigen Lauf gemeldet: **R-030, R-047, R-048, R-049**.
+Sie bleiben in `t3_regeldiagnose.csv` und in Abbildung 6 als leere Zeilen stehen — eine
+Regel ohne Treffer ist Überdeckung des Katalogs gegenüber der Fehlertaxonomie und damit
+selbst ein Ergebnis.
+
+### Praxismix gegen isolierte Klassen
+
+Bei derselben Fehlerrate von zwei Prozent:
+
+| | Precision | Recall | F1 |
+|---|---|---|---|
+| isolierte Klassen (Mittel über 7) | 0,550 | 0,778 | 0,578 |
+| Praxismix T3 | 0,411 | 0,499 | 0,450 |
+
+Der realistische Fehlermix liegt deutlich unter dem Mittel der isolierten Klassen. Der Grund
+liegt in den Gewichten aus `spec/03`: F1 und F6 tragen zusammen 60 Prozent, und beide sind
+Klassen mit unterdurchschnittlicher Zell-Erkennung.
+
+### Laufzeit und Speicher (Teilversuch T4)
+
+Über 1.000 / 10.000 / 100.000 Anfragen, normiert auf 1.000 Zeilen:
+
+| Verfahren | Exponent (log-log) | s je 1.000 Zeilen bei 100.000 Anfragen | MiB je 1.000 Zeilen |
+|---|---|---|---|
+| B0 (pydantic) | **0,99** | 0,100 | 0,572 |
+| Prototyp | **1,14** | 0,984 | 0,232 |
+
+B0 skaliert exakt linear. Der Prototyp ist leicht überlinear — bei zehnfacher Datenmenge
+verdoppelt sich seine normierte Laufzeit — und braucht dabei **weniger** Speicher je Zeile
+als B0. Ein voller Lauf über 100.000 Anfragen (1,05 Mio. Zeilen) dauert rund 17 Minuten.
+
+### Injektionsvarianz gegen Datenvarianz (Teilversuch T5)
+
+Verhältnis der Standardabweichungen (Daten zu Injektion) für die Klasse F5 bei zwei Prozent:
+**Precision 1,72 — Recall 1,20 — F1 1,78**.
+
+Die Datenvarianz ist größer als die Injektionsvarianz, aber in derselben Größenordnung. Das
+Ergebnis hängt damit nicht überwiegend am Generator. Wäre das Verhältnis deutlich größer,
+gehörte es in die Limitationen — es ist gemessen und nicht behauptet.
+
+### Reproduzierbarkeit dieser Serie
+
+- **Jeder Lauf ist von Hand nachvollziehbar.** `tests/test_experiment.py::test_manifest_gleicht_handlauf`
+  belegt, dass der Runner und ein Aufruf von `scripts/inject.py` mit denselben Faktorstufen
+  ein Manifest erzeugen, das sich in **keinem** Feld unterscheidet — einschließlich der
+  SHA-256-Werte des sauberen *und* des verfälschten Datensatzes.
+- **Prozessübergreifend belegt.** `python scripts/run_experiment.py --stichprobe 5` hat fünf
+  Läufe der Serie mit `scripts/evaluate.py` in eigenen Prozessen nachgerechnet: Jeder stellt
+  den verfälschten Datensatz neu aus den Seeds her und vergleicht ihn Entität für Entität
+  gegen sein Manifest. Ergebnis in `results/reproduktionsstichprobe.json` — fünf von fünf
+  bestanden.
+- **Unabhängig von der Worker-Zahl.** `tests/test_determinismus.py` fährt dasselbe
+  Miniexperiment mit einem und mit vier Prozessen und vergleicht Langformat, `metrics.json`
+  und alle SHA-256-Werte. Ausgenommen sind allein Laufzeit und Speicherbedarf — sie messen
+  die Maschine, nicht das Verfahren.
+- **Das Paket** unter `results/reproduction/` trägt 1.035 Läufe mit ihren drei Seeds, 3.178
+  SHA-256-Werte, beide Anforderungsdateien getrennt, den Commit des aktuellen Standes und den
+  des Tags `freeze-regelkatalog` (`30ca5ea4…`, der **Commit**, nicht das Tag-Objekt).
 
 ## Freeze des Regelkatalogs
 

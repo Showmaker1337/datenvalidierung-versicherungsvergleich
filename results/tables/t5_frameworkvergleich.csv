@@ -1,0 +1,13 @@
+merkmal,cuallee,great_expectations,einheit
+"Anteil ausdrueckbarer Regeln (G1, vorgelegte Auswahl)",0.84,0.857143,Anteil
+Anteil ausdrueckbarer Regeln (ganzer Katalog),0.362069,,Anteil
+"Anteil ausdrueckbarer Regeln (G3, relational)",0.0,0.0,Anteil
+"Codezeilen je Regel, Summe ueber die verglichenen Regeln",46,39,Zeilen
+"Codezeilen je Regel, Prototyp zum Vergleich",326,,Zeilen
+Laufzeit,0.384967,0.445169,Sekunden
+Diagnoseguete: regel,ja,ja,ja/nein
+Diagnoseguete: spalte,ja,ja,ja/nein
+Diagnoseguete: zeile,nein,ja,ja/nein
+Diagnoseguete: ausgangswert,nein,ja,ja/nein
+Diagnoseguete: anzahl_verstoesse,ja,ja,ja/nein
+geht in die Inferenzstatistik ein,nein,nein,ja/nein

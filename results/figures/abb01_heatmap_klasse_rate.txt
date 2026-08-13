@@ -1,0 +1,1 @@
+Abbildung 1: F1-Wert des regelbasierten Prototyps auf der Zellebene, je Fehlerklasse und Fehlerrate, gemittelt ueber 20 Wiederholungen. Dargestellt sind die sieben zellbasierten Fehlerklassen des Hauptversuchs; F6 (Duplikate) und HO1 erzeugen zusaetzliche Zeilen und haben keinen zellbasierten Ground Truth, sie werden satzbasiert in den Teilversuchen T1 und T2 berichtet.

@@ -1,0 +1,770 @@
+{
+  "aggregationsebene": "ueber die Fehlerraten aggregiert, je Fehlerklasse getestet",
+  "alpha": 0.05,
+  "hypothesen": [
+    {
+      "aussage": "Der Prototyp erreicht einen hoeheren Recall als B0, ohne dass die Precision signifikant faellt.",
+      "begruendung": "In 4 von 7 Fehlerklassen ist der Recall des Prototyps signifikant hoeher und die Precision nicht signifikant niedriger. Signifikant gefallen ist die Precision bei: ['F1', 'F2', 'F3'].",
+      "entscheidung": "teilweise gestuetzt",
+      "familien": [
+        {
+          "beschreibung": "Recall des Prototyps gegen B0, je Fehlerklasse, einseitig",
+          "davon_signifikant": 7,
+          "kennung": "HYP1-Recall",
+          "kennzahl": "recall",
+          "vergleiche": [
+            {
+              "effekt": 1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F1",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 6.67572021484375e-06,
+              "p_wert": 9.5367431640625e-07,
+              "seitig": "einseitig",
+              "signifikant": true,
+              "statistik": 210.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            },
+            {
+              "effekt": 1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F2",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 6.67572021484375e-06,
+              "p_wert": 9.5367431640625e-07,
+              "seitig": "einseitig",
+              "signifikant": true,
+              "statistik": 210.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            },
+            {
+              "effekt": 1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F3",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 6.67572021484375e-06,
+              "p_wert": 9.5367431640625e-07,
+              "seitig": "einseitig",
+              "signifikant": true,
+              "statistik": 210.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            },
+            {
+              "effekt": 1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F4",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 6.67572021484375e-06,
+              "p_wert": 9.5367431640625e-07,
+              "seitig": "einseitig",
+              "signifikant": true,
+              "statistik": 210.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            },
+            {
+              "effekt": 1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F5",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 6.67572021484375e-06,
+              "p_wert": 9.5367431640625e-07,
+              "seitig": "einseitig",
+              "signifikant": true,
+              "statistik": 210.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            },
+            {
+              "effekt": 1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F7",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 6.67572021484375e-06,
+              "p_wert": 9.5367431640625e-07,
+              "seitig": "einseitig",
+              "signifikant": true,
+              "statistik": 210.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            },
+            {
+              "effekt": 1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F8",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 6.67572021484375e-06,
+              "p_wert": 9.5367431640625e-07,
+              "seitig": "einseitig",
+              "signifikant": true,
+              "statistik": 210.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            }
+          ],
+          "vergleiche_in_der_familie": 7
+        },
+        {
+          "beschreibung": "Precision des Prototyps gegen B0, je Fehlerklasse, zweiseitig",
+          "davon_signifikant": 7,
+          "kennung": "HYP1-Precision",
+          "kennzahl": "precision",
+          "vergleiche": [
+            {
+              "effekt": -1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F1",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 1.33514404296875e-05,
+              "p_wert": 1.9073486328125e-06,
+              "seitig": "zweiseitig",
+              "signifikant": true,
+              "statistik": 0.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            },
+            {
+              "effekt": -1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F2",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 1.33514404296875e-05,
+              "p_wert": 1.9073486328125e-06,
+              "seitig": "zweiseitig",
+              "signifikant": true,
+              "statistik": 0.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            },
+            {
+              "effekt": -1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F3",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 1.33514404296875e-05,
+              "p_wert": 1.9073486328125e-06,
+              "seitig": "zweiseitig",
+              "signifikant": true,
+              "statistik": 0.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            },
+            {
+              "effekt": 1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F4",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 1.33514404296875e-05,
+              "p_wert": 1.9073486328125e-06,
+              "seitig": "zweiseitig",
+              "signifikant": true,
+              "statistik": 210.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            },
+            {
+              "effekt": 1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F5",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 1.33514404296875e-05,
+              "p_wert": 1.9073486328125e-06,
+              "seitig": "zweiseitig",
+              "signifikant": true,
+              "statistik": 210.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            },
+            {
+              "effekt": 1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F7",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 1.33514404296875e-05,
+              "p_wert": 1.9073486328125e-06,
+              "seitig": "zweiseitig",
+              "signifikant": true,
+              "statistik": 210.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            },
+            {
+              "effekt": 1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F8",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 1.33514404296875e-05,
+              "p_wert": 1.9073486328125e-06,
+              "seitig": "zweiseitig",
+              "signifikant": true,
+              "statistik": 210.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            }
+          ],
+          "vergleiche_in_der_familie": 7
+        }
+      ],
+      "hinweise": [
+        "Der Recall-Teil allein waere nahezu tautologisch: B0 prueft eine Teilmenge der Bedingungen des Katalogs. Erst die Precision-Bedingung macht daraus eine Hypothese, die scheitern kann.",
+        "Die beiden Familien werden getrennt nach Holm korrigiert; eine gemeinsame Korrektur ueber 14 Vergleiche waere unnoetig streng, weil die Precision-Familie der Absicherung dient und nicht der Bestaetigung.",
+        "ACHTUNG bei der Deutung der Precision: In den Klassen ['F4', 'F5', 'F7', 'F8'] meldet B0 ueberhaupt nichts. Seine Precision ist dort konventionsgemaess 0,0 — das heisst 'keine Meldung' und nicht 'alle Meldungen falsch'. Ein Precision-Vergleich gegen diese Null stellt eine Messung neben eine Festlegung; die Precision-Bedingung von HYP1 ist nur in den uebrigen Klassen inhaltlich geprueft."
+      ],
+      "kennung": "HYP1",
+      "primaertest": null
+    },
+    {
+      "aussage": "Der Recall des Prototyps unterscheidet sich signifikant zwischen den Fehlerklassen.",
+      "begruendung": "Friedman-Test ueber 7 Klassen und 20 Bloecke: chi2 = 120.000, p = 1.63e-23, Kendalls W = 1.000. Nach Holm-Korrektur sind 20 der 21 paarweisen Vergleiche signifikant.",
+      "entscheidung": "gestuetzt",
+      "familien": [
+        {
+          "beschreibung": "paarweise Klassenvergleiche des Prototyp-Recalls, zweiseitig",
+          "davon_signifikant": 20,
+          "kennung": "HYP2-paarweise",
+          "kennzahl": "recall",
+          "vergleiche": [
+            {
+              "effekt": -1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F1 gegen F2",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 4.00543212890625e-05,
+              "p_wert": 1.9073486328125e-06,
+              "seitig": "zweiseitig",
+              "signifikant": true,
+              "statistik": 0.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            },
+            {
+              "effekt": -1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F1 gegen F3",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 4.00543212890625e-05,
+              "p_wert": 1.9073486328125e-06,
+              "seitig": "zweiseitig",
+              "signifikant": true,
+              "statistik": 0.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            },
+            {
+              "effekt": -1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F1 gegen F4",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 4.00543212890625e-05,
+              "p_wert": 1.9073486328125e-06,
+              "seitig": "zweiseitig",
+              "signifikant": true,
+              "statistik": 0.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            },
+            {
+              "effekt": -1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F1 gegen F5",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 4.00543212890625e-05,
+              "p_wert": 1.9073486328125e-06,
+              "seitig": "zweiseitig",
+              "signifikant": true,
+              "statistik": 0.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            },
+            {
+              "effekt": -1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F1 gegen F7",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 4.00543212890625e-05,
+              "p_wert": 1.9073486328125e-06,
+              "seitig": "zweiseitig",
+              "signifikant": true,
+              "statistik": 0.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            },
+            {
+              "effekt": 1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F1 gegen F8",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 4.00543212890625e-05,
+              "p_wert": 1.9073486328125e-06,
+              "seitig": "zweiseitig",
+              "signifikant": true,
+              "statistik": 210.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            },
+            {
+              "effekt": 1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F2 gegen F3",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 4.00543212890625e-05,
+              "p_wert": 1.9073486328125e-06,
+              "seitig": "zweiseitig",
+              "signifikant": true,
+              "statistik": 210.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            },
+            {
+              "effekt": 0.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F2 gegen F4",
+              "hinweis": "Alle Differenzen sind null: Die beiden Verfahren liefern auf jedem Seed denselben Wert. Der Test ist dann nicht anwendbar, und p = 1 ist keine Messung, sondern die Feststellung, dass es nichts zu messen gibt.",
+              "n": 20,
+              "p_korrigiert": 1.0,
+              "p_wert": 1.0,
+              "seitig": "zweiseitig",
+              "signifikant": false,
+              "statistik": 0.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            },
+            {
+              "effekt": 1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F2 gegen F5",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 4.00543212890625e-05,
+              "p_wert": 1.9073486328125e-06,
+              "seitig": "zweiseitig",
+              "signifikant": true,
+              "statistik": 210.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            },
+            {
+              "effekt": 1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F2 gegen F7",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 4.00543212890625e-05,
+              "p_wert": 1.9073486328125e-06,
+              "seitig": "zweiseitig",
+              "signifikant": true,
+              "statistik": 210.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            },
+            {
+              "effekt": 1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F2 gegen F8",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 4.00543212890625e-05,
+              "p_wert": 1.9073486328125e-06,
+              "seitig": "zweiseitig",
+              "signifikant": true,
+              "statistik": 210.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            },
+            {
+              "effekt": -1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F3 gegen F4",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 4.00543212890625e-05,
+              "p_wert": 1.9073486328125e-06,
+              "seitig": "zweiseitig",
+              "signifikant": true,
+              "statistik": 0.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            },
+            {
+              "effekt": 1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F3 gegen F5",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 4.00543212890625e-05,
+              "p_wert": 1.9073486328125e-06,
+              "seitig": "zweiseitig",
+              "signifikant": true,
+              "statistik": 210.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            },
+            {
+              "effekt": -1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F3 gegen F7",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 4.00543212890625e-05,
+              "p_wert": 1.9073486328125e-06,
+              "seitig": "zweiseitig",
+              "signifikant": true,
+              "statistik": 0.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            },
+            {
+              "effekt": 1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F3 gegen F8",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 4.00543212890625e-05,
+              "p_wert": 1.9073486328125e-06,
+              "seitig": "zweiseitig",
+              "signifikant": true,
+              "statistik": 210.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            },
+            {
+              "effekt": 1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F4 gegen F5",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 4.00543212890625e-05,
+              "p_wert": 1.9073486328125e-06,
+              "seitig": "zweiseitig",
+              "signifikant": true,
+              "statistik": 210.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            },
+            {
+              "effekt": 1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F4 gegen F7",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 4.00543212890625e-05,
+              "p_wert": 1.9073486328125e-06,
+              "seitig": "zweiseitig",
+              "signifikant": true,
+              "statistik": 210.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            },
+            {
+              "effekt": 1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F4 gegen F8",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 4.00543212890625e-05,
+              "p_wert": 1.9073486328125e-06,
+              "seitig": "zweiseitig",
+              "signifikant": true,
+              "statistik": 210.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            },
+            {
+              "effekt": -1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F5 gegen F7",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 4.00543212890625e-05,
+              "p_wert": 1.9073486328125e-06,
+              "seitig": "zweiseitig",
+              "signifikant": true,
+              "statistik": 0.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            },
+            {
+              "effekt": 1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F5 gegen F8",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 4.00543212890625e-05,
+              "p_wert": 1.9073486328125e-06,
+              "seitig": "zweiseitig",
+              "signifikant": true,
+              "statistik": 210.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            },
+            {
+              "effekt": 1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F7 gegen F8",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 4.00543212890625e-05,
+              "p_wert": 1.9073486328125e-06,
+              "seitig": "zweiseitig",
+              "signifikant": true,
+              "statistik": 210.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            }
+          ],
+          "vergleiche_in_der_familie": 21
+        }
+      ],
+      "hinweise": [
+        "Die paarweisen Vergleiche sind nur unter einem signifikanten Friedman-Test interpretierbar; sonst waeren sie ein Fischzug ueber 21 Kombinationen."
+      ],
+      "kennung": "HYP2",
+      "primaertest": {
+        "effekt": 1.0,
+        "effektmass": "Kendalls W",
+        "hinweis": "7 Gruppen, 20 Bloecke",
+        "n": 20,
+        "p_wert": 1.6295866529377928e-23,
+        "seitig": "zweiseitig",
+        "statistik": 120.0,
+        "test": "Friedman-Test"
+      }
+    },
+    {
+      "aussage": "Die Precision steigt mit steigender Fehlerrate (Praevalenzeffekt).",
+      "begruendung": "Page-Trendtest ueber 140 Bloecke (Klasse x Wiederholung) und 4 geordnete Ratenstufen: L = 3785.0, p = 3.59e-17. Spearman ueber alle Beobachtungen: rho = 0.069 (p = 0.103). Einzeln signifikant sind 3 der 7 Klassen.",
+      "entscheidung": "gestuetzt",
+      "familien": [
+        {
+          "beschreibung": "Page-Trendtest der Precision ueber die geordneten Ratenstufen, je Klasse",
+          "davon_signifikant": 3,
+          "kennung": "HYP3-Trend",
+          "kennzahl": "precision",
+          "vergleiche": [
+            {
+              "effekt": 1.004589,
+              "effektmass": "z / sqrt(n)",
+              "gruppe": "F1",
+              "hinweis": "4 geordnete Stufen, 20 Bloecke, Normalapproximation, z=4.493",
+              "n": 20,
+              "p_korrigiert": 1.7584702524772076e-05,
+              "p_wert": 3.5169405049544153e-06,
+              "seitig": "einseitig",
+              "signifikant": true,
+              "statistik": 558.0,
+              "test": "Page-Trendtest"
+            },
+            {
+              "effekt": 0.190526,
+              "effektmass": "z / sqrt(n)",
+              "gruppe": "F2",
+              "hinweis": "4 geordnete Stufen, 20 Bloecke, Normalapproximation, z=0.852",
+              "n": 20,
+              "p_korrigiert": 0.41725773450774345,
+              "p_wert": 0.19709141243152506,
+              "seitig": "einseitig",
+              "signifikant": false,
+              "statistik": 511.0,
+              "test": "Page-Trendtest"
+            },
+            {
+              "effekt": 1.662769,
+              "effektmass": "z / sqrt(n)",
+              "gruppe": "F3",
+              "hinweis": "4 geordnete Stufen, 20 Bloecke, Normalapproximation, z=7.436",
+              "n": 20,
+              "p_korrigiert": 3.1103808094866135e-13,
+              "p_wert": 5.183968015811022e-14,
+              "seitig": "einseitig",
+              "signifikant": true,
+              "statistik": 596.0,
+              "test": "Page-Trendtest"
+            },
+            {
+              "effekt": 0.242487,
+              "effektmass": "z / sqrt(n)",
+              "gruppe": "F4",
+              "hinweis": "4 geordnete Stufen, 20 Bloecke, Normalapproximation, z=1.084",
+              "n": 20,
+              "p_korrigiert": 0.41725773450774345,
+              "p_wert": 0.13908591150258115,
+              "seitig": "einseitig",
+              "signifikant": false,
+              "statistik": 514.0,
+              "test": "Page-Trendtest"
+            },
+            {
+              "effekt": 1.732051,
+              "effektmass": "z / sqrt(n)",
+              "gruppe": "F5",
+              "hinweis": "4 geordnete Stufen, 20 Bloecke, Normalapproximation, z=7.746",
+              "n": 20,
+              "p_korrigiert": 3.3200081498758107e-14,
+              "p_wert": 4.742868785536873e-15,
+              "seitig": "einseitig",
+              "signifikant": true,
+              "statistik": 600.0,
+              "test": "Page-Trendtest"
+            },
+            {
+              "effekt": 0.433013,
+              "effektmass": "z / sqrt(n)",
+              "gruppe": "F7",
+              "hinweis": "4 geordnete Stufen, 20 Bloecke, Normalapproximation, z=1.936",
+              "n": 20,
+              "p_korrigiert": 0.10561502283222717,
+              "p_wert": 0.02640375570805679,
+              "seitig": "einseitig",
+              "signifikant": false,
+              "statistik": 525.0,
+              "test": "Page-Trendtest"
+            },
+            {
+              "effekt": -0.32909,
+              "effektmass": "z / sqrt(n)",
+              "gruppe": "F8",
+              "hinweis": "4 geordnete Stufen, 20 Bloecke, Normalapproximation, z=-1.472",
+              "n": 20,
+              "p_korrigiert": 0.9294535944309004,
+              "p_wert": 0.9294535944309004,
+              "seitig": "einseitig",
+              "signifikant": false,
+              "statistik": 481.0,
+              "test": "Page-Trendtest"
+            }
+          ],
+          "vergleiche_in_der_familie": 7
+        }
+      ],
+      "hinweise": [
+        "UV2 ist erst seit Phase 4b sauber testbar: Das Klassenkontingent wird proportional zum Universum jeder Variante verteilt, die Variantenmischung ist damit ueber alle Ratenstufen identisch. Vorher haette ein Trend ueber die Ratenstufen teils die Rate gemessen und teils eine Verschiebung der Variantenmischung; HYP3 ist erst dadurch eine Hypothese ueber die Fehlerrate (docs/iteration_log.md, Phase 4, Befund 4).",
+        "Ein zweiter Confounder derselben Bauart wurde in Phase 5 gefunden und beseitigt: Kohaerenz, die je Verfaelschung gegen den Ausgangszustand hergestellt wird, bricht bei Ueberlagerung innerhalb derselben Bezugsgruppe und waere als scheinbarer Sachtrend von HO2 ueber UV2 aufgetaucht (docs/iteration_log.md, Befund 14).",
+        "Ein Wilcoxon-Test waere hier das falsche Werkzeug: Er verglicht zwei Stufen ohne Ordnung und liesse die Information ungenutzt, dass die Stufen aufsteigend sind."
+      ],
+      "kennung": "HYP3",
+      "primaertest": {
+        "effekt": 0.705192,
+        "effektmass": "z / sqrt(n)",
+        "hinweis": "4 geordnete Stufen, 140 Bloecke, Normalapproximation, z=8.344",
+        "n": 140,
+        "p_wert": 3.5926019360440014e-17,
+        "seitig": "einseitig",
+        "statistik": 3785.0,
+        "test": "Page-Trendtest"
+      }
+    },
+    {
+      "aussage": "Der Unterschied zwischen Prototyp und B2 ist fehlerklassenabhaengig: regelbasiert gewinnt bei Format- und Regelverletzungen, statistisch bei Ausreissern.",
+      "begruendung": "ART-ANOVA, Interaktion Verfahren x Fehlerklasse auf F1: F(6, 266); 2 x 7 Faktorstufen, F = 1590.03, p = 3.74e-205, partielles Eta-Quadrat = 0.973. Nach Holm-Korrektur gewinnt der Prototyp in 7 Klassen (['F1', 'F2', 'F3', 'F4', 'F5', 'F7', 'F8']), B2 in 0 Klassen ([]). Die Hypothese behauptet zweierlei: eine Interaktion und eine Richtung. Die Interaktion ist belegt — der Abstand zwischen den Verfahren haengt deutlich von der Fehlerklasse ab. Die Richtungsaussage 'statistisch gewinnt bei Ausreissern' ist es **nicht**: B2 liegt in keiner einzigen Klasse vorn. Deshalb 'teilweise gestuetzt' und nicht 'gestuetzt'.",
+      "entscheidung": "teilweise gestuetzt",
+      "familien": [
+        {
+          "beschreibung": "F1 des Prototyps gegen B2, je Fehlerklasse, zweiseitig",
+          "davon_signifikant": 7,
+          "kennung": "HYP4-paarweise",
+          "kennzahl": "f1",
+          "vergleiche": [
+            {
+              "effekt": 1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F1",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 1.33514404296875e-05,
+              "p_wert": 1.9073486328125e-06,
+              "seitig": "zweiseitig",
+              "signifikant": true,
+              "statistik": 210.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            },
+            {
+              "effekt": 1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F2",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 1.33514404296875e-05,
+              "p_wert": 1.9073486328125e-06,
+              "seitig": "zweiseitig",
+              "signifikant": true,
+              "statistik": 210.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            },
+            {
+              "effekt": 1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F3",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 1.33514404296875e-05,
+              "p_wert": 1.9073486328125e-06,
+              "seitig": "zweiseitig",
+              "signifikant": true,
+              "statistik": 210.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            },
+            {
+              "effekt": 1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F4",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 1.33514404296875e-05,
+              "p_wert": 1.9073486328125e-06,
+              "seitig": "zweiseitig",
+              "signifikant": true,
+              "statistik": 210.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            },
+            {
+              "effekt": 1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F5",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 1.33514404296875e-05,
+              "p_wert": 1.9073486328125e-06,
+              "seitig": "zweiseitig",
+              "signifikant": true,
+              "statistik": 210.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            },
+            {
+              "effekt": 1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F7",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 1.33514404296875e-05,
+              "p_wert": 1.9073486328125e-06,
+              "seitig": "zweiseitig",
+              "signifikant": true,
+              "statistik": 210.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            },
+            {
+              "effekt": 1.0,
+              "effektmass": "rank-biserial r",
+              "gruppe": "F8",
+              "hinweis": "exact; 20 von 20 Paaren mit Differenz ungleich null",
+              "n": 20,
+              "p_korrigiert": 1.33514404296875e-05,
+              "p_wert": 1.9073486328125e-06,
+              "seitig": "zweiseitig",
+              "signifikant": true,
+              "statistik": 210.0,
+              "test": "Wilcoxon-Vorzeichen-Rangtest"
+            }
+          ],
+          "vergleiche_in_der_familie": 7
+        }
+      ],
+      "hinweise": [
+        "Die ART-ANOVA prueft die Interaktion auf Raengen der um beide Haupteffekte bereinigten Werte; sie setzt keine Normalitaet voraus. Der p-Wert bezieht sich ausschliesslich auf den Interaktionsterm.",
+        "B2 waehlt seine contamination-Stufe ueber die beste F1 der Satzebene und bekommt dafuer den Ground Truth zu sehen. Das ist eine bewusst optimistische Einstellung zugunsten der Baseline; der Prototyp bekommt keine vergleichbare Anpassung."
+      ],
+      "kennung": "HYP4",
+      "primaertest": {
+        "effekt": 0.972874,
+        "effektmass": "partielles Eta-Quadrat",
+        "hinweis": "F(6, 266); 2 x 7 Faktorstufen",
+        "n": 280,
+        "p_wert": 3.7376258333685538e-205,
+        "seitig": "einseitig",
+        "statistik": 1590.02669,
+        "test": "ART-ANOVA (Aligned Rank Transform), Interaktion"
+      }
+    }
+  ],
+  "korrektur": "Holm-Bonferroni je Familie",
+  "warnung_stichprobengroesse": ""
+}

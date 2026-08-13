@@ -218,28 +218,69 @@ def _pruefe_modus(optionen: argparse.Namespace) -> None:
     optionen.segment = optionen.klasse
 
 
-def _lade_clean(config: Config, clean_run: str | None) -> tuple[dict[str, pd.DataFrame], str]:
+def basis_seed(config: Config, basis_index: int) -> SeedSequence:
+    """Waehlt den Basisstrom eines Laufs.
+
+    Der Hauptversuch haelt den Basisdatensatz fest und variiert nur die
+    Injektion; der Teilversuch T5 macht es umgekehrt und braucht dafuer mehrere
+    Basisdatensaetze. Beide Faelle laufen ueber diese Funktion.
+
+    ``basis_index = 0`` ist der **kanonische** Basisdatensatz aus
+    ``wurzel_seeds(master_seed).basis`` — derselbe, den ``scripts/generate.py``
+    ohne weitere Angabe erzeugt. Er bleibt damit bitgleich zu allen bisherigen
+    Laeufen; die Erweiterung aendert keinen einzigen davon.
+
+    Args:
+        config: Geladene Konfiguration.
+        basis_index: Nummer des Basisdatensatzes; ``0`` ist der kanonische.
+
+    Returns:
+        Die ``SeedSequence`` des Basisstroms.
+
+    Raises:
+        SystemExit: Bei einem negativen Index.
+    """
+    if basis_index < 0:
+        raise SystemExit(f"--basis-index muss nicht negativ sein, war {basis_index}")
+    if basis_index == 0:
+        return wurzel_seeds(config.master_seed).basis
+    return lauf_seed(config.master_seed, Strom.BASIS, basis_index)
+
+
+def _lade_clean(
+    config: Config, clean_run: str | None, *, basis_index: int = 0
+) -> tuple[dict[str, pd.DataFrame], str]:
     """Beschafft die Rohschicht des sauberen Datensatzes.
 
     Ohne ``--clean-run`` wird sie im selben Prozess aus dem Basisstrom erzeugt.
     Das ist keine Notloesung, sondern die genauere Variante: Der saubere Datensatz
-    haengt allein an ``master_seed`` und Konfiguration und muss deshalb nicht
-    zwischengespeichert werden.
+    haengt allein an ``master_seed``, ``basis_index`` und Konfiguration und muss
+    deshalb nicht zwischengespeichert werden.
 
     Args:
         config: Geladene Konfiguration.
         clean_run: Kennung eines bereits erzeugten Laufs, oder ``None``.
+        basis_index: Nummer des Basisdatensatzes; ``0`` ist der kanonische.
 
     Returns:
         Die sieben Datenrahmen der Rohschicht und die Herkunftsangabe fuer das
         Manifest.
 
     Raises:
-        SystemExit: Wenn eine Entitaetsdatei des angegebenen Laufs fehlt.
+        SystemExit: Wenn eine Entitaetsdatei des angegebenen Laufs fehlt, oder
+            wenn ein Basisdatensatz ungleich null zusammen mit ``--clean-run``
+            angefordert wird — die beiden Angaben widersprechen einander.
     """
     if clean_run is None:
-        typisiert = erzeuge_datensatz(config, wurzel_seeds(config.master_seed).basis)
-        return {name: serialisiere(typisiert[name]) for name in ENTITAETEN}, "erzeugt"
+        typisiert = erzeuge_datensatz(config, basis_seed(config, basis_index))
+        herkunft = "erzeugt" if basis_index == 0 else f"erzeugt (basis_index={basis_index})"
+        return {name: serialisiere(typisiert[name]) for name in ENTITAETEN}, herkunft
+
+    if basis_index != 0:
+        raise SystemExit(
+            "--basis-index und --clean-run schliessen einander aus: Der gespeicherte Lauf "
+            "traegt seinen eigenen Basisdatensatz."
+        )
 
     daten: dict[str, pd.DataFrame] = {}
     for name in ENTITAETEN:
@@ -251,6 +292,29 @@ def _lade_clean(config: Config, clean_run: str | None) -> tuple[dict[str, pd.Dat
             )
         daten[name] = pd.read_parquet(pfad).astype("string")
     return daten, f"data/runs/{clean_run}/clean/raw"
+
+
+def injektions_index(optionen: argparse.Namespace) -> int:
+    """Gibt die Nummer zurueck, die in ``seed_inject`` und ``seed_modell`` eingeht.
+
+    Im Regelfall ist das die Wiederholungsnummer: Der Basisdatensatz steht fest,
+    variiert wird die Injektion. Der Teilversuch T5 (Datenvarianz) dreht das um —
+    dort variiert der Basisdatensatz ueber ``--basis-index``, und der
+    Injektionsstrom muss **fest** bleiben, sonst maesse T5 die Summe aus beiden
+    Streuungen statt der Datenvarianz allein.
+
+    ``None`` heisst "gleich der Wiederholung" und ist kein stiller Ersatzwert,
+    sondern die ausdrueckliche Bedeutung des nicht gesetzten Schalters.
+
+    Args:
+        optionen: Ausgewertete Kommandozeile.
+
+    Returns:
+        Die Nummer.
+    """
+    if optionen.injektions_index is None:
+        return int(optionen.wdh)
+    return int(optionen.injektions_index)
 
 
 def _seed_inject(config: Config, optionen: argparse.Namespace) -> SeedSequence:
@@ -268,7 +332,7 @@ def _seed_inject(config: Config, optionen: argparse.Namespace) -> SeedSequence:
         _namensfaktor(optionen.design),
         _namensfaktor(optionen.segment),
         round(optionen.rate * _BASISPUNKTE),
-        optionen.wdh,
+        injektions_index(optionen),
     )
 
 
@@ -283,6 +347,8 @@ def _lauf_angaben(optionen: argparse.Namespace, ergebnis: Injektionsergebnis) ->
         "pfadsegment": optionen.segment,
         "fehlerrate": optionen.rate,
         "wiederholung": optionen.wdh,
+        "basis_index": optionen.basis_index,
+        "injektions_index": injektions_index(optionen),
         "max_fehler": optionen.max_fehler,
         "klassen_gewichte": dict(sorted(_gewichte(optionen.klasse).items())),
         "seeds": dict(sorted(ergebnis.seeds.items())),
@@ -399,6 +465,26 @@ def _argumente() -> argparse.ArgumentParser:
         default=None,
         help="Kennung eines erzeugten Laufs; ohne Angabe wird der saubere Datensatz erzeugt",
     )
+    parser.add_argument(
+        "--basis-index",
+        type=int,
+        default=0,
+        dest="basis_index",
+        help=(
+            "Nummer des Basisdatensatzes; 0 ist der kanonische. Nur der Teilversuch T5 "
+            "(Datenvarianz) setzt ihn ungleich null. Geht nicht in die run_id ein"
+        ),
+    )
+    parser.add_argument(
+        "--injektions-index",
+        type=int,
+        default=None,
+        dest="injektions_index",
+        help=(
+            "Nummer, die in seed_inject eingeht; ohne Angabe die Wiederholung. Nur der "
+            "Teilversuch T5 (Datenvarianz) setzt sie fest, waehrend --basis-index variiert"
+        ),
+    )
     parser.add_argument("--seed", type=int, default=None, help="Master-Seed uebersteuern")
     parser.add_argument(
         "--n-anfragen", type=int, default=None, help="Anzahl der Anfragen uebersteuern"
@@ -448,7 +534,9 @@ def main(argumente: Sequence[str] | None = None) -> int:
         print(f"Injektion (run_id={run_id}, modus={optionen.modus}, rate={optionen.rate})")
 
     beginn = time.perf_counter()
-    daten_clean, herkunft = _lade_clean(config, optionen.clean_run)
+    daten_clean, herkunft = _lade_clean(
+        config, optionen.clean_run, basis_index=optionen.basis_index
+    )
     ergebnis = injiziere(
         daten_clean,
         optionen.rate,
