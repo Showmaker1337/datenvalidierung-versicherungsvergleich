@@ -14,5 +14,47 @@
   "wanduhrzeit_h": 0.0,
   "wanduhrzeit_s": 0.0,
   "worker": 8,
+  "zaehlweise": {
+    "hinweis": "Ein Injektionslauf verfaelscht einen Datensatz; jedes Verfahren wird auf demselben Lauf ausgewertet. Die beiden Zahlen sind zwei Zaehlweisen derselben Serie und keine Reduktion.",
+    "injektionslaeufe_gesamt": 1035,
+    "je_block": {
+      "T1": {
+        "bloecke": 1,
+        "injektionslaeufe": 80,
+        "verfahrensauswertungen": 240
+      },
+      "T2": {
+        "bloecke": 1,
+        "injektionslaeufe": 40,
+        "verfahrensauswertungen": 40
+      },
+      "T3": {
+        "bloecke": 1,
+        "injektionslaeufe": 20,
+        "verfahrensauswertungen": 60
+      },
+      "T4": {
+        "bloecke": 3,
+        "injektionslaeufe": 15,
+        "verfahrensauswertungen": 30
+      },
+      "T5": {
+        "bloecke": 1,
+        "injektionslaeufe": 20,
+        "verfahrensauswertungen": 20
+      },
+      "T6": {
+        "bloecke": 1,
+        "injektionslaeufe": 300,
+        "verfahrensauswertungen": 300
+      },
+      "haupt": {
+        "bloecke": 1,
+        "injektionslaeufe": 560,
+        "verfahrensauswertungen": 1680
+      }
+    },
+    "verfahrensauswertungen_gesamt": 2370
+  },
   "zeilen_langformat": 884843
 }

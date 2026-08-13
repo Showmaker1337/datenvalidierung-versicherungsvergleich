@@ -601,6 +601,56 @@ def _hochrechnung(dauern: Sequence[float], offen: int, worker: int) -> dict[str,
     }
 
 
+def _zaehlweise(plan: Versuchsplan) -> dict[str, Any]:
+    """Haelt die beiden Laufzahlen mit ihrer Herleitung fest.
+
+    Ein **Injektionslauf** verfaelscht einen Datensatz. Eine
+    **Verfahrensauswertung** ist ein Verfahren auf einem solchen Lauf. Der
+    Hauptversuch hat 7 Klassen x 4 Raten x 20 Wiederholungen = 560
+    Injektionslaeufe und daraus 560 x 3 = 1.680 Verfahrensauswertungen.
+
+    Beide Zahlen gehoeren nebeneinander in die Arbeit. "1.035 von 1.680
+    geplanten Laeufen" waere eine verdeckte Stichprobenreduktion — genau das, was
+    der Versuchsplan ausschliessen wollte, und es stuende als Vorwurf im Raum,
+    obwohl nichts fehlt. Drei getrennte Laeufe je Zelle haetten die drei
+    Verfahren ausserdem auf **verschiedene** Datensaetze gestellt, und der
+    gepaarte Wilcoxon-Test haette seine Paarung verloren.
+
+    Args:
+        plan: Der Versuchsplan.
+
+    Returns:
+        Je Block die Zahl der Injektionslaeufe und der Verfahrensauswertungen.
+    """
+    # Summiert **je Kennung**, nicht je Block: Der Teilversuch T4 besteht aus drei
+    # Bloecken mit derselben Kennung und verschiedenen Datensatzgroessen. Ein
+    # Woerterbuch ueber die Kennung allein liesse zwei davon verschwinden — und
+    # die Gesamtzahl waere um zehn Laeufe zu klein, ohne dass es auffiele.
+    je_block: dict[str, dict[str, int]] = {}
+    for block in plan.bloecke:
+        eintrag = je_block.setdefault(
+            block.kennung,
+            {"injektionslaeufe": 0, "bloecke": 0, "verfahrensauswertungen": 0},
+        )
+        eintrag["injektionslaeufe"] += block.anzahl_laeufe
+        eintrag["bloecke"] += 1
+        eintrag["verfahrensauswertungen"] += block.anzahl_laeufe * len(block.verfahren)
+    return {
+        "hinweis": (
+            "Ein Injektionslauf verfaelscht einen Datensatz; jedes Verfahren wird auf "
+            "demselben Lauf ausgewertet. Die beiden Zahlen sind zwei Zaehlweisen derselben "
+            "Serie und keine Reduktion."
+        ),
+        "injektionslaeufe_gesamt": sum(
+            eintrag["injektionslaeufe"] for eintrag in je_block.values()
+        ),
+        "verfahrensauswertungen_gesamt": sum(
+            eintrag["verfahrensauswertungen"] for eintrag in je_block.values()
+        ),
+        "je_block": je_block,
+    }
+
+
 def _zeige_plan(plan: Versuchsplan, alle: Sequence[Lauf], offen: Sequence[Lauf]) -> None:
     """Gibt den Umfang des Plans aus."""
     print(f"Versuchsserie {plan.serie}")
@@ -871,6 +921,7 @@ def main(argumente: Sequence[str] | None = None) -> int:  # noqa: PLR0915 - line
             "pythonhashseed": os.environ.get("PYTHONHASHSEED"),
             "worker": worker,
             "laeufe_im_plan": len(alle),
+            "zaehlweise": _zaehlweise(plan),
             "laeufe_gerechnet": len(gelungen),
             "laeufe_uebersprungen": len(uebersprungen),
             "laeufe_gescheitert": len(gescheitert),
