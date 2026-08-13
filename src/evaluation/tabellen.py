@@ -38,16 +38,19 @@ from src.evaluation.ergebnisse import (
     GRUPPE_REGEL,
     GRUPPE_VARIANTE,
     KREUZ_TRENNER,
+    SPALTE_TEILVERSUCH,
     auswahl,
+    kreuztabelle_lang,
     mittel_je_wiederholung,
 )
 from src.evaluation.metriken import clopper_pearson
-from src.evaluation.modell import AuswertungsFehler, Ebene
+from src.evaluation.modell import KEINE_FEHLERKLASSE, AuswertungsFehler, Ebene
 from src.evaluation.statistik import Intervall, bootstrap_ci
 from src.evaluation.varianten import VARIANTENTABELLE, Spiegelung
 from src.rules.katalog import KATALOG
 
 if TYPE_CHECKING:  # pragma: no cover - nur fuer die Typpruefung
+    from collections.abc import Sequence
     from collections.abc import Set as AbstractSet
     from pathlib import Path
 
@@ -89,12 +92,6 @@ _PROTOTYP: Final[str] = "prototyp"
 #: Kennung einer Regel, die ueber mehrere Entitaeten hinweg prueft.
 _ALLE_ENTITAETEN: Final[str] = "alle"
 
-#: Die beiden Gruende, aus denen eine Regel in keinem Lauf melden kann.
-#:
-#: Sie sind **zwei verschiedene Aussagen**: Die erste ist ein Ergebnis ueber das
-#: Verhaeltnis von Katalog und Fehlertaxonomie, die zweite eine Limitation des
-#: Versuchsaufbaus. Sie in einer Zahl zusammenzufassen waere der haeufigste
-#: Fehler bei dieser Kennzahl.
 #: Recall, ab dem eine Variante als "ueberwiegend gefunden" gilt.
 #:
 #: Die Schwelle uebersetzt die **qualitative** Vorabangabe aus ``spec/03``
@@ -115,6 +112,46 @@ _SPIEGELUNGSSCHWELLE: Final[float] = 0.5
 _UEBERSCHAETZT: Final[str] = "ueberschaetzt"
 _UNTERSCHAETZT: Final[str] = "unterschaetzt"
 
+#: Die drei Trefferkategorien einer Injektionsvariante.
+#:
+#: Die Vorabeinteilung "spiegelt Regel exakt" ist binaer, das Ergebnis ist es
+#: nicht. Die Kreuztabelle ``regel_id`` gegen Variante enthaelt bereits, **welche**
+#: Regel getroffen hat; daraus folgt eine dritte Kategorie, ohne dass ein
+#: einziger Lauf hinzukaeme. Das ist keine Umetikettierung, sondern eine Messung
+#: — die Regel-ID steht im Ergebnis und wird nicht neu vergeben.
+#:
+#: Kategorie B ist der inhaltlich staerkste Einzelbefund, den die Arbeit machen
+#: kann: **Eine Variante, die von einer Regel gefangen wird, die nicht gegen sie
+#: entworfen wurde, ist das Gegenteil von Zirkularitaet.**
+KATEGORIE_A: Final[str] = "A: erkannt durch die zugeordnete Regel"
+KATEGORIE_B: Final[str] = "B: erkannt durch eine andere Regel"
+KATEGORIE_C: Final[str] = "C: nicht erkannt"
+
+#: Vierte Auspraegung: satzbasierte Varianten sind zellbasiert nicht zuordenbar.
+#:
+#: F6 und HO1 erzeugen zusaetzliche **Zeilen**; ihr Ground Truth ist satzbasiert,
+#: und die Kreuztabelle ``regel_id`` gegen Fehlerklasse ist zellbasiert
+#: definiert. Auf der Zellebene hat eine solche Variante keine einzige
+#: Wahrheitszelle — jede Meldung dort ist ein Fehlalarm, und die Zuordnung
+#: "welche Regel hat den Fehler gefunden" ist schlicht nicht gestellt.
+#:
+#: Sie deshalb nach C zu sortieren waere **falsch**: F6-a bis F6-c erreichen
+#: satzbasiert einen Recall von 1,000. Eine vierte, ausdruecklich benannte
+#: Auspraegung ist die einzige ehrliche Darstellung; die Spalte
+#: ``meldende_regeln`` nennt dort, welche Regeln in diesen Laeufen ueberhaupt
+#: gemeldet haben — eine schwaechere Aussage als "hat den Fehler gefunden", und
+#: sie wird als solche gekennzeichnet.
+KATEGORIE_SATZ: Final[str] = "S: satzbasiert, zellbasierte Zuordnung nicht definiert"
+
+#: Fehlerklassen, deren Ground Truth satzbasiert ist (spec/03, Abschnitt 4.2).
+_SATZBASIERTE_KLASSEN: Final[frozenset[str]] = frozenset({"F6", "HO1"})
+
+#: Die beiden Gruende, aus denen eine Regel in keinem Lauf melden kann.
+#:
+#: Sie sind **zwei verschiedene Aussagen**: Die erste ist ein Ergebnis ueber das
+#: Verhaeltnis von Katalog und Fehlertaxonomie, die zweite eine Limitation des
+#: Versuchsaufbaus. Sie in einer Zahl zusammenzufassen waere der haeufigste
+#: Fehler bei dieser Kennzahl.
 UEBERDECKUNG: Final[str] = (
     "Ueberdeckung: Keine Injektionsvariante zielt auf diese Regel, ihre Felder wurden in "
     "der Serie aber verfaelscht — ohne ihre Bedingung zu verletzen. Der Katalog deckt "
@@ -651,6 +688,8 @@ def t4_varianten(lang: pd.DataFrame, plan: Versuchsplan) -> pd.DataFrame:
         metrik=("recall", "tp"),
         teilversuch=_VARIANTEN,
     )
+    treffende_regeln = _treffende_regeln(lang, nur_treffer=True)
+    meldende_regeln = _treffende_regeln(lang, nur_treffer=False)
     zeilen: list[dict[str, Any]] = []
     for bezug in VARIANTENTABELLE:
         ebene = Ebene.SATZ if bezug.fehlerklasse in ("F6", "HO1") else Ebene.ZELLE
@@ -678,6 +717,9 @@ def t4_varianten(lang: pd.DataFrame, plan: Versuchsplan) -> pd.DataFrame:
                     "wiederholungen": 0,
                     "erwartung_eingetroffen": None,
                     "abweichungsrichtung": "",
+                    "treffende_regeln": "",
+                    "meldende_regeln": "",
+                    "trefferkategorie": "",
                 }
             )
         else:
@@ -687,6 +729,16 @@ def t4_varianten(lang: pd.DataFrame, plan: Versuchsplan) -> pd.DataFrame:
             unten, oben = clopper_pearson(gefunden, fallzahl, alpha=plan.statistik.alpha)
             recall = (gefunden / fallzahl) if fallzahl else None
             eingetroffen, richtung = _erwartung_geprueft(bezug.spiegelung, recall)
+            satzbasiert = bezug.fehlerklasse in _SATZBASIERTE_KLASSEN
+            getroffen = treffende_regeln.get(bezug.variante_id, ())
+            zeile["treffende_regeln"] = ", ".join(getroffen)
+            zeile["meldende_regeln"] = ", ".join(meldende_regeln.get(bezug.variante_id, ()))
+            zeile["trefferkategorie"] = _trefferkategorie(
+                erwartete=bezug.erwartete_regeln,
+                getroffene=getroffen,
+                treffer=gefunden,
+                satzbasiert=satzbasiert,
+            )
             zeile.update(
                 {
                     "n": fallzahl,
@@ -710,7 +762,85 @@ def t4_varianten(lang: pd.DataFrame, plan: Versuchsplan) -> pd.DataFrame:
     tabelle.attrs["vorab_unterschaetzt"] = sorted(
         geprueft.loc[geprueft["abweichungsrichtung"] == _UNTERSCHAETZT, "variante"]
     )
+    tabelle.attrs["trefferkategorien"] = {
+        kategorie: int((geprueft["trefferkategorie"] == kategorie).sum())
+        for kategorie in (KATEGORIE_A, KATEGORIE_B, KATEGORIE_C, KATEGORIE_SATZ)
+    }
+    tabelle.attrs["kategorie_b_varianten"] = sorted(
+        geprueft.loc[geprueft["trefferkategorie"] == KATEGORIE_B, "variante"]
+    )
     return tabelle
+
+
+def _treffende_regeln(lang: pd.DataFrame, *, nur_treffer: bool) -> dict[str, tuple[str, ...]]:
+    """Liest je Injektionsvariante die Regeln, die auf ihr gemeldet haben.
+
+    Quelle ist die Kreuztabelle ``regel_id`` gegen Fehlerklasse aus dem
+    Teilversuch T6. Dort injiziert jeder Lauf genau **eine** Variante; eine
+    Kreuztabellenzeile mit einer echten Fehlerklasse ist damit ein Treffer auf
+    genau dieser Variante.
+
+    Args:
+        lang: Das Langformat.
+        nur_treffer: ``True`` zaehlt nur Zeilen mit einer echten Fehlerklasse —
+            also **Treffer**. ``False`` zaehlt jede Meldung, auch die mit
+            :data:`~src.evaluation.modell.KEINE_FEHLERKLASSE`. Der zweite Fall
+            wird nur fuer die satzbasierten Varianten gebraucht: Dort hat die
+            Zellebene keine Wahrheitszelle, jede Zellmeldung ist zellbasiert ein
+            Fehlalarm, und trotzdem ist es genau diese Regel, die den Satzfehler
+            findet. Die schwaechere Aussage "hat gemeldet" wird deshalb getrennt
+            gefuehrt und in der Tabelle auch so benannt.
+
+    Returns:
+        Je Variantenkennung die Regeln, nach Trefferzahl absteigend.
+    """
+    kreuz = kreuztabelle_lang(lang)
+    kreuz = kreuz[
+        (kreuz["verfahren"] == _PROTOTYP)
+        & (kreuz[SPALTE_TEILVERSUCH] == _VARIANTEN)
+        & (kreuz["treffer"] > 0)
+        & kreuz["variante"].notna()
+    ]
+    if nur_treffer:
+        kreuz = kreuz[kreuz["fehlerklasse"] != KEINE_FEHLERKLASSE]
+    if kreuz.empty:
+        return {}
+    verdichtet = (
+        kreuz.groupby(["variante", "regel_id"], observed=True)["treffer"].sum().reset_index()
+    )
+    verdichtet = verdichtet.sort_values(["variante", "treffer"], ascending=[True, False])
+    return {
+        str(variante): tuple(str(regel) for regel in gruppe["regel_id"])
+        for variante, gruppe in verdichtet.groupby("variante", observed=True)
+    }
+
+
+def _trefferkategorie(
+    *,
+    erwartete: Sequence[str],
+    getroffene: Sequence[str],
+    treffer: int,
+    satzbasiert: bool,
+) -> str:
+    """Ordnet eine Variante einer der vier Trefferkategorien zu.
+
+    Args:
+        erwartete: Regeln, die ``spec/03`` der Variante zuordnet.
+        getroffene: Regeln, die auf ihr tatsaechlich getroffen haben.
+        treffer: Zahl der gefundenen Wahrheitseinheiten.
+        satzbasiert: Ob die Fehlerklasse satzbasiert ausgewertet wird.
+
+    Returns:
+        :data:`KATEGORIE_A`, :data:`KATEGORIE_B`, :data:`KATEGORIE_C` oder
+        :data:`KATEGORIE_SATZ`.
+    """
+    if satzbasiert:
+        return KATEGORIE_SATZ
+    if treffer <= 0 or not getroffene:
+        return KATEGORIE_C
+    if set(erwartete) & set(getroffene):
+        return KATEGORIE_A
+    return KATEGORIE_B
 
 
 def _erwartung_geprueft(
@@ -1197,6 +1327,27 @@ def schreibe_tabelle(tabelle: pd.DataFrame, verzeichnis: Path, name: str) -> tup
                 f"{nicht_pruefbar}** — die Felder dieser Regeln werden von keiner "
                 "Injektion getroffen. Ueber sie sagt die Serie nichts. Das ist eine "
                 "Limitation."
+            ),
+            "",
+        ]
+    if "trefferkategorien" in tabelle.attrs:
+        verteilung = tabelle.attrs["trefferkategorien"]
+        kategorie_b = tabelle.attrs["kategorie_b_varianten"]
+        kopf += [
+            (
+                "> **Trefferkategorien** aus der Kreuztabelle `regel_id` gegen Variante — "
+                "keine Umetikettierung, sondern eine Messung: Die Regel-ID steht im "
+                "Ergebnis und wird nicht neu vergeben."
+            ),
+            ">",
+            *[f"> - **{kategorie}**: {anzahl}" for kategorie, anzahl in verteilung.items()],
+            ">",
+            (
+                f"> Kategorie B ({len(kategorie_b)}: {kategorie_b}) ist der inhaltlich "
+                "staerkste Einzelbefund: **Eine Variante, die von einer Regel gefangen "
+                "wird, die nicht gegen sie entworfen wurde, ist das Gegenteil von "
+                "Zirkularitaet.** Der Katalog hat dort eine Deckung, die ueber seine "
+                "eigene Herleitung hinausreicht."
             ),
             "",
         ]

@@ -656,6 +656,14 @@ def spearman(x: Sequence[float], y: Sequence[float]) -> Testergebnis:
     Null liesse sich als "gemessen, kein Zusammenhang" lesen, und das waere etwas
     anderes als "nicht messbar".
 
+    **Dieselbe Unterscheidung traegt die Precision-Behandlung bei B0.** Meldet ein
+    Verfahren in einer Klasse gar nichts, ist seine Precision konventionsgemaess
+    ``0.0`` — eine Festlegung und keine Messung. Der Vergleich dagegen wird
+    deshalb in :mod:`src.evaluation.hypothesen` als "nicht anwendbar" gefuehrt und
+    zaehlt nicht zur Holm-Familie. Beide Male geht es um denselben Fehler: eine
+    Zahl auszuweisen, wo keine gemessen wurde. Er faellt spaeter nicht mehr auf,
+    weil eine Null in einer Ergebnistabelle nicht danach aussieht.
+
     Args:
         x: Erste Reihe, zum Beispiel die Fehlerrate.
         y: Zweite Reihe, zum Beispiel die Precision.

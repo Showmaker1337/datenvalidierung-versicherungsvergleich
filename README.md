@@ -54,7 +54,7 @@ Skripte unter `scripts/` setzen ihn beim Start selbst.
 | **→** | **Freeze des Regelkatalogs** (`git tag freeze-regelkatalog`) | — |
 | 4 | `df_raw_dirty` + Ground Truth + unabhängiger Gegencheck | `python scripts/inject.py --serie s01 --design A --klasse F3 --rate 0.02 --wdh 7` (abgeschlossen) |
 | 5 | Metriken auf vier Ebenen sowie die Baselines B0, B2 und B3 | `python scripts/evaluate.py --serie s01 --design A --klasse F3 --rate 0.02 --wdh 7` (abgeschlossen) |
-| 6 | Hauptversuch, sechs Teilversuche, Inferenzstatistik, zehn Tabellen und zehn Abbildungen | `python scripts/run_experiment.py` und `python scripts/analyze.py` (abgeschlossen) |
+| 6 | Hauptversuch, sechs Teilversuche, Inferenzstatistik, zehn Tabellen und elf Abbildungen | `python scripts/run_experiment.py` und `python scripts/analyze.py` (abgeschlossen) |
 
 Die Einstiegspunkte je Phase liegen unter `scripts/` beziehungsweise in `src/cli.py`.
 
@@ -194,7 +194,7 @@ python scripts/analyze.py --config config/experiment.yaml
 ```
 
 Wertet die Serie aus: `results/hypothesen.json` und `results/hypothesen.md`, zehn Tabellen
-unter `results/tables/` (je als CSV und Markdown), zehn Abbildungen unter `results/figures/`
+unter `results/tables/` (je als CSV und Markdown), elf Abbildungen unter `results/figures/`
 (je als PDF, PNG mit 300 dpi und Bildunterschrift als `.txt`) sowie
 `results/befunde_aus_der_entwicklung.md`. Option: `--nur hypothesen tabellen abbildungen befunde`.
 
@@ -856,6 +856,10 @@ Teilversuch T6 charakterisiert jede der 60 Injektionsvarianten einzeln (Abbildun
 
 Varianten, die eine Regelbedingung spiegeln, werden fast doppelt so gut erkannt wie solche,
 die es nicht tun. **Der Katalog misst damit nicht sich selbst.**
+
+Die Einteilung stammt aus `spec/03` und stand **vor** jeder Messung fest — genau darin liegt
+ihr Wert. Sie wird nicht nachträglich korrigiert; der Abstand ist zudem eine Untergrenze
+(siehe „Der Kontrast ist konservativ" weiter unten).
 
 Vier Einzelbefunde aus derselben Abbildung, die in die Diskussion gehören:
 

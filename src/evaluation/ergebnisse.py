@@ -262,11 +262,20 @@ def kreuztabelle_lang(lang: pd.DataFrame) -> pd.DataFrame:
 
     Returns:
         Die Spalten ``run_id``, ``verfahren``, :data:`SPALTE_TEILVERSUCH`,
-        ``klasse``, ``regel_id``, ``fehlerklasse`` und ``treffer``. Die
-        Blockkennung bleibt erhalten, damit die Aufrufer dieselbe Blockauswahl
-        treffen koennen wie ``t3_regeldiagnose`` — sonst zaehlte die Abbildung
-        ueber andere Laeufe als die Tabelle, und zwei Darstellungen desselben
-        Sachverhalts zeigten verschiedene Zahlen.
+        ``klasse``, ``variante``, ``regel_id``, ``fehlerklasse`` und ``treffer``.
+
+        Die Blockkennung bleibt erhalten, damit die Aufrufer dieselbe
+        Blockauswahl treffen koennen wie ``t3_regeldiagnose`` — sonst zaehlte die
+        Abbildung ueber andere Laeufe als die Tabelle, und zwei Darstellungen
+        desselben Sachverhalts zeigten verschiedene Zahlen.
+
+        Die Spalte ``variante`` traegt im Variantenmodus die Kennung der einzigen
+        injizierten Variante. Damit sagt die Tabelle dort nicht nur, **welche**
+        Regel getroffen hat, sondern auch **worauf** — und das ist die Grundlage
+        der Trefferkategorien in ``t4_varianten``: Eine Variante, die von einer
+        Regel gefangen wird, die nicht gegen sie entworfen wurde, ist das
+        Gegenteil von Zirkularitaet. Die Regel-ID wird dabei **gemessen** und
+        nicht neu vergeben.
     """
     kreuz = auswahl(lang, metrik="treffer", gruppe_art=GRUPPE_REGEL)
     geteilt = kreuz["gruppe"].str.split(KREUZ_TRENNER, n=1, expand=True)
@@ -279,6 +288,7 @@ def kreuztabelle_lang(lang: pd.DataFrame) -> pd.DataFrame:
             "verfahren",
             SPALTE_TEILVERSUCH,
             "klasse",
+            "variante",
             "regel_id",
             "fehlerklasse",
             "treffer",

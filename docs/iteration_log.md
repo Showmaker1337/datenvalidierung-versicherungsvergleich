@@ -1478,3 +1478,128 @@ Auf der Constraint-Ebene ist die Precision mehrerer Klassen über alle Ratenstuf
 warnt, und die Testsuite behandelt Warnungen als Fehler. `spearman` gibt dort jetzt
 `effekt = None` mit Begründung zurück statt einer Null. Eine Null läse sich als „gemessen,
 kein Zusammenhang" — und das ist etwas anderes als „nicht messbar".
+
+---
+
+## Phase 6, zweiter Nachtrag — die dritte Kategorie und zwei Notizen
+
+**Kein Eingriff in Regelkatalog, Generator oder Injektor.** Es kam kein einziger Lauf hinzu:
+Die neue Auswertung liest die bereits vorhandene Kreuztabelle anders.
+
+### Festlegung — der Hauptkontrast bleibt auf der Vorab-Einteilung
+
+Der Abstand 0,918 zu 0,499 aus Abbildung 5 wird **nicht** neu gerechnet. Er beruht auf der
+Spalte „spiegelt Regel exakt" aus `spec/03`, und die stand fest, bevor irgendetwas gemessen
+wurde — genau darin liegt ihr Wert.
+
+Eine nachträglich korrigierte Einteilung, aus der ein größerer Kontrast folgte, wäre an die
+Daten angepasst und damit wertlos als Beleg gegen den Zirkularitätsvorwurf, dem sie dient.
+Falls eine solche Fassung je gerechnet wird, gehört sie ausschließlich als **ausdrücklich
+als post hoc gekennzeichnete Sensitivitätsrechnung** in den Anhang, nie als Hauptzahl und
+nie in Abbildung 5. Abbildung 5 ist unverändert geblieben.
+
+### Befund 19 — der Kontrast ist konservativ, nicht optimistisch
+
+Elf Unterschätzungen stehen vier Überschätzungen gegenüber. Die falsch eingeordneten
+Varianten liegen damit **überwiegend in der unteren Gruppe** und werden dort besser erkannt,
+als die Einteilung erwartet hat; sie ziehen deren Mittelwert nach oben.
+
+> Der gemessene Kontrast von 0,918 zu 0,499 ist konservativ. Die Abweichungen zwischen
+> Vorab-Einteilung und Messung wirken überwiegend in Richtung eines kleineren Unterschieds;
+> bei zutreffender Einteilung fiele er größer aus.
+
+Eine Hauptzahl, die als Untergrenze ausgewiesen ist, ist eine deutlich stärkere Position als
+eine, die verteidigt werden muss. Der Satz steht in der Bildunterschrift von Abbildung 5 und
+in der README — und er wird **datenabhängig** erzeugt: Er erscheint nur, solange die
+Unterschätzungen tatsächlich überwiegen.
+
+### Befund 20 — Kategorie B: Regeln fangen, wofür sie nicht entworfen wurden
+
+Die Vorab-Einteilung ist binär, das Ergebnis ist es nicht. Die Kreuztabelle `regel_id` gegen
+Variante enthält bereits, **welche** Regel getroffen hat; im Teilversuch T6 injiziert jeder
+Lauf genau eine Variante, also ist die Zuordnung eindeutig. Das ist keine Umetikettierung,
+sondern eine Messung — die Regel-ID steht im Ergebnis und wird nicht neu vergeben.
+
+| Kategorie | Bedeutung | Anzahl |
+|---|---|---|
+| A | erkannt durch die Regel, die `spec/03` zuordnet | 44 |
+| B | erkannt, aber durch eine **andere** Regel | 5 |
+| C | nicht erkannt | 5 |
+| S | satzbasierte Klasse, zellbasierte Zuordnung nicht definiert | 6 |
+
+**Kategorie B im Einzelnen:**
+
+| Variante | erwartet | tatsächlich getroffen | Recall |
+|---|---|---|---|
+| F2-h Datum im Fremdformat | R-008 | R-009, R-001 | 1,000 |
+| F2-i Datum als Excel-Serial | R-008 | R-009, R-001 | 1,000 |
+| F2-k TSN in Kleinbuchstaben | R-007 | R-008, R-051 | 1,000 |
+| F3-g SF-Klasse als Integer | R-011 | R-013 | 1,000 |
+| F8-e alle Angebote durch 12 | *(keine)* | R-053 | 0,121 |
+
+> Eine Variante, die von einer Regel gefangen wird, die **nicht gegen sie entworfen wurde**,
+> ist das Gegenteil von Zirkularität.
+
+Der Katalog hat dort eine Deckung, die über seine eigene Herleitung hinausreicht — ein
+Ergebnis über das Verhältnis von Regelkatalog und Fehlertaxonomie und nicht bloß eine
+Korrektur an `spec/03`.
+
+**Der bemerkenswerteste Fall ist F8-e.** Die Variante soll die strukturelle Grenze
+relationaler Plausibilitätsprüfung zeigen: R-054 vergleicht gegen den Median der übrigen
+Angebote, und wenn alle Angebote einer Anfrage skaliert werden, wandert der Median mit —
+R-054 *kann* sie konstruktionsbedingt nicht finden. Gefunden wird sie trotzdem zu 12,1 %,
+nämlich von **R-053**, einer Regel über die absolute Größenordnung. Die Grenze der einen
+Prüfform wird von einer anderen teilweise aufgefangen. Das gehört in die Diskussion neben
+Befund 13 (dem strukturellen Kern der Framework-Grenze).
+
+Dieselbe Logik von der anderen Seite zeigt R-049: Sie schweigt korrekt, weil F7-a den
+Fremdschlüssel auf eine andere *existierende* Tarif-ID umbiegt.
+
+### Korrektur an der eigenen ersten Fassung — Kategorie S
+
+Die erste Fassung der Kategorisierung führte **F6-a bis F6-d und HO1-a/b als „nicht
+erkannt"**, obwohl F6-a bis F6-c satzbasiert einen Recall von 1,000 erreichen. Ursache: Die
+Kreuztabelle ist **zellbasiert** definiert, und diese Klassen erzeugen zusätzliche Zeilen —
+auf der Zellebene haben sie keine einzige Wahrheitszelle, jede Zellmeldung dort ist ein
+Fehlalarm, und die Frage „welche Regel hat den Fehler gefunden" ist gar nicht gestellt.
+
+Sie nach C zu sortieren wäre eine glatte Falschaussage gewesen. Eingeführt ist deshalb eine
+vierte, ausdrücklich benannte Ausprägung **S** samt der Spalte `meldende_regeln`, die für
+diese Varianten nennt, welche Regeln in ihren Läufen überhaupt gemeldet haben — eine
+schwächere Aussage als „hat den Fehler gefunden", und sie ist als solche gekennzeichnet.
+
+Für HO1 bestätigt sie die Deutung: ausschließlich **R-046**, also die Integritätsverletzung
+und nicht die Namensähnlichkeit.
+
+**Aufgefallen ist der Fehler beim Gegenlesen der Kategorienverteilung** — vier F6-Varianten
+mit Recall 1,000 in der Spalte „nicht erkannt" sind ein Widerspruch, den die Zahlen selbst
+zeigen. Es gibt keinen automatischen Test, der ihn gefunden hätte; die Kategorien waren
+vorher nicht Teil der Auswertung.
+
+### Notiz 1 — „nicht messbar" ist nicht „gemessen null"
+
+`spearman` gibt bei einer konstanten Reihe `effekt = None` mit Begründung zurück statt einer
+Null. Der Grund steht jetzt im Docstring, zusammen mit dem Querverweis auf denselben
+Gedanken bei B0: Meldet ein Verfahren in einer Klasse gar nichts, ist seine Precision
+konventionsgemäß 0,0 — eine Festlegung und keine Messung, und der Vergleich dagegen wird als
+„nicht anwendbar" geführt.
+
+Beide Male geht es um denselben Fehler: eine Zahl auszuweisen, wo keine gemessen wurde. Er
+fällt später nicht mehr auf, weil eine Null in einer Ergebnistabelle nicht danach aussieht.
+
+### Notiz 2 — wie der T4-Kennungskonflikt gefunden wurde
+
+Der Teilversuch T4 besteht aus drei Blöcken mit derselben Kennung und verschiedenen
+Datensatzgrößen. Die erste Fassung der Laufzahl-Herleitung schlüsselte je Kennung in ein
+Wörterbuch auf und ließ damit **zwei der drei Blöcke verschwinden**: Der Laufbericht wies
+1.025 statt 1.035 Injektionsläufe aus.
+
+Die Abweichung betraf genau die zehn Läufe, die T4 bei 1.000 und 10.000 Anfragen rechnet.
+Nichts hätte darauf hingewiesen — die Serie war vollständig, alle Artefakte lagen vor, kein
+Test schlug an. Gefunden wurde er allein durch den Abgleich der aufgeschriebenen Herleitung
+mit dem Versuchsplan.
+
+**Das ist selbst ein kleines Ergebnis über die Arbeitsweise:** Die Anforderung, eine Zahl
+nicht nur zu nennen, sondern ihre Herleitung aufzuschreiben, hat einen stillen Datenverlust
+sichtbar gemacht. Eine Transparenzanforderung ist hier keine Fleißaufgabe gewesen, sondern
+ein Prüfmittel.

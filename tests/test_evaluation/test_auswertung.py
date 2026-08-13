@@ -302,3 +302,73 @@ def test_befunde_datei_nennt_befund_vierzehn(ausgewertet: tuple[Path, Path]) -> 
     assert "Befund 14" in text
     assert "Ueberlagerung" in text
     assert "HO2" in text
+
+
+def test_trefferkategorien_stammen_aus_der_kreuztabelle(
+    ausgewertet: tuple[Path, Path],
+) -> None:
+    """Jede injizierte Variante bekommt eine der vier Trefferkategorien.
+
+    Die Kategorie ist eine **Messung**: Die Regel-ID steht in der Kreuztabelle
+    und wird nicht neu vergeben. Kategorie B — erkannt durch eine andere als die
+    zugeordnete Regel — ist der inhaltlich staerkste Einzelbefund; Kategorie S
+    haelt fest, dass eine zellbasierte Zuordnung fuer satzbasierte Klassen gar
+    nicht definiert ist.
+    """
+    import pandas as pd  # noqa: PLC0415 - nur fuer diesen Test gebraucht
+
+    from src.evaluation.tabellen import (  # noqa: PLC0415 - nur fuer diesen Test
+        KATEGORIE_A,
+        KATEGORIE_B,
+        KATEGORIE_C,
+        KATEGORIE_SATZ,
+    )
+
+    fach_config, _ = ausgewertet
+    pfad = lade_config(fach_config).pfade.results / "tables" / "t4_varianten.csv"
+    tabelle = pd.read_csv(pfad)
+    geprueft = tabelle[tabelle["n"] > 0]
+    assert not geprueft.empty
+    erlaubt = {KATEGORIE_A, KATEGORIE_B, KATEGORIE_C, KATEGORIE_SATZ}
+    assert set(geprueft["trefferkategorie"]) <= erlaubt
+
+
+def test_erkannte_varianten_landen_nicht_in_kategorie_c(
+    ausgewertet: tuple[Path, Path],
+) -> None:
+    """Eine Variante mit Treffern darf nie als "nicht erkannt" gefuehrt werden.
+
+    Genau dieser Fehler ist in der ersten Fassung passiert: Die satzbasierten
+    Klassen F6 und HO1 haben auf der Zellebene keine Wahrheitszelle, und die
+    zellbasierte Kreuztabelle fand dort nichts — sie landeten faelschlich in C,
+    obwohl F6-a bis F6-c satzbasiert einen Recall von 1,000 erreichen.
+    """
+    import pandas as pd  # noqa: PLC0415 - nur fuer diesen Test gebraucht
+
+    from src.evaluation.tabellen import KATEGORIE_C  # noqa: PLC0415 - nur fuer diesen Test
+
+    fach_config, _ = ausgewertet
+    pfad = lade_config(fach_config).pfade.results / "tables" / "t4_varianten.csv"
+    tabelle = pd.read_csv(pfad)
+    falsch = tabelle[(tabelle["trefferkategorie"] == KATEGORIE_C) & (tabelle["tp"] > 0)]
+    assert falsch.empty, sorted(falsch["variante"])
+
+
+def test_abbildung_fuenf_bleibt_auf_der_vorab_einteilung(
+    ausgewertet: tuple[Path, Path],
+) -> None:
+    """Abbildung 5 traegt die vorab festgelegte Einteilung, nicht die gemessene.
+
+    Die Trefferkategorien stammen aus den Daten; sie in dieselbe Abbildung zu
+    mischen machte die vorab formulierte und die gemessene Aussage
+    ununterscheidbar. Genau darin liegt der Wert von Abbildung 5 als Beleg gegen
+    den Zirkularitaetsvorwurf, und deshalb bekommen die Kategorien eine eigene
+    Abbildung.
+    """
+    fach_config, _ = ausgewertet
+    verzeichnis = lade_config(fach_config).pfade.results / "figures"
+    fuenf = (verzeichnis / "abb05_recall_je_variante.txt").read_text(encoding="utf-8")
+    elf = (verzeichnis / "abb11_trefferkategorien.txt").read_text(encoding="utf-8")
+    assert "Bedingung ihrer Regel exakt spiegelt" in fuenf
+    assert "Trefferkategorie" not in fuenf
+    assert "Kategorie B" in elf

@@ -79,6 +79,7 @@ ABBILDUNGSNAMEN: Final[tuple[str, ...]] = (
     "abb08_varianzvergleich",
     "abb09_zelle_gegen_constraint",
     "abb10_praxismix",
+    "abb11_trefferkategorien",
 )
 
 #: Blockkennungen, wie sie ``config/experiment.yaml`` vergibt.
@@ -124,6 +125,25 @@ _SCHRAFFUR_SPIEGELUNG: Final[dict[str, str]] = {
     Spiegelung.JA.value: "",
     Spiegelung.TEILWEISE.value: "///",
     Spiegelung.NEIN.value: "xxx",
+}
+
+#: Klarnamen der Trefferkategorien fuer die Legende.
+_KATEGORIENAMEN: Final[dict[str, str]] = {
+    "A": "A: durch die zugeordnete Regel",
+    "B": "B: durch eine andere Regel",
+    "C": "C: nicht erkannt",
+    "S": "S: satzbasiert, nicht zuordenbar",
+}
+
+#: Graustufe und Schraffur je Trefferkategorie (Abbildung 11).
+#:
+#: Die Reihenfolge ist die Leserichtung der Aussage: erwartet erkannt, anders
+#: erkannt, nicht erkannt, nicht zuordenbar.
+_STIL_KATEGORIE: Final[dict[str, tuple[str, str]]] = {
+    "A": ("#404040", ""),
+    "B": ("#8c8c8c", "///"),
+    "C": ("#e8e8e8", "xxx"),
+    "S": ("#ffffff", "..."),
 }
 
 #: Graustufe je Einstufung "spiegelt Regel exakt".
@@ -725,6 +745,19 @@ def _trefferquote_text(tabelle: pd.DataFrame) -> str:
         return ""
     zu_hoch = tabelle.attrs["vorab_ueberschaetzt"]
     zu_niedrig = tabelle.attrs["vorab_unterschaetzt"]
+    ueberwiegt = "unterschaetzt" if len(zu_niedrig) > len(zu_hoch) else "ueberschaetzt"
+    konservativ = (
+        (
+            " **Der gemessene Kontrast ist damit konservativ.** Die Abweichungen zwischen "
+            "Vorab-Einteilung und Messung wirken ueberwiegend in Richtung eines kleineren "
+            "Unterschieds: Die falsch eingeordneten Varianten liegen mehrheitlich in der "
+            "unteren Gruppe und werden dort besser erkannt, als die Einteilung erwartet "
+            "hat. Sie ziehen deren Mittelwert nach oben. Bei zutreffender Einteilung fiele "
+            "der Abstand groesser aus — die berichtete Zahl ist eine Untergrenze."
+        )
+        if ueberwiegt == "unterschaetzt"
+        else ""
+    )
     return (
         f"Die Vorabeinstufung aus spec/03 trifft bei {tabelle.attrs['vorab_eingetroffen']} "
         f"von {tabelle.attrs['vorab_geprueft']} Varianten zu (Schwelle: Recall 0,5, bei "
@@ -734,8 +767,110 @@ def _trefferquote_text(tabelle: pd.DataFrame) -> str:
         f"({zu_niedrig}) — der Katalog findet mehr, als die Taxonomie ihm zutraut. Beide "
         "Richtungen sind Befunde: Die erste schwaecht die Aussage ueber den Katalog, die "
         "zweite verkleinert den Kontrast zwischen spiegelnden und nicht spiegelnden "
-        "Varianten."
+        "Varianten." + konservativ
     )
+
+
+def abbildung_11(lang: pd.DataFrame, plan: Versuchsplan) -> tuple[Figure, str]:
+    """Verteilung der Trefferkategorien je Fehlerklasse.
+
+    **Eine eigene Abbildung und keine dritte Gruppe in Abbildung 5.** Abbildung 5
+    traegt die **vorab** festgelegte Einteilung "spiegelt Regel exakt" aus
+    ``spec/03``; genau darin liegt ihr Wert als Beleg gegen den
+    Zirkularitaetsvorwurf. Eine nachtraeglich aus den Daten gewonnene Einteilung
+    in dieselbe Abbildung zu mischen, wuerde beide Aussagen ununterscheidbar
+    machen — die vorab formulierte und die gemessene.
+
+    Die Kategorien stammen aus der Kreuztabelle ``regel_id`` gegen Variante: Sie
+    sagen, **welche** Regel tatsaechlich getroffen hat. Kategorie B ist der
+    inhaltlich staerkste Einzelbefund — eine Variante, die von einer Regel
+    gefangen wird, die nicht gegen sie entworfen wurde, ist das Gegenteil von
+    Zirkularitaet.
+
+    Args:
+        lang: Das Langformat.
+        plan: Der Versuchsplan.
+
+    Returns:
+        Die Abbildung und ihre Bildunterschrift.
+    """
+    from src.evaluation.tabellen import t4_varianten  # noqa: PLC0415 - Zyklus vermeiden
+
+    tabelle = t4_varianten(lang, plan)
+    tabelle = tabelle[tabelle["n"] > 0].copy()
+    if tabelle.empty:
+        return _ohne_daten(
+            "Trefferkategorien je Fehlerklasse",
+            "Der Teilversuch T6 (Variantencharakterisierung) wurde nicht gerechnet.",
+        )
+    tabelle["kategorie"] = tabelle["trefferkategorie"].str[0]
+    kategorien = [wert for wert in _STIL_KATEGORIE if (tabelle["kategorie"] == wert).any()]
+    klassen = list(dict.fromkeys(tabelle["fehlerklasse"]))
+    kreuz = (
+        tabelle.pivot_table(
+            index="fehlerklasse", columns="kategorie", values="variante", aggfunc="count"
+        )
+        .reindex(index=klassen, columns=kategorien)
+        .fillna(0.0)
+    )
+
+    figur, achse = plt.subplots(figsize=(6.6, 3.8))
+    stellen = np.arange(len(klassen), dtype=float)
+    unten = np.zeros(len(klassen), dtype=float)
+    for kategorie in kategorien:
+        werte = kreuz[kategorie].to_numpy(dtype=float)
+        grau, schraffur = _STIL_KATEGORIE[kategorie]
+        balken = achse.bar(
+            stellen,
+            werte,
+            bottom=unten,
+            width=0.66,
+            color=grau,
+            edgecolor="black",
+            linewidth=0.8,
+            label=_KATEGORIENAMEN[kategorie],
+        )
+        for stab in balken:
+            stab.set_hatch(schraffur)
+        for stelle, wert, sockel in zip(stellen, werte, unten, strict=True):
+            if wert > 0:
+                achse.text(
+                    stelle,
+                    sockel + wert / 2,
+                    f"{int(wert)}",
+                    ha="center",
+                    va="center",
+                    fontsize=9,
+                )
+        unten += werte
+
+    achse.set_xticks(stellen, klassen)
+    achse.set_xlabel("Fehlerklasse")
+    achse.set_ylabel("Injektionsvarianten")
+    achse.set_title("Trefferkategorien je Fehlerklasse (Teilversuch T6)")
+    achse.legend(loc="upper center", ncols=2, fontsize=9, framealpha=0.95)
+    achse.set_ylim(0, float(kreuz.to_numpy().sum(axis=1).max()) * 1.55)
+
+    verteilung = tabelle["kategorie"].value_counts().to_dict()
+    kategorie_b = sorted(tabelle.loc[tabelle["kategorie"] == "B", "variante"])
+    unterschrift = (
+        "Abbildung 11: Verteilung der Trefferkategorien ueber die "
+        f"{len(tabelle)} Injektionsvarianten des Teilversuchs T6. Die Kategorie stammt aus "
+        "der Kreuztabelle regel_id gegen Variante und sagt, **welche** Regel eine Variante "
+        "tatsaechlich gefunden hat — die Regel-ID wird gemessen und nicht neu vergeben. "
+        f"A ({verteilung.get('A', 0)}): erkannt durch die Regel, die spec/03 der Variante "
+        f"zuordnet. B ({verteilung.get('B', 0)}): erkannt, aber durch eine **andere** Regel "
+        f"— {kategorie_b}. C ({verteilung.get('C', 0)}): nicht erkannt. "
+        f"S ({verteilung.get('S', 0)}): satzbasierte Klassen (F6, HO1), fuer die eine "
+        "zellbasierte Zuordnung nicht definiert ist; sie werden satzbasiert ausgewertet und "
+        "sind **nicht** unerkannt. "
+        "Kategorie B ist der inhaltlich staerkste Einzelbefund: Eine Variante, die von "
+        "einer Regel gefangen wird, die nicht gegen sie entworfen wurde, ist das Gegenteil "
+        "von Zirkularitaet — der Katalog hat dort eine Deckung, die ueber seine eigene "
+        "Herleitung hinausreicht. Die Abbildung ergaenzt Abbildung 5 und ersetzt sie nicht: "
+        "Dort steht die **vorab** festgelegte Einteilung, hier die gemessene."
+    )
+    return figur, unterschrift
 
 
 def abbildung_6(lang: pd.DataFrame, plan: Versuchsplan) -> tuple[Figure, str]:
@@ -1121,6 +1256,7 @@ def baue_alle(
         "abb08_varianzvergleich": lambda: abbildung_8(lang, plan),
         "abb09_zelle_gegen_constraint": lambda: abbildung_9(lang, plan),
         "abb10_praxismix": lambda: abbildung_10(lang, plan),
+        "abb11_trefferkategorien": lambda: abbildung_11(lang, plan),
     }
     geschrieben: dict[str, tuple[Path, Path, Path]] = {}
     for name in ABBILDUNGSNAMEN:
