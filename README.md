@@ -1089,6 +1089,99 @@ ist sie damit bestätigt: Keine Regel des Katalogs vergleicht Namen oder Adresse
 Ohne diesen Satz liest sich 0,795 wie eine Generalisierung des Katalogs — und das wäre die
 falsche Schlussfolgerung.
 
+### Der Kontrast ist konservativ — die Abweichungen wirken in Richtung eines kleineren Abstands
+
+Elf Unterschätzungen stehen vier Überschätzungen gegenüber. Die falsch eingeordneten
+Varianten liegen damit **überwiegend in der unteren Gruppe** und werden dort besser erkannt,
+als die Vorab-Einteilung erwartet hat. Sie ziehen deren Mittelwert nach oben.
+
+> **Der gemessene Kontrast von 0,918 zu 0,499 ist konservativ.** Die Abweichungen zwischen
+> Vorab-Einteilung und Messung wirken überwiegend in Richtung eines kleineren Unterschieds;
+> bei zutreffender Einteilung fiele er größer aus.
+
+Die berichtete Zahl ist damit eine **Untergrenze**. Das ist eine deutlich stärkere Position
+als eine Hauptzahl, die verteidigt werden muss.
+
+**Der Kontrast selbst wird nicht neu gerechnet.** Er beruht auf der Spalte „spiegelt Regel
+exakt" aus `spec/03`, und die stand fest, bevor irgendetwas gemessen wurde — genau das ist
+ihr Wert. Eine nachträglich korrigierte Einteilung, aus der ein größerer Kontrast folgte,
+wäre an die Daten angepasst und damit wertlos als Beleg gegen den Zirkularitätsvorwurf, dem
+sie dient. Abbildung 5 bleibt unverändert.
+
+### Die dritte Kategorie: welche Regel hat tatsächlich getroffen?
+
+Die Vorab-Einteilung ist binär, das Ergebnis ist es nicht. Die Kreuztabelle `regel_id` gegen
+Variante enthält bereits, **welche** Regel gegriffen hat — im Teilversuch T6 injiziert jeder
+Lauf genau eine Variante, also ist die Zuordnung eindeutig. Das ist keine Umetikettierung,
+sondern eine Messung: Die Regel-ID steht im Ergebnis und wird nicht neu vergeben.
+
+| Kategorie | Bedeutung | Varianten |
+|---|---|---|
+| **A** | erkannt durch die Regel, die `spec/03` der Variante zuordnet | **44** |
+| **B** | erkannt, aber durch eine **andere** Regel | **5** |
+| **C** | nicht erkannt | **5** |
+| **S** | satzbasierte Klasse, zellbasierte Zuordnung nicht definiert | **6** |
+
+Verteilung je Fehlerklasse (Abbildung 11, `t4_varianten.csv`, Spalte `trefferkategorie`):
+
+| Klasse | A | B | C | S |
+|---|---|---|---|---|
+| F1 | 6 | — | — | — |
+| F2 | 9 | 3 | — | — |
+| F3 | 7 | 1 | 1 | — |
+| F4 | 7 | — | — | — |
+| F5 | 8 | — | 1 | — |
+| F6 | — | — | — | 4 |
+| F7 | 3 | — | 1 | — |
+| F8 | 4 | 1 | — | — |
+| HO1 | — | — | — | 2 |
+| HO2 | — | — | 2 | — |
+
+**Kategorie B ist der stärkste Einzelbefund der Arbeit.**
+
+| Variante | erwartete Regel | tatsächlich getroffen | Recall |
+|---|---|---|---|
+| F2-h Datum im Fremdformat | R-008 | **R-009**, R-001 | 1,000 |
+| F2-i Datum als Excel-Serial | R-008 | **R-009**, R-001 | 1,000 |
+| F2-k TSN in Kleinbuchstaben | R-007 | **R-008**, R-051 | 1,000 |
+| F3-g SF-Klasse als Integer | R-011 | **R-013** | 1,000 |
+| F8-e alle Angebote durch 12 | *(keine)* | **R-053** | 0,121 |
+
+> Eine Variante, die von einer Regel gefangen wird, die **nicht gegen sie entworfen wurde**,
+> ist das Gegenteil von Zirkularität.
+
+Der Katalog hat dort eine Deckung, die über seine eigene Herleitung hinausreicht — ein
+Ergebnis über das Verhältnis von Regelkatalog und Fehlertaxonomie, nicht bloß eine Korrektur
+an `spec/03`. Besonders bemerkenswert ist **F8-e**: die Variante, die die strukturelle Grenze
+relationaler Plausibilitätsprüfung zeigen soll und von R-054 konstruktionsbedingt nicht
+gefunden werden *kann*, weil der Median mitwandert. Gefunden wird sie trotzdem zu 12,1 % —
+von **R-053**, einer Regel über die absolute Größenordnung. Die Grenze der einen Prüfform
+wird von einer anderen Prüfform teilweise aufgefangen.
+
+Dieselbe Logik von der anderen Seite zeigt R-049: Die Regel schweigt korrekt, weil F7-a den
+Fremdschlüssel auf eine andere *existierende* Tarif-ID umbiegt und er damit auflösbar bleibt.
+
+**Kategorie S braucht eine eigene Zeile, weil C sie falsch beschreiben würde.** F6 und HO1
+erzeugen zusätzliche Zeilen; ihr Ground Truth ist satzbasiert, die Kreuztabelle ist
+zellbasiert definiert. Auf der Zellebene hat eine solche Variante keine einzige
+Wahrheitszelle — die Frage „welche Regel hat den Fehler gefunden" ist dort nicht gestellt.
+Sie nach C zu sortieren wäre schlicht falsch: F6-a bis F6-c erreichen satzbasiert einen
+Recall von 1,000. Die Spalte `meldende_regeln` nennt für sie, welche Regeln in diesen Läufen
+überhaupt gemeldet haben — eine schwächere Aussage als „hat den Fehler gefunden", und sie ist
+als solche gekennzeichnet:
+
+| Variante | Recall (Satz) | meldende Regeln |
+|---|---|---|
+| F6-a | 1,000 | R-045, R-043 |
+| F6-b | 1,000 | R-045, R-044, R-043 |
+| F6-c | 1,000 | R-045, R-043, R-044 |
+| F6-d | 0,901 | R-046 |
+| HO1-a | 0,799 | **R-046** |
+| HO1-b | 0,798 | **R-046** |
+
+Für HO1 bestätigt das die Deutung von oben: ausschließlich R-046, also die
+Integritätsverletzung und nicht die Namensähnlichkeit.
+
 ### Reproduzierbarkeit dieser Serie
 
 - **Jeder Lauf ist von Hand nachvollziehbar.** `tests/test_experiment.py::test_manifest_gleicht_handlauf`

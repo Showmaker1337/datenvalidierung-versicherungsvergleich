@@ -6,7 +6,7 @@ Ergebnistabellen nachzurechnen. Der Weg ist immer derselbe: Zahl in der Tabelle
 
 ## Stand des Codes
 
-- Commit: `8e687f6b96237cdad51d9390faebfea59c34bf93`
+- Commit: `32baf8aed1851c08e03980cb380075f8657672a0`
 - Zweig: `main`
 - Regelkatalog eingefroren mit Tag `freeze-regelkatalog`, Commit `30ca5ea429a0abddec7050af1d1a42cdf9942548`
 - Arbeitsverzeichnis beim Packen sauber: False
