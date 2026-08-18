@@ -95,6 +95,7 @@ __all__ = [
     "Intervallart",
     "Testergebnis",
     "art_anova_interaktion",
+    "art_anova_interaktion_block",
     "bootstrap_ci",
     "cliffs_delta",
     "friedman",
@@ -745,8 +746,29 @@ def art_anova_interaktion(
             leeren Zellen. Eine leere Zelle macht den Interaktionsterm
             unschaetzbar; ein Ersatzwert waere eine Erfindung.
     """
-    from scipy.stats import rankdata  # noqa: PLC0415 - Importkosten nur bei Bedarf
+    stufen_a, stufen_b, index_a, index_b, y = _faktorindizes(werte, faktor_a, faktor_b)
+    raenge = _ausgerichtete_raenge(y, index_a, index_b, len(stufen_a), len(stufen_b))
+    return _f_test_interaktion(raenge, index_a, index_b, len(stufen_a), len(stufen_b))
 
+
+def _faktorindizes(
+    werte: Sequence[float], faktor_a: Sequence[str], faktor_b: Sequence[str]
+) -> tuple[list[str], list[str], NDArray[np.int64], NDArray[np.int64], NDArray[np.float64]]:
+    """Prueft die Eingaben einer ART-ANOVA und kodiert die Faktorstufen.
+
+    Args:
+        werte: Die Messwerte.
+        faktor_a: Stufe des ersten Faktors je Messwert.
+        faktor_b: Stufe des zweiten Faktors je Messwert.
+
+    Returns:
+        Die sortierten Stufen beider Faktoren, die Stufenindizes je Beobachtung
+        und die Messwerte als Array.
+
+    Raises:
+        AuswertungsFehler: Bei verschieden langen Folgen, zu wenigen Stufen oder
+            einer leeren Faktorkombination.
+    """
     y = _als_array(werte, "Die Messwerte der ART-ANOVA")
     if not len(faktor_a) == len(faktor_b) == y.size:
         raise AuswertungsFehler(
@@ -775,14 +797,51 @@ def art_anova_interaktion(
         raise AuswertungsFehler(
             f"Die ART-ANOVA braucht jede Faktorkombination besetzt; leer sind {leer}."
         )
+    return stufen_a, stufen_b, index_a, index_b, y
+
+
+def _ausgerichtete_raenge(
+    y: NDArray[np.float64],
+    index_a: NDArray[np.int64],
+    index_b: NDArray[np.int64],
+    stufen_a: int,
+    stufen_b: int,
+) -> NDArray[np.float64]:
+    """Fuehrt die Aligned-Rank-Transformation fuer den Interaktionsterm aus.
+
+    Ausgerichtet wird ausschliesslich um die beiden **festen** Haupteffekte::
+
+        ausgerichtet = y - zeilenmittel_i - spaltenmittel_j + gesamtmittel
+
+    Ein Block- oder Zufallsfaktor geht hier bewusst **nicht** ein. Wobbrock et
+    al. (2011) richten die Antwort an den festen Effekten des vollen faktoriellen
+    Modells aus und ueberlassen den Blockterm der anschliessenden Modellanpassung;
+    die R-Umsetzung ``ARTool`` verfaehrt ebenso. Wuerde man den Block schon in der
+    Ausrichtung entfernen, saehe das spaetere Modell keine Blockvarianz mehr, und
+    der Fehlerterm waere doppelt bereinigt.
+
+    Damit ist die Transformation fuer :func:`art_anova_interaktion` und
+    :func:`art_anova_interaktion_block` **dieselbe** — die beiden Verfahren
+    unterscheiden sich allein im Modell, das auf den Raengen angepasst wird. Nur
+    deshalb ist ihr Vergleich aussagekraeftig.
+
+    Args:
+        y: Die Messwerte.
+        index_a: Stufenindex des ersten Faktors je Beobachtung.
+        index_b: Stufenindex des zweiten Faktors je Beobachtung.
+        stufen_a: Zahl der Stufen des ersten Faktors.
+        stufen_b: Zahl der Stufen des zweiten Faktors.
+
+    Returns:
+        Die Raenge der ausgerichteten Werte.
+    """
+    from scipy.stats import rankdata  # noqa: PLC0415 - Importkosten nur bei Bedarf
 
     gesamtmittel = float(y.mean())
-    zeilenmittel = np.asarray([y[index_a == i].mean() for i in range(len(stufen_a))])
-    spaltenmittel = np.asarray([y[index_b == j].mean() for j in range(len(stufen_b))])
+    zeilenmittel = np.asarray([y[index_a == i].mean() for i in range(stufen_a)])
+    spaltenmittel = np.asarray([y[index_b == j].mean() for j in range(stufen_b)])
     ausgerichtet = y - zeilenmittel[index_a] - spaltenmittel[index_b] + gesamtmittel
-    raenge: NDArray[np.float64] = np.asarray(rankdata(ausgerichtet), dtype=np.float64)
-
-    return _f_test_interaktion(raenge, index_a, index_b, len(stufen_a), len(stufen_b))
+    return np.asarray(rankdata(ausgerichtet), dtype=np.float64)
 
 
 def _f_test_interaktion(
@@ -854,6 +913,266 @@ def _f_test_interaktion(
         hinweis=(
             f"F({freiheitsgrade_interaktion}, {freiheitsgrade_fehler}); "
             f"{stufen_a} x {stufen_b} Faktorstufen"
+        ),
+    )
+
+
+def art_anova_interaktion_block(
+    werte: Sequence[float],
+    faktor_a: Sequence[str],
+    faktor_b: Sequence[str],
+    block: Sequence[str],
+) -> Testergebnis:
+    """Prueft die Interaktion mit dem Block als drittem, nicht getestetem Faktor.
+
+    Der Unterschied zu :func:`art_anova_interaktion` liegt **allein im Modell**,
+    nicht in der Transformation: Ausgerichtet und rangiert wird identisch
+    (:func:`_ausgerichtete_raenge`), aber der anschliessende F-Test rechnet
+    ``metrik ~ faktor_a * faktor_b + Error(block)`` statt
+    ``metrik ~ faktor_a * faktor_b``.
+
+    Warum das noetig ist
+    ---------------------
+
+    Werden beide Stufen von ``faktor_a`` auf **derselben** Beobachtungseinheit
+    erhoben — hier: Prototyp und B2 auf demselben Injektionslauf —, sind die
+    Beobachtungen gepaart. Ein Modell ohne Blockterm behandelt sie als
+    unabhaengig und laesst die gesamte Streuung zwischen den Laeufen im
+    Fehlerterm stehen, obwohl sie beide Stufen gleichermassen trifft und den
+    Vergleich gar nicht stoert. Der Fehlerterm ist dann zu gross und traegt zu
+    viele Freiheitsgrade; beides ist inhaltlich falsch, wenn auch nicht
+    zwangslaeufig in dieselbe Richtung.
+
+    Das Modell
+    -----------
+
+    ``block`` ist in ``faktor_b`` **geschachtelt**: Jeder Block gehoert zu genau
+    einer Stufe von ``faktor_b`` (ein Injektionslauf traegt genau eine
+    Fehlerklasse). Es entsteht damit ein Split-Plot-Aufbau — ``faktor_b`` variiert
+    zwischen den Bloecken, ``faktor_a`` innerhalb —, und die Quadratsummen der
+    Raenge zerlegen sich orthogonal in::
+
+        SS_gesamt = SS_a + SS_b + SS_ab + SS_block(b) + SS_fehler
+
+    Der Interaktionsterm wird gegen ``SS_fehler`` geprueft, den Fehlerterm
+    **innerhalb** der Bloecke, mit ``(|a| - 1) * (Bloecke - |b|)``
+    Freiheitsgraden. Bei einem balancierten Aufbau ist dieser F-Test identisch
+    mit dem des gemischten Modells ``raenge ~ a * b + (1 | block)``; die exakte
+    Quadratsummenrechnung ist deterministisch und braucht keinen Optimierer.
+
+    Balanciertheit wird erzwungen und nicht unterstellt: Ohne sie ist die
+    Zerlegung nicht orthogonal, und ein trotzdem berechneter F-Wert waere eine
+    Zahl ohne Bedeutung.
+
+    Args:
+        werte: Die Messwerte, zum Beispiel F1 je Lauf und Verfahren.
+        faktor_a: Stufe des ersten Faktors je Messwert; der **innerhalb** der
+            Bloecke variierende Faktor, zum Beispiel das Verfahren.
+        faktor_b: Stufe des zweiten Faktors je Messwert; der **zwischen** den
+            Bloecken variierende Faktor, zum Beispiel die Fehlerklasse.
+        block: Kennung der Beobachtungseinheit je Messwert, zum Beispiel die
+            ``run_id`` des Injektionslaufs.
+
+    Returns:
+        Das Testergebnis; die Statistik ist ``F``, die Effektstaerke das
+        partielle Eta-Quadrat der Interaktion. ``n`` ist wie bei
+        :func:`art_anova_interaktion` die Zahl der Beobachtungen, damit beide
+        Ergebnisse nebeneinander lesbar sind; die Zahl der Bloecke steht im
+        Hinweis.
+
+    Raises:
+        AuswertungsFehler: Bei verschieden langen Folgen, zu wenigen Stufen,
+            einer leeren Faktorkombination, einem Block, der in mehreren Stufen
+            von ``faktor_b`` liegt, oder einem unbalancierten Aufbau.
+    """
+    stufen_a, stufen_b, index_a, index_b, y = _faktorindizes(werte, faktor_a, faktor_b)
+    if len(block) != y.size:
+        raise AuswertungsFehler(
+            f"Die Blockkennungen muessen so lang sein wie die Werte, waren "
+            f"{len(block)} und {y.size}."
+        )
+    bloecke = sorted(set(block))
+    index_block = np.asarray([bloecke.index(wert) for wert in block], dtype=np.int64)
+    block_je_stufe_b = _pruefe_blockaufbau(index_a, index_b, index_block, len(stufen_a), bloecke)
+
+    raenge = _ausgerichtete_raenge(y, index_a, index_b, len(stufen_a), len(stufen_b))
+    return _f_test_interaktion_block(
+        raenge,
+        index_a,
+        index_b,
+        index_block,
+        stufen_a=len(stufen_a),
+        stufen_b=len(stufen_b),
+        bloecke=len(bloecke),
+        block_je_stufe_b=block_je_stufe_b,
+    )
+
+
+def _pruefe_blockaufbau(
+    index_a: NDArray[np.int64],
+    index_b: NDArray[np.int64],
+    index_block: NDArray[np.int64],
+    stufen_a: int,
+    bloecke: Sequence[str],
+) -> NDArray[np.int64]:
+    """Prueft Schachtelung und Balanciertheit des Blockaufbaus.
+
+    Args:
+        index_a: Stufenindex des Innerhalb-Faktors je Beobachtung.
+        index_b: Stufenindex des Zwischen-Faktors je Beobachtung.
+        index_block: Blockindex je Beobachtung.
+        stufen_a: Zahl der Stufen des Innerhalb-Faktors.
+        bloecke: Die Blockkennungen in sortierter Reihenfolge; nur fuer die
+            Fehlermeldung.
+
+    Returns:
+        Je Block die Stufe von ``faktor_b``, in der er liegt.
+
+    Raises:
+        AuswertungsFehler: Wenn ein Block ueber mehrere Stufen von ``faktor_b``
+            reicht, ein Block nicht jede Stufe von ``faktor_a`` genau einmal
+            traegt, oder die Stufen von ``faktor_b`` verschieden viele Bloecke
+            haben. Jeder dieser Faelle bricht die orthogonale Zerlegung; ein
+            Ausweichen auf eine Naeherung waere ein still veraendertes Modell.
+    """
+    stufe_je_block = np.full(len(bloecke), -1, dtype=np.int64)
+    for s in range(len(bloecke)):
+        maske = index_block == s
+        stufen = np.unique(index_b[maske])
+        if stufen.size != 1:
+            raise AuswertungsFehler(
+                f"Block {bloecke[s]!r} liegt in {stufen.size} Stufen des zweiten Faktors. "
+                "Der Blockfaktor muss im zweiten Faktor geschachtelt sein."
+            )
+        stufe_je_block[s] = int(stufen[0])
+        belegung = np.bincount(index_a[maske], minlength=stufen_a)
+        if not bool((belegung == 1).all()):
+            raise AuswertungsFehler(
+                f"Block {bloecke[s]!r} traegt die Stufen des ersten Faktors "
+                f"{belegung.tolist()}-mal; verlangt ist genau einmal je Stufe. Ohne diese "
+                "Balanciertheit ist die Quadratsummenzerlegung nicht orthogonal."
+            )
+
+    je_stufe = np.bincount(stufe_je_block)
+    if not bool((je_stufe == je_stufe[0]).all()):
+        raise AuswertungsFehler(
+            f"Die Stufen des zweiten Faktors haben verschieden viele Bloecke "
+            f"({je_stufe.tolist()}). Ohne diese Balanciertheit ist die "
+            "Quadratsummenzerlegung nicht orthogonal."
+        )
+    return stufe_je_block
+
+
+def _f_test_interaktion_block(  # noqa: PLR0913 - jede Angabe beschreibt eine eigene Dimension
+    raenge: NDArray[np.float64],
+    index_a: NDArray[np.int64],
+    index_b: NDArray[np.int64],
+    index_block: NDArray[np.int64],
+    *,
+    stufen_a: int,
+    stufen_b: int,
+    bloecke: int,
+    block_je_stufe_b: NDArray[np.int64],
+) -> Testergebnis:
+    """Fuehrt den Split-Plot-F-Test des Interaktionsterms auf den Raengen durch.
+
+    Args:
+        raenge: Raenge der ausgerichteten Werte.
+        index_a: Stufenindex des Innerhalb-Faktors je Beobachtung.
+        index_b: Stufenindex des Zwischen-Faktors je Beobachtung.
+        index_block: Blockindex je Beobachtung.
+        stufen_a: Zahl der Stufen des Innerhalb-Faktors.
+        stufen_b: Zahl der Stufen des Zwischen-Faktors.
+        bloecke: Zahl der Bloecke.
+        block_je_stufe_b: Je Block die Stufe des Zwischen-Faktors.
+
+    Returns:
+        Das Testergebnis.
+
+    Raises:
+        AuswertungsFehler: Wenn keine Freiheitsgrade fuer den Fehlerterm bleiben
+            oder die Fehlerquadratsumme null ist.
+    """
+    from scipy.stats import f as f_verteilung  # noqa: PLC0415 - Importkosten nur bei Bedarf
+
+    gesamt = float(raenge.mean())
+    mittel_a = np.asarray([raenge[index_a == i].mean() for i in range(stufen_a)])
+    mittel_b = np.asarray([raenge[index_b == j].mean() for j in range(stufen_b)])
+
+    quadratsumme_gesamt = float(((raenge - gesamt) ** 2).sum())
+    quadratsumme_a = float(
+        sum(int((index_a == i).sum()) * (mittel_a[i] - gesamt) ** 2 for i in range(stufen_a))
+    )
+    quadratsumme_b = float(
+        sum(int((index_b == j).sum()) * (mittel_b[j] - gesamt) ** 2 for j in range(stufen_b))
+    )
+
+    quadratsumme_interaktion = 0.0
+    for i in range(stufen_a):
+        for j in range(stufen_b):
+            maske = (index_a == i) & (index_b == j)
+            zellmittel = float(raenge[maske].mean())
+            effekt = zellmittel - mittel_a[i] - mittel_b[j] + gesamt
+            quadratsumme_interaktion += int(maske.sum()) * effekt**2
+
+    quadratsumme_block = 0.0
+    for s in range(bloecke):
+        maske = index_block == s
+        blockmittel = float(raenge[maske].mean())
+        quadratsumme_block += int(maske.sum()) * (
+            blockmittel - mittel_b[int(block_je_stufe_b[s])]
+        ) ** 2
+
+    quadratsumme_fehler = (
+        quadratsumme_gesamt
+        - quadratsumme_a
+        - quadratsumme_b
+        - quadratsumme_interaktion
+        - quadratsumme_block
+    )
+
+    freiheitsgrade_interaktion = (stufen_a - 1) * (stufen_b - 1)
+    freiheitsgrade_fehler = (stufen_a - 1) * (bloecke - stufen_b)
+    if freiheitsgrade_fehler <= 0:
+        raise AuswertungsFehler(
+            "Die ART-ANOVA mit Blockfaktor braucht mehr Bloecke als Stufen des zweiten "
+            f"Faktors; es blieben {freiheitsgrade_fehler} Freiheitsgrade fuer den "
+            "Fehlerterm."
+        )
+    if quadratsumme_fehler <= 0.0:
+        raise AuswertungsFehler(
+            "Die Fehlerquadratsumme des Blockmodells ist nicht positiv "
+            f"({quadratsumme_fehler:.6g}). Entweder liegen innerhalb jeder Zelle identische "
+            "Raenge vor, oder die Zerlegung ist nicht orthogonal."
+        )
+
+    mittleres_quadrat_interaktion = quadratsumme_interaktion / freiheitsgrade_interaktion
+    mittleres_quadrat_fehler = quadratsumme_fehler / freiheitsgrade_fehler
+    f_wert = mittleres_quadrat_interaktion / mittleres_quadrat_fehler
+    p_wert = float(f_verteilung.sf(f_wert, freiheitsgrade_interaktion, freiheitsgrade_fehler))
+    partielles_eta = quadratsumme_interaktion / (quadratsumme_interaktion + quadratsumme_fehler)
+    # Ohne Blockterm faellt die Blockstreuung in den Fehlerterm; ihr Anteil daran ist
+    # die aussagekraeftige Diagnose. Am Anteil an der **Gesamt**quadratsumme liesse
+    # sich nichts ablesen, solange der Interaktionsterm sie dominiert.
+    anteil_block = quadratsumme_block / (quadratsumme_block + quadratsumme_fehler)
+    return Testergebnis(
+        test="ART-ANOVA mit Blockfaktor (Split-Plot), Interaktion",
+        statistik=f_wert,
+        p_wert=p_wert,
+        effekt=partielles_eta,
+        effektmass="partielles Eta-Quadrat",
+        n=int(raenge.size),
+        seitig="einseitig",
+        hinweis=(
+            f"F({freiheitsgrade_interaktion}, {freiheitsgrade_fehler}); "
+            f"{stufen_a} x {stufen_b} Faktorstufen ueber {bloecke} Bloecke; "
+            f"der Blockterm bindet {anteil_block:.1%} des Fehlerterms, den ein Modell "
+            "ohne ihn haette"
+            + (
+                "; p unterschreitet die Darstellungsgrenze doppelter Genauigkeit"
+                if p_wert == 0.0
+                else ""
+            )
         ),
     )
 

@@ -75,6 +75,7 @@ TABELLENNAMEN: Final[tuple[str, ...]] = (
     "t8_metrikvergleich",
     "t9_gewichtung",
     "t10_mitgezogen",
+    "t11_satzebene_hauptversuch",
 )
 
 #: Kennungen der Bloecke, wie sie ``config/experiment.yaml`` vergibt.
@@ -1218,6 +1219,126 @@ def t10_mitgezogen(lang: pd.DataFrame, plan: Versuchsplan) -> pd.DataFrame:
     return pd.DataFrame(zeilen)
 
 
+def t11_satzebene_hauptversuch(lang: pd.DataFrame, plan: Versuchsplan) -> pd.DataFrame:
+    """Baut ``t11_satzebene_hauptversuch``: dieselben Kennzahlen wie ``t1``, auf der Satzebene.
+
+    Warum es diese Tabelle geben muss
+    ----------------------------------
+
+    Die Satzebene ist der **Primaervergleich fuer B2** (Phase 5, Abschnitt 5.3):
+    B2 markiert ganze Zeilen, und die Umrechnung "markierte Zeile markiert alle
+    ihre befuellten Zellen" deckelt seine Zell-Precision auf etwa den Kehrwert der
+    Spaltenzahl. Ein Zellvergleich misst dort zu einem grossen Teil die
+    Umrechnung und nicht das Verfahren.
+
+    :func:`t1_hauptergebnis` fuehrt die Satzebene aber nur fuer die Teilversuche
+    T1 und T2, weil :func:`_bloecke_je_klasse` sie genau den beiden satzbasierten
+    Klassen F6 und HO1 zuordnet. Fuer die sieben Klassen des Hauptversuchs steht
+    dort ausschliesslich die Zellebene. Die zentrale Vergleichsaussage der Arbeit
+    — B2 liegt auf seiner eigenen Primaerebene in keiner Fehlerklasse vorn — war
+    damit in keiner Ergebnistabelle belegt. Diese Tabelle schliesst die Luecke.
+
+    Es wird dafuer **kein Lauf neu gerechnet**: Die Satzebenenwerte des
+    Hauptversuchs stehen vollstaendig im Langformat und werden hier nur
+    aggregiert. Spalten und Zahlenformat sind mit ``t1_hauptergebnis`` identisch,
+    damit beide Tabellen nebeneinander lesbar sind.
+
+    Args:
+        lang: Das Langformat.
+        plan: Der Versuchsplan.
+
+    Returns:
+        Eine Zeile je Verfahren und Fehlerklasse des Hauptversuchs. Die Attribute
+        ``f1_mittel`` und ``fuehrend`` tragen die beiden Zusatzangaben, die
+        :func:`schreibe_tabelle` als Lesehinweis ausgibt.
+    """
+    zeilen: list[dict[str, Any]] = []
+    for klasse in plan.hauptversuch.gruppen:
+        for verfahren in plan.hauptversuch.verfahren:
+            zeile: dict[str, Any] = {
+                "verfahren": verfahren,
+                "fehlerklasse": klasse,
+                "teilversuch": _HAUPT,
+                "ebene": Ebene.SATZ.value,
+            }
+            for metrik in ("precision", "recall", "f1"):
+                zeile.update(
+                    _kennzahl_mit_intervall(
+                        lang,
+                        plan,
+                        metrik=metrik,
+                        verfahren=verfahren,
+                        klasse=klasse,
+                        teilversuch=_HAUPT,
+                        ebene=Ebene.SATZ,
+                    )
+                )
+            zeilen.append(zeile)
+
+    tabelle = pd.DataFrame(zeilen)
+    # Die Zusatzangaben nur, wenn ueberhaupt ein Wert vorliegt: Eine Bilanz
+    # "fuehrt in 0 von 0 Klassen" saehe aus wie ein Ergebnis und waere keines.
+    if not tabelle.empty and bool(tabelle["f1"].notna().any()):
+        tabelle.attrs["f1_mittel"] = _ungewichtetes_f1_mittel(tabelle)
+        tabelle.attrs["fuehrend"] = _fuehrendes_verfahren(tabelle)
+        tabelle.attrs["lesehinweis"] = (
+            "Satzebene des **Hauptversuchs**, aggregiert ueber die vier Ratenstufen und "
+            "zwanzig Wiederholungen. Sie ist der Primaervergleich fuer B2 (Phase 5, "
+            "Abschnitt 5.3); `t1_hauptergebnis` fuehrt fuer diese sieben Klassen nur die "
+            "Zellebene. Es wurde kein Lauf neu gerechnet — die Werte standen bereits im "
+            "Langformat und werden hier nur aggregiert."
+        )
+    return tabelle
+
+
+def _ungewichtetes_f1_mittel(tabelle: pd.DataFrame) -> dict[str, float | None]:
+    """Bildet je Verfahren das ungewichtete Mittel des F1 ueber die Fehlerklassen.
+
+    Ungewichtet heisst: jede Fehlerklasse zaehlt gleich viel, unabhaengig davon,
+    wie viele Zellen oder Saetze sie im Ground Truth belegt. Ein
+    fallzahlgewichtetes Mittel liesse die haeufigste Klasse das Ergebnis
+    bestimmen, und die Fehlertaxonomie ist kein Haeufigkeitsmodell.
+
+    Args:
+        tabelle: Die Tabelle mit einer Zeile je Verfahren und Klasse.
+
+    Returns:
+        Je Verfahren das Mittel; ``None``, wenn eine Klasse keinen Wert traegt —
+        ein Mittel ueber die uebrigen waere eine andere Groesse mit demselben
+        Namen.
+    """
+    mittel: dict[str, float | None] = {}
+    for verfahren, teil in tabelle.groupby("verfahren", sort=False):
+        werte = teil["f1"]
+        mittel[str(verfahren)] = None if werte.isna().any() else float(werte.mean())
+    return mittel
+
+
+def _fuehrendes_verfahren(tabelle: pd.DataFrame) -> dict[str, tuple[str, float]]:
+    """Nennt je Fehlerklasse das Verfahren mit dem hoechsten F1.
+
+    Die Angabe macht die Aussage "B2 liegt in keiner Klasse vorn" gegen die
+    Tabelle pruefbar, ohne dass jemand siebenmal drei Zeilen vergleichen muss.
+    Sie ist eine **Ablesung** und kein Test; welche Unterschiede statistisch
+    gesichert sind, steht in der Familie ``HYP4-paarweise-Satz``.
+
+    Args:
+        tabelle: Die Tabelle mit einer Zeile je Verfahren und Klasse.
+
+    Returns:
+        Je Fehlerklasse das fuehrende Verfahren und sein F1. Klassen ohne
+        auswertbaren Wert fehlen.
+    """
+    fuehrend: dict[str, tuple[str, float]] = {}
+    for klasse, teil in tabelle.groupby("fehlerklasse", sort=False):
+        gueltig = teil[teil["f1"].notna()]
+        if gueltig.empty:
+            continue
+        beste = gueltig.loc[gueltig["f1"].idxmax()]
+        fuehrend[str(klasse)] = (str(beste["verfahren"]), float(str(beste["f1"])))
+    return fuehrend
+
+
 # ---------------------------------------------------------------------------
 # Ausgabe
 # ---------------------------------------------------------------------------
@@ -1351,6 +1472,44 @@ def schreibe_tabelle(tabelle: pd.DataFrame, verzeichnis: Path, name: str) -> tup
             ),
             "",
         ]
+    if "f1_mittel" in tabelle.attrs:
+        mittel = tabelle.attrs["f1_mittel"]
+        fuehrend = tabelle.attrs["fuehrend"]
+        gewinne: dict[str, int] = {}
+        for verfahren, _ in fuehrend.values():
+            gewinne[verfahren] = gewinne.get(verfahren, 0) + 1
+        kopf += [
+            (
+                "> **Ungewichtetes Mittel des F1 ueber die Fehlerklassen** (jede Klasse zaehlt "
+                "gleich viel): "
+                + "; ".join(
+                    f"{name} = {'—' if wert is None else _zelle(wert)}"
+                    for name, wert in mittel.items()
+                )
+                + "."
+            ),
+            ">",
+            (
+                "> **Fuehrendes Verfahren je Fehlerklasse** (Ablesung des hoechsten F1, kein "
+                "Test — welche Unterschiede gesichert sind, steht in der Familie "
+                "`HYP4-paarweise-Satz`): "
+                + "; ".join(
+                    f"{klasse}: {name} ({_zelle(wert)})"
+                    for klasse, (name, wert) in fuehrend.items()
+                )
+                + "."
+            ),
+            ">",
+            (
+                "> Bilanz: "
+                + ", ".join(
+                    f"{name} fuehrt in {anzahl} von {len(fuehrend)} Klassen"
+                    for name, anzahl in sorted(gewinne.items(), key=lambda paar: -paar[1])
+                )
+                + "."
+            ),
+            "",
+        ]
     if "vorab_eingetroffen" in tabelle.attrs:
         kopf += [
             (
@@ -1382,7 +1541,7 @@ def baue_alle(
     frameworkvergleich: Path,
     injizierte_spalten: AbstractSet[tuple[str, str]],
 ) -> dict[str, pd.DataFrame]:
-    """Baut alle zehn Ergebnistabellen.
+    """Baut alle Ergebnistabellen aus :data:`TABELLENNAMEN`.
 
     Args:
         lang: Das Langformat.
@@ -1408,4 +1567,5 @@ def baue_alle(
         "t8_metrikvergleich": t8_metrikvergleich(lang, plan),
         "t9_gewichtung": t9_gewichtung(lang, plan),
         "t10_mitgezogen": t10_mitgezogen(lang, plan),
+        "t11_satzebene_hauptversuch": t11_satzebene_hauptversuch(lang, plan),
     }
