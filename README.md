@@ -1,5 +1,7 @@
 # Regelbasierte Datenvalidierung in Versicherungsvergleichssystemen
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22010731.svg)](https://doi.org/10.5281/zenodo.22010731)
+
 Prototyp und Evaluationsumgebung zur Bachelorarbeit:
 
 > **Regelbasierte Datenvalidierung in Versicherungsvergleichssystemen: Entwicklung und
