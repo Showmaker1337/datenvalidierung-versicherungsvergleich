@@ -1,0 +1,7 @@
+cff-version: 1.2.0
+message: "Wenn Sie diese Software verwenden, zitieren Sie sie bitte mit den hier hinterlegten Angaben."
+title: "Regelbasierte Datenvalidierung in Versicherungsvergleichssystemen - Prototyp und Evaluationsumgebung"
+authors: [{given-names: "Tassilo", family-names: "Engelhardt", affiliation: "IU Internationale Hochschule"}]
+type: software
+license: MIT
+repository-code: "https://github.com/Showmaker1337/datenvalidierung-versicherungsvergleich"
